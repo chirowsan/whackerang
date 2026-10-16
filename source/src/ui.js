@@ -5,6 +5,7 @@ import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx } from './gfx.js';
 import { Input } from './input.js';
 import { portrait } from './portraits.js';
+import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export function h(tag, cls, kids, attrs) {
@@ -65,6 +66,7 @@ export const UI = {
     g.appendChild(this.btn('⛶ Full', '', () => a.toggleFullscreen()));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(this.coinChip()); el.appendChild(tr);
+    if (canInstall()) { const br = h('div', 'corner br'); br.appendChild(this.btn(IS_IOS ? '\u2B07 Add to Home Screen' : '\u2B07 Install app', 'gold small', () => promptInstall(this))); el.appendChild(br); }
     const bl = h('div', 'corner bl'); bl.appendChild(h('div', 'chip', `<img src="${this.pic(hero)}" style="width:${2.6}em;height:${2.6}em;border-radius:50%;background:rgba(255,255,255,.12)"><span>${hero.name}</span>`)); el.appendChild(bl);
     return el;
   },
@@ -132,6 +134,8 @@ export const UI = {
     slider('Control size', 'ctrlScale', () => this.app.applyTouch()); const cs = grid.lastChild.querySelector('input'); cs.min = 0.7; cs.max = 1.5; cs.step = 0.05;
     const rr = h('div', 'row', '<span>Progress</span>'); rr.appendChild(this.btn('Reset save', 'small', () => { if (confirm('Erase coins, unlocks and settings?')) { resetSave(); this.app.reloadSettings(); this.show('settings', p); } })); grid.appendChild(rr);
     const fr = h('div', 'row', '<span>Display</span>'); fr.appendChild(this.btn('Fullscreen', 'small', () => this.app.toggleFullscreen())); grid.appendChild(fr);
+    if (!IS_APP && !IS_IOS && this.app.isTouchDevice()) toggle('Fullscreen on first tap', 'autoFs');
+    if (canInstall()) { const ir = h('div', 'row', '<span>App</span>'); ir.appendChild(this.btn(IS_IOS ? 'How to install' : 'Install app', 'small', () => promptInstall(this))); grid.appendChild(ir); }
     const hr = h('div', 'row', '<span>Install</span>'); hr.appendChild(h('span', '', 'Chrome ⋮ → <b>Add to Home screen</b> for a full-screen app', { style: 'font-size:calc(var(--u)*.9);opacity:.8;text-align:right' })); grid.appendChild(hr);
     const br = h('div', 'row', '<span>Build</span>'); br.appendChild(h('span', '', this.app.BUILD + ' · ' + gfx.quality + ' ' + gfx.dpr + 'x', { style: 'font-size:calc(var(--u)*.9);opacity:.8' })); grid.appendChild(br);
     el.appendChild(grid); return el;

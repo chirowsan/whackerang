@@ -1,7 +1,7 @@
 const KEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
   coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
-  settings: { sfx: 0.85, music: 0.5, shake: true, vibrate: true, quality: 'auto', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false },
+  settings: { sfx: 0.85, music: 0.5, shake: true, vibrate: true, quality: 'auto', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true },
   setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3 },
 });
 let data = defaults();

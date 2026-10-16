@@ -195,3 +195,14 @@ body.q-low *, body.touch-on * { backdrop-filter: none !important; -webkit-backdr
 .hd-txt .ttl { font-weight: 900; font-size: calc(var(--u)*.95); letter-spacing: .12em; text-transform: uppercase; color: color-mix(in srgb, var(--hc, #ffb02e) 45%, #fff); }
 .hd-txt .quip { font-weight: 800; font-style: italic; font-size: calc(var(--u)*1.05); color: #fff; opacity: .92; line-height: 1.25; }
 .hero-card .ti { font-size: calc(var(--u)*.7); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .7; margin-top: -.15em; }
+
+/* PWA hardening: no pull-to-refresh, zoom, callouts or text selection */
+html, body { overscroll-behavior: none; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-text-size-adjust: 100%; }
+img { -webkit-user-drag: none; user-drag: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+/* iOS add-to-home-screen hint */
+#a2hs { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end; justify-content: center; background: rgba(8,4,24,.55); padding: calc(max(env(safe-area-inset-bottom), 0px) + 12px) 12px; }
+#a2hs .card { max-width: 520px; width: 100%; background: linear-gradient(180deg, #2b1a5e, #1b1033); border: 2px solid #8ff6ff; border-radius: 18px; padding: 14px 18px; color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+#a2hs .card b:first-child { font-size: 18px; color: #ffd23c; }
+#a2hs ol { margin: 8px 0 10px; padding-left: 20px; line-height: 1.55; } #a2hs svg { vertical-align: middle; }
+#a2hs button { float: right; border: 0; border-radius: 12px; padding: 8px 18px; font: 900 15px system-ui; color: #1b1033; background: #ffd23c; }

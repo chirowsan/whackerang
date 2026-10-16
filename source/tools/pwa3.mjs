@@ -1,0 +1,10 @@
+import { execSync } from 'child_process';
+import { launch, sleep } from './lib.mjs';
+const { browser, page, errors, logs } = await launch({ w: 1280, h: 720 });
+await page.goto('http://127.0.0.1:8123/', { waitUntil: 'load' }); await sleep(3500);
+await page.evaluate(() => { window.__marker = 1; window.__cc = 0; navigator.serviceWorker.addEventListener('controllerchange', () => window.__cc++); });
+console.log('app', await page.evaluate(() => [window.__bg.app.mode, window.__bg.app.paused]));
+execSync('BUILD=v1.2-UPDATETEST node build.mjs --min --dist', { stdio: 'pipe' });
+await page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); await r.update(); }); await sleep(8000);
+console.log('v2', await page.evaluate(async () => (await caches.keys())), 'marker survived(no reload)?', await page.evaluate(() => window.__marker), 'toast', await page.evaluate(() => document.body.innerText.includes('Update installed')));
+console.log('reloaded?', await page.evaluate(() => window.__marker === undefined)); console.log('cc', await page.evaluate(() => window.__cc), await page.evaluate(() => [window.__bg.app.mode, window.__bg.app.paused])); console.log(logs.slice(-4), 'errors', errors); await browser.close();

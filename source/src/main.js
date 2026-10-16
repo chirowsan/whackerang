@@ -10,6 +10,7 @@ import { buildFighter, buildBoomerang } from './models.js';
 import { makePortraits, portrait, snap } from './portraits.js';
 import { faceDebugCanvas } from './faces.js';
 import { pick, shuffle } from './util.js';
+import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
 const STEP = 1 / 60;
@@ -106,13 +107,14 @@ function boot() {
   if (window.visualViewport) window.visualViewport.addEventListener('resize', rz); if (window.ResizeObserver) new ResizeObserver(rz).observe(document.documentElement);
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.mode === 'play' && !app.paused) app.pause(); });
   window.addEventListener('blur', () => { if (app.mode === 'play' && !app.paused && !S().settings.noAutoPause) app.pause(); });
-  const unlock = () => { initAudio(); resumeAudio(); applyVolumes(); if (!app.musicOn) { app.musicOn = true; music(app.mode === 'play' && app.game ? app.game.arenaId : 'menu'); } };
-  ['pointerdown', 'keydown', 'touchstart'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+  const unlock = () => { initAudio(); resumeAudio(); iosAudioKick(); applyVolumes(); if (!app.musicOn) { app.musicOn = true; music(app.mode === 'play' && app.game ? app.game.arenaId : 'menu'); } };
+  ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); }); window.addEventListener('pageshow', () => resumeAudio()); window.addEventListener('focus', () => resumeAudio());
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   resize(); app.startAttract(); UI.show('menu'); app.applyTouch();
-  if (location.protocol.startsWith('http')) { const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l); const fv = document.createElement('link'); fv.rel = 'icon'; fv.href = 'icon-192.png'; document.head.appendChild(fv); const i = document.createElement('link'); i.rel = 'apple-touch-icon'; i.href = 'icon-192.png'; document.head.appendChild(i); }
+  initHead(); initHardening(); initWakeLock(); initFullscreenFirstTap(app); initInstall(UI); initSW(app, UI); pwa.onChange = () => { if (UI.cur === 'menu') UI.show('menu'); };
   $('#loading').remove(); app.ready = true;
-  if (app.isTouchDevice() && !S().settings.a2hs && !matchMedia('(display-mode: standalone)').matches) { setTimeout(() => { if (app.mode === 'menu') { UI.toast('Tip: Chrome ⋮ → Add to Home screen for full-screen play', 4200); S().settings.a2hs = true; save(); } }, 2600); }
+  if (IS_IOS && !isStandalone() && !IS_APP && !S().settings.a2hs) { setTimeout(() => { if (app.mode === 'menu') { showIosHint(); S().settings.a2hs = true; save(); } }, 2600); }
   console.log('Boomerang Brawl', BUILD, gfx.quality, 'dpr', gfx.dprCur);
   // loop
   let last = performance.now(), fAcc = 0, fN = 0;

@@ -112,7 +112,7 @@ export function initTouch(root) {
   const rest = () => { const p = t.pos || (layout(), t.pos); place(jb, p.joy[0], p.joy[1]); place(ab, p.aim[0], p.aim[1]); jk.style.transform = ak.style.transform = 'translate(-50%,-50%)'; boomEl.style.transform = 'rotate(0deg)'; };
   t.reset = () => { if (jId === null && aId === null) { layout(); rest(); } t.mx = t.mz = 0; };
   let jId = null, aId = null, jcx = 0, jcy = 0, acx = 0, acy = 0, aT0 = 0, aDragged = false;
-  const vib = (ms) => { if (navigator.vibrate && S().settings.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+  const vib = (ms) => { if (!S().settings.vibrate) return; try { const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics; if (H && H.impact) { H.impact({ style: ms > 20 ? 'MEDIUM' : 'LIGHT' }); return; } if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
   jz.addEventListener('pointerdown', (e) => { if (jId !== null) return; jId = e.pointerId; jz.setPointerCapture(e.pointerId); Input.lastUsed = 'touch'; jcx = e.clientX; jcy = e.clientY; place(jb, jcx, jcy); jb.classList.add('active'); mv(e); });
   const mv = (e) => { let vx = e.clientX - jcx, vy = e.clientY - jcy; const d = Math.hypot(vx, vy); if (d > R) { vx = vx / d * R; vy = vy / d * R; } jk.style.transform = `translate(calc(-50% + ${vx * 0.76}px), calc(-50% + ${vy * 0.76}px))`; const m = Math.min(1, Math.hypot(vx, vy) / R); if (m < 0.18) { t.mx = 0; t.mz = 0; } else { const k = Math.min(1, (m - 0.12) / 0.6); t.mx = vx / Math.max(1e-3, Math.hypot(vx, vy)) * k; t.mz = vy / Math.max(1e-3, Math.hypot(vx, vy)) * k; } };
   jz.addEventListener('pointermove', (e) => { if (e.pointerId === jId) mv(e); });

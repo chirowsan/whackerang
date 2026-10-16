@@ -5,7 +5,7 @@ let enabled = true;
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 export function initAudio() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { enabled = false; return; }
@@ -28,7 +28,7 @@ export function applyVolumes() {
   if (!ctx) return; const s = S().settings;
   sfxBus.gain.value = s.sfx; musBus.gain.value = s.music * 0.55;
 }
-export function resumeAudio() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+export function resumeAudio() { if (ctx && ctx.state !== 'running') { try { const p = ctx.resume(); p && p.catch && p.catch(() => {}); } catch (e) {} } }
 
 function env(g, t, a, d, peak, sus = 0) {
   g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0.0001, t);

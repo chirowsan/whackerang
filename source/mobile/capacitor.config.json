@@ -1,0 +1,8 @@
+{
+  "appId": "com.chirow.boomerangbrawl",
+  "appName": "Boomerang Brawl",
+  "webDir": "www",
+  "backgroundColor": "#0b0720",
+  "android": { "allowMixedContent": false, "backgroundColor": "#0b0720" },
+  "ios": { "backgroundColor": "#0b0720", "contentInset": "never", "limitsNavigationsToAppBoundDomains": false }
+}

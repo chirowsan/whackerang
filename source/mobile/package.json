@@ -1,0 +1,17 @@
+{
+  "name": "boomerang-brawl-mobile",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Capacitor wrapper (Android + iOS) for Boomerang Brawl",
+  "scripts": {
+    "web": "cd .. && BUILD=${BUILD:-local} node build.mjs --min --app",
+    "sync": "npm run web && npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2",
+    "@capacitor/haptics": "^6.0.3",
+    "@capacitor/ios": "^6.2.2"
+  }
+}
