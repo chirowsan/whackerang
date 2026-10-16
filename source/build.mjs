@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import fs from 'fs';
+const alias = { three: new URL('./vendor/three/three.module.js', import.meta.url).pathname };
+await build({ entryPoints: ['src/main.js'], bundle: true, format: 'iife', outfile: 'bb.bundle.js', alias, minify: process.argv.includes('--min'), legalComments: 'none', define: { __BUILD__: JSON.stringify(process.env.BUILD || ('v1.0-' + new Date().toISOString().slice(0,16).replace(/[-:T]/g,''))) }, target: ['chrome90'], sourcemap: false });
+const js = fs.readFileSync('bb.bundle.js', 'utf8').replace(/<\/script/gi, '<\\/script');
+const css = fs.readFileSync('style.css', 'utf8');
+let html = fs.readFileSync('index.template.html', 'utf8');
+html = html.replace(/<!--STYLE-->[\s\S]*<!--\/STYLE-->/, () => `<style>\n${css}\n</style>`).replace(/<!--SCRIPT-->[\s\S]*<!--\/SCRIPT-->/, () => `<script>\n${js}\n</script>`);
+fs.writeFileSync('BoomerangBrawl.html', html);
+console.log('built', (js.length / 1024).toFixed(0) + 'KB js', (html.length / 1024).toFixed(0) + 'KB html');
