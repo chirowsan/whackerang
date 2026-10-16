@@ -10,7 +10,7 @@ export { THREE };
 export const gfx = {
   renderer: null, scene: null, camera: null, composer: null, bloom: null, sun: null, hemi: null,
   trauma: 0, w: 1, h: 1, dpr: 1, quality: 'high', qSetting: 'auto', ok: false, camBase: new THREE.Vector3(), camTarget: new THREE.Vector3(),
-  density: 1, dprMax: 1, dprCur: 1, outlinesAll: true, camMode: 'play', useBloom: true, lastRender: 0, fovPulse: 0, tilt: 56,
+  density: 1, dprMax: 1, dprCur: 1, outlinesAll: true, camMode: 'play', useBloom: true, lastRender: 0, fovPulse: 0, tilt: 56, reserveL: 0, reserveR: 0,
 };
 
 let GRAD = null;
@@ -36,14 +36,14 @@ export function mesh(geo, mat, parent, o = {}) {
   if (o.pos) m.position.set(...o.pos); if (o.scale) { if (typeof o.scale === 'number') m.scale.setScalar(o.scale); else m.scale.set(...o.scale); }
   if (o.rot) m.rotation.set(...o.rot);
   m.castShadow = o.cast !== false; m.receiveShadow = !!o.recv;
-  if (o.outline) { const ol = new THREE.Mesh(geo, outlineMat(o.outline)); ol.userData.ol = o.grp || 'other'; ol.visible = gfx.outlinesAll || o.grp === 'hero'; m.add(ol); }
+  if (o.outline) { const ol = new THREE.Mesh(geo, outlineMat(o.outline)); ol.userData.ol = o.grp || 'other'; ol.userData.th = o.outline; ol.visible = gfx.outlinesAll || o.grp === 'hero'; m.add(ol); }
   if (parent) parent.add(m); return m;
 }
 
 // Merge static toon meshes under `root` into ONE vertex-coloured mesh (Low tier draw-call cut). Skips outlines, emissive, transparent, instanced and `exclude`d subtrees.
 let _mergeMat = null;
-export function mergeToon(root, exclude) {
-  root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(); const items = [];
+export function mergeToon(root, exclude, opt = {}) {
+  root.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(); const items = [], ols = [];
   root.traverse((o) => {
     if (!o.isMesh || o.isInstancedMesh || o.userData.ol !== undefined || !o.visible) return;
     const mt = o.material; if (!mt || !mt.isMeshToonMaterial || mt.transparent || (mt.emissiveIntensity > 0 && mt.emissive && mt.emissive.getHex() !== 0)) return;
@@ -51,12 +51,22 @@ export function mergeToon(root, exclude) {
     items.push(o);
   });
   if (items.length < 2) return null;
-  let n = 0; const geos = items.map((o) => { let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); n += g.attributes.position.count; return g; });
+  const toG = (o) => { const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); return g; };
+  let n = 0; const geos = items.map((o) => { const g = toG(o); n += g.attributes.position.count; return g; });
   const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let k = 0;
   geos.forEach((g, i) => { const c = items[i].material.color, cnt = g.attributes.position.count; pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3); for (let v = 0; v < cnt; v++) { col[(k + v) * 3] = c.r; col[(k + v) * 3 + 1] = c.g; col[(k + v) * 3 + 2] = c.b; } k += cnt; g.dispose(); });
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   if (!_mergeMat) _mergeMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: gradMap() });
-  const m = new THREE.Mesh(geo, _mergeMat); m.castShadow = false; m.receiveShadow = false; m.matrixAutoUpdate = false;
+  const m = new THREE.Mesh(geo, _mergeMat); m.castShadow = !!opt.cast; m.receiveShadow = false; m.matrixAutoUpdate = false;
+  if (opt.ol) {
+    const oi = items.filter((o) => o.children.some((c) => c.userData.ol !== undefined));
+    if (oi.length) {
+      let on = 0; const og = oi.map((o) => { const g = toG(o); on += g.attributes.position.count; return g; }); const op = new Float32Array(on * 3), onr = new Float32Array(on * 3); let q = 0;
+      og.forEach((g) => { op.set(g.attributes.position.array, q * 3); onr.set(g.attributes.normal.array, q * 3); q += g.attributes.position.count; g.dispose(); });
+      const ogeo = new THREE.BufferGeometry(); ogeo.setAttribute('position', new THREE.BufferAttribute(op, 3)); ogeo.setAttribute('normal', new THREE.BufferAttribute(onr, 3));
+      const oc = oi[0].children.find((c) => c.userData.ol !== undefined); const om = new THREE.Mesh(ogeo, outlineMat(oc.userData.th || 0.03)); om.userData.ol = opt.grp || oc.userData.ol; om.userData.th = oc.userData.th; om.visible = gfx.outlinesAll || om.userData.ol === 'hero'; om.matrixAutoUpdate = false; om.frustumCulled = true; m.add(om);
+    }
+  }
   items.forEach((o) => o.removeFromParent()); root.add(m); return m;
 }
 export function glowTexture() {
@@ -110,7 +120,7 @@ export function setQuality(q) {
   gfx.useBloom = !low && S().settings.bloom !== false;
   gfx.composer.renderTarget1.samples = eff === 'high' ? 4 : 0; gfx.composer.renderTarget2.samples = eff === 'high' ? 4 : 0;
   gfx.density = low ? 0.5 : eff === 'medium' ? 0.75 : 1;
-  gfx.outlinesAll = !low;
+  gfx.outlinesAll = !low; document.body.classList.toggle('q-low', low);
   gfx.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.ol !== undefined) o.visible = gfx.outlinesAll || o.userData.ol === 'hero'; });
   if (prevShadow === low) gfx.scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true)); });
   resize();
@@ -146,6 +156,7 @@ export function resize() {
 }
 const _v = new THREE.Vector3();
 export function fitCamera(mode = gfx.camMode || 'play') {
+  if (gfx.freeCam) return;
   const cam = gfx.camera; gfx.camMode = mode; cam.clearViewOffset();
   const ar = cam.aspect; const menu = mode === 'menu';
   const tdeg = menu ? 52 : ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
@@ -153,7 +164,7 @@ export function fitCamera(mode = gfx.camMode || 'play') {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) pts.push([sx * hx, -0.1, sz * hz], [sx * hx, 1.4, sz * hz]);
   const hudPx = menu ? 4 : Math.min(60, Math.max(34, gfx.h * 0.11));
   const topM = Math.max(0.02, hudPx / gfx.h), botM = menu ? 0.02 : 0.03, sideM = 0.015;
-  const yMax = 1 - topM * 2, yMin = -1 + botM * 2, xLim = menu ? 0.56 : 1 - sideM * 2;
+  const yMax = 1 - topM * 2, yMin = -1 + botM * 2, xLim = menu ? 0.56 : Math.min(1 - sideM * 2, Math.max(0.35, 1 - (gfx.reserveL + gfx.reserveR) / gfx.w));
   const tgt = new THREE.Vector3(0, 0, 0.2); let lo = 6, hi = 90;
   const proj = (d) => {
     cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
@@ -164,7 +175,7 @@ export function fitCamera(mode = gfx.camMode || 'play') {
   for (let i = 0; i < 22; i++) { const d = (lo + hi) / 2; const [a, b, c, e] = proj(d); const fits = (b - a) <= xLim * 2 && (e - c) <= (menu ? 1.5 : (yMax - yMin)); if (fits) hi = d; else lo = d; }
   const d = hi; const [a, b, c, e] = proj(d);
   const cy = (c + e) / 2, want = menu ? 0 : (yMax + yMin) / 2, cxx = (a + b) / 2;
-  gfx.viewShift = want - cy; gfx.viewShiftX = (menu ? 0.43 : 0) - cxx;
+  gfx.viewShift = want - cy; gfx.viewShiftX = (menu ? 0.43 : (gfx.reserveL - gfx.reserveR) / gfx.w) - cxx;
   gfx.camBase.copy(cam.position); gfx.camTarget.copy(tgt); gfx.camDist = d;
   cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, (gfx.viewShift / 2) * gfx.h, gfx.w, gfx.h);
 }

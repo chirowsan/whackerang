@@ -1,0 +1,10 @@
+import { launch, sleep } from './lib.mjs';
+const { browser, page, errors, logs } = await launch({ w: 915, h: 330, dpr: 2, mobile: true });
+await page.setUserAgent('Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
+const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+await page.goto('https://chirowsan.github.io/boomerang-brawl/', { waitUntil: 'load' }); await sleep(4000);
+await page.screenshot({ path: 'shots/live-menu.png' });
+await page.evaluate(() => { const s = __bg.S(); s.setup.bots = 3; s.setup.arena = 'dojo'; __bg.app.startMatch(); }); await sleep(9000);
+await page.screenshot({ path: 'shots/live-play.png' });
+console.log(await page.evaluate(() => ({ q: __bg.gfx.quality, touch: __bg.Input.touch.enabled, state: __bg.app.game.state, manifest: !!document.querySelector('link[rel=manifest]'), frames: __bg.prof.frames }))); console.log('errors', errors, logs.filter((l) => l.includes('Boomerang')));
+await browser.close();

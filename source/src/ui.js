@@ -97,12 +97,14 @@ export const UI = {
     const render = () => {
       list.innerHTML = '';
       HEROES.forEach((hh) => {
-        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
+        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
         if (!owned(hh)) c.appendChild(h('div', 'lock', `🔒<span style="display:flex;align-items:center;gap:.3em"><span class="coin"></span>${hh.cost}</span>`));
         c.addEventListener('click', () => { sel = hh.id; sfx('click'); render(); }); c.addEventListener('pointerenter', () => this.setFocus(c)); list.appendChild(c);
       });
       const hh = this.heroById(sel); det.innerHTML = '';
-      det.appendChild(h('h3', '', hh.name)); det.appendChild(h('div', '', hh.blurb, { style: 'color:var(--dim);font-weight:700;font-size:calc(var(--u)*1)' }));
+      det.style.setProperty('--hc', hex(hh.color));
+      det.appendChild(h('div', 'hd-top', `<img class="hbig" src="${portrait(hh, s.hats[hh.id] || 'none', { big: true })}"><div class="hd-txt"><h3>${hh.name}</h3><div class="ttl">${hh.title}</div><div class="quip">${hh.quip}</div></div>`));
+      det.appendChild(h('div', '', hh.blurb, { style: 'color:var(--dim);font-weight:700;font-size:calc(var(--u)*1)' }));
       det.appendChild(h('div', 'perk', '★ ' + hh.perk));
       const hats = h('div', 'hats'); const cur = s.hats[hh.id] || 'none';
       HATS.forEach((ht) => { const has = s.unlockedHats.includes(ht.id); const b = h('button', 'hat' + (cur === ht.id ? ' on' : '') + (has ? '' : ' lk'), `${ht.name}${has ? '' : `<small><span class="coin"></span>${ht.cost}</small>`}`, { 'data-nav': 1 });
@@ -175,7 +177,7 @@ export const UI = {
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },
   hudUpdate(game) {
     if (!game || game.mode === 'attract' || !this.hudCache) return;
-    this.hudSet('h-pl', game.fighters.map((q) => `<div class="pchip ${q.alive ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><span>${q.name}</span><span class="w">${q.wins ? '♛'.repeat(q.wins) : ''}</span><span class="am">${'●'.repeat(Math.max(0, q.ammo))}${'○'.repeat(Math.max(0, q.maxAmmo - q.ammo))}</span></div>`).join(''));
+    this.hudSet('h-pl', game.fighters.map((q) => `<div class="pchip ${q.alive ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><span>${q.name}</span><span class="w">${crown().repeat(q.wins || 0)}</span><span class="am">${'<i class="ap on"></i>'.repeat(Math.max(0, q.ammo))}${'<i class="ap"></i>'.repeat(Math.max(0, q.maxAmmo - q.ammo))}</span></div>`).join(''));
     this.hudSet('h-name', game.sudden ? '<span style="color:#ff5a5a">SUDDEN DEATH</span>' : `Round ${game.round}`);
     this.hudSet('h-time', game.sudden ? '☠' : fmtTime(Math.max(0, 48 - game.playTime)));
   },

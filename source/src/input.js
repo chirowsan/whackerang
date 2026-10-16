@@ -78,33 +78,67 @@ Input.menuPoll = function () {
 
 // ---------------- touch ----------------
 export function initTouch(root) {
-  const t = Input.touch;
-  root.innerHTML = `
-    <div id="joyzone"></div><div id="aimzone"></div>
-    <div id="joybase"><div id="joyknob"></div></div><div id="aimbase"><div id="aimknob"></div></div>
-    <div id="tbtns"><button id="btnDef" class="tbtn small" aria-label="Deflect"><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5z" fill="#fff" stroke="#1a1030" stroke-width="1.6" stroke-linejoin="round"/></svg></button><button id="btnDash" class="tbtn big" aria-label="Dash"><svg viewBox="0 0 24 24"><path d="M3 7l7 5-7 5V7zm9 0 7 5-7 5V7z" fill="#fff" stroke="#1a1030" stroke-width="1.6" stroke-linejoin="round"/></svg></button></div>
-    <button id="btnPause" class="tpause" aria-label="Pause">❚❚</button>`;
-  const q = (s) => root.querySelector(s); const jz = q('#joyzone'), az = q('#aimzone'), jb = q('#joybase'), jk = q('#joyknob'), ab = q('#aimbase'), ak = q('#aimknob');
-  const R = 52; let jId = null, aId = null, jcx = 0, jcy = 0, acx = 0, acy = 0, aT0 = 0, aDragged = false;
+  const t = Input.touch; t.hud = { charge: 0, dash: 0, defl: 0, ammo: 1 };
+  const NS = 'http://www.w3.org/2000/svg';
+  const ticks = (() => { let s = ''; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, c = i % 2 === 0, r0 = c ? 45 : 47, r1 = 52; s += `<line x1="${(60 + Math.sin(a) * r0).toFixed(1)}" y1="${(60 - Math.cos(a) * r0).toFixed(1)}" x2="${(60 + Math.sin(a) * r1).toFixed(1)}" y2="${(60 - Math.cos(a) * r1).toFixed(1)}" stroke-width="${c ? 3.2 : 1.8}" stroke-linecap="round" opacity="${c ? .75 : .4}"/>`; } return s; })();
+  const stick = (id, cls, knobId, extra, inner) => `<div id="${id}" class="stick ${cls}"><svg viewBox="0 0 120 120" class="ring"><defs><radialGradient id="${id}g" cx="50%" cy="50%" r="50%"><stop offset=".5" stop-color="#0a0820" stop-opacity=".1"/><stop offset=".82" stop-color="currentColor" stop-opacity=".05"/><stop offset="1" stop-color="currentColor" stop-opacity=".5"/></radialGradient><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".5" stop-color="currentColor" stop-opacity=".8"/><stop offset="1" stop-color="currentColor" stop-opacity=".45"/></linearGradient></defs><circle cx="60" cy="60" r="58" fill="rgba(12,8,36,.38)"/><circle cx="60" cy="60" r="58" fill="url(#${id}g)"/><circle cx="60" cy="60" r="56.5" fill="none" stroke="url(#${id}s)" stroke-width="3"/><circle cx="60" cy="60" r="41" fill="none" stroke="#fff" stroke-opacity=".13" stroke-width="1.5"/><g stroke="#fff">${ticks}</g>${extra}</svg><div id="${knobId}" class="nub">${inner || ''}</div></div>`;
+  const boom = '<svg viewBox="0 0 48 48" class="boom"><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#3a1600" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#ffcf3a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 28C14 19 18 15.5 24 15.5" fill="none" stroke="#fff6c0" stroke-width="2.2" stroke-linecap="round"/><circle cx="8.5" cy="33" r="2.4" fill="#ff7a3a"/><circle cx="39.5" cy="33" r="2.4" fill="#ff7a3a"/></svg>';
+  const CH = 2 * Math.PI * 62;
+  const chargeSvg = `<circle cx="60" cy="60" r="62" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" class="chtrack"/><circle id="chg" cx="60" cy="60" r="62" fill="none" stroke="url(#chgrad)" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="${CH.toFixed(1)}" stroke-dashoffset="${CH.toFixed(1)}" transform="rotate(-90 60 60)"/><defs><linearGradient id="chgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe45a"/><stop offset=".6" stop-color="#ff9a2e"/><stop offset="1" stop-color="#ff3b3b"/></linearGradient></defs>`;
+  const sh = 'stroke="#1a1030" stroke-width="3" stroke-linejoin="round" paint-order="stroke"';
+  const icoDash = `<svg viewBox="0 0 48 48" class="ico"><g stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".85"><path d="M4 17h7M2 24h9M4 31h7"/></g><path d="M15 11l13 13-13 13-5.5-5.5L17 24l-7.5-7.5z" fill="#fff" ${sh}/><path d="M29 11l13 13-13 13-5.5-5.5L31 24l-7.5-7.5z" fill="#fff" ${sh}/></svg>`;
+  const icoDef = `<svg viewBox="0 0 48 48" class="ico"><path d="M24 4.5l15 5.5v13c0 10-6.5 17.2-15 20.5C15.5 40.2 9 33 9 23V10z" fill="#fff" ${sh}/><path d="M24 10.500l9.500 3.500v9c0 6.800-4 11.800-9.500 14.400C18.500 34.800 14.5 29.800 14.500 23v-9z" fill="currentColor"/><path d="M29 20.500h-8.500a4.500 4.500 0 0 0 0 9H26" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M28.500 15.800l5.200 4.700-5.200 4.700z" fill="#fff"/></svg>`;
+  const cdBtn = (id, cls, ico) => `<button id="${id}" class="tbtn ${cls}" aria-label="${id === 'btnDash' ? 'Dash' : 'Deflect'}"><span class="face"></span>${ico}<span class="sw"></span></button>`;
+  root.innerHTML = `<div id="joyzone"></div><div id="aimzone"></div>${stick('joybase', 'joy', 'joyknob', '')}${stick('aimbase', 'aim', 'aimknob', chargeSvg, boom)}<div id="tbtns">${cdBtn('btnDef', 'small', icoDef)}${cdBtn('btnDash', 'big', icoDash)}</div><button id="btnPause" class="tpause" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg></button>`;
+  const q = (s) => root.querySelector(s); const jz = q('#joyzone'), az = q('#aimzone'), jb = q('#joybase'), jk = q('#joyknob'), ab = q('#aimbase'), ak = q('#aimknob'), chg = q('#chg'), boomEl = q('#aimknob .boom'), bDash = q('#btnDash'), bDef = q('#btnDef');
+  // safe-area probe
+  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(probe);
+  const safe = () => { const c = getComputedStyle(probe); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; };
+  let B = 116, R = 42, D = 88, F = 72, sa = safe();
   const place = (el, x, y) => { el.style.left = x + 'px'; el.style.top = y + 'px'; };
-  const rest = () => { const sc = S().settings.ctrlScale || 1, left = S().settings.leftHanded, w = window.innerWidth, h = window.innerHeight; const bx = Math.max(90 * sc, w * 0.12), by = h - Math.max(86 * sc, h * 0.26); place(jb, left ? w - bx : bx, by); place(ab, left ? Math.max(bx + 20, w * 0.3) : w - Math.max(bx + 30, w * 0.3), by); jk.style.transform = ak.style.transform = 'translate(-50%,-50%)'; };
-  t.reset = () => { if (jId === null && aId === null) rest(); t.mx = t.mz = 0; };
+  // sizes + layout (CSS vars drive the DOM; returns horizontal space the controls need so the camera can keep the arena clear)
+  const layout = () => {
+    const st = S().settings, sc = st.ctrlScale || 1, left = !!st.leftHanded, w = window.innerWidth, h = window.innerHeight; sa = safe();
+    B = Math.min(116 * sc, h * 0.4); R = B * 0.36; D = Math.min(88 * sc, h * 0.38); F = D * 0.82;
+    const rs = document.documentElement.style; rs.setProperty('--sb', B + 'px'); rs.setProperty('--bd', D + 'px'); rs.setProperty('--bf', F + 'px');
+    rs.setProperty('--sail', sa.l + 'px'); rs.setProperty('--sair', sa.r + 'px'); rs.setProperty('--saib', sa.b + 'px'); rs.setProperty('--sait', sa.t + 'px');
+    const mar = Math.max(12, w * 0.015), joyW = mar + B + 10, clW = mar + F + 8 + D + 6;
+    const bx = Math.max(sa.l, 0) + mar + B / 2, by = h - Math.max(sa.b, 0) - 14 - B / 2;
+    const cx = w - Math.max(sa.r, 0) - clW / 2 + mar * 0.2, cl = Math.min(h * 0.5, Math.max(B * 0.5 + 50, h * 0.36));
+    t.pos = { joy: [left ? w - Math.max(sa.r, 0) - mar - B / 2 : bx, by], aim: [left ? Math.max(sa.l, 0) + clW / 2 : cx, cl] };
+    return { L: (left ? clW : joyW) + (left ? sa.l : sa.l), R: (left ? joyW : clW) + sa.r };
+  };
+  t.layout = layout;
+  const rest = () => { const p = t.pos || (layout(), t.pos); place(jb, p.joy[0], p.joy[1]); place(ab, p.aim[0], p.aim[1]); jk.style.transform = ak.style.transform = 'translate(-50%,-50%)'; boomEl.style.transform = 'rotate(0deg)'; };
+  t.reset = () => { if (jId === null && aId === null) { layout(); rest(); } t.mx = t.mz = 0; };
+  let jId = null, aId = null, jcx = 0, jcy = 0, acx = 0, acy = 0, aT0 = 0, aDragged = false;
+  const vib = (ms) => { if (navigator.vibrate && S().settings.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
   jz.addEventListener('pointerdown', (e) => { if (jId !== null) return; jId = e.pointerId; jz.setPointerCapture(e.pointerId); Input.lastUsed = 'touch'; jcx = e.clientX; jcy = e.clientY; place(jb, jcx, jcy); jb.classList.add('active'); mv(e); });
-  const mv = (e) => { let vx = e.clientX - jcx, vy = e.clientY - jcy; const d = Math.hypot(vx, vy); if (d > R) { vx = vx / d * R; vy = vy / d * R; } jk.style.transform = `translate(calc(-50% + ${vx}px), calc(-50% + ${vy}px))`; const m = Math.min(1, Math.hypot(vx, vy) / R); if (m < 0.18) { t.mx = 0; t.mz = 0; } else { const k = Math.min(1, (m - 0.12) / 0.6); t.mx = vx / Math.max(1e-3, Math.hypot(vx, vy)) * k; t.mz = vy / Math.max(1e-3, Math.hypot(vx, vy)) * k; } };
+  const mv = (e) => { let vx = e.clientX - jcx, vy = e.clientY - jcy; const d = Math.hypot(vx, vy); if (d > R) { vx = vx / d * R; vy = vy / d * R; } jk.style.transform = `translate(calc(-50% + ${vx * 0.76}px), calc(-50% + ${vy * 0.76}px))`; const m = Math.min(1, Math.hypot(vx, vy) / R); if (m < 0.18) { t.mx = 0; t.mz = 0; } else { const k = Math.min(1, (m - 0.12) / 0.6); t.mx = vx / Math.max(1e-3, Math.hypot(vx, vy)) * k; t.mz = vy / Math.max(1e-3, Math.hypot(vx, vy)) * k; } };
   jz.addEventListener('pointermove', (e) => { if (e.pointerId === jId) mv(e); });
   const jend = (e) => { if (e.pointerId !== jId) return; jId = null; t.mx = 0; t.mz = 0; jb.classList.remove('active'); rest(); };
   jz.addEventListener('pointerup', jend); jz.addEventListener('pointercancel', jend); jz.addEventListener('lostpointercapture', jend);
   // aim stick: drag = aim, release = throw, quick tap = auto-aim throw
   const SIN = 0.82; // approx. vertical foreshortening of tilted camera
   az.addEventListener('pointerdown', (e) => { if (aId !== null) return; aId = e.pointerId; az.setPointerCapture(e.pointerId); Input.lastUsed = 'touch'; acx = e.clientX; acy = e.clientY; place(ab, acx, acy); ab.classList.add('active'); aT0 = performance.now(); aDragged = false; t.fire = true; t.aimX = 0; t.aimZ = 0; });
-  az.addEventListener('pointermove', (e) => { if (e.pointerId !== aId) return; let vx = e.clientX - acx, vy = e.clientY - acy; const d = Math.hypot(vx, vy); const sx = d > R ? vx / d * R : vx, sy = d > R ? vy / d * R : vy; ak.style.transform = `translate(calc(-50% + ${sx}px), calc(-50% + ${sy}px))`;
-    if (d > 18) { aDragged = true; const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
+  az.addEventListener('pointermove', (e) => { if (e.pointerId !== aId) return; let vx = e.clientX - acx, vy = e.clientY - acy; const d = Math.hypot(vx, vy); const sx = d > R ? vx / d * R : vx, sy = d > R ? vy / d * R : vy; ak.style.transform = `translate(calc(-50% + ${sx * 0.7}px), calc(-50% + ${sy * 0.7}px))`;
+    if (d > 18) { aDragged = true; const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; boomEl.style.transform = `rotate(${(Math.atan2(vx, -vy) * 57.2958).toFixed(0)}deg)`; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
   const aend = (e) => { if (e.pointerId !== aId) return; aId = null; ab.classList.remove('active'); rest();
-    const quick = !aDragged && performance.now() - aT0 < 260; t.fire = false; if (quick) { t.fireQ = 2; } else if (aDragged) { t.fireQ = 1; } else { t.fireQ = 1; } /* keep last aim for the release tick */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); };
+    const quick = !aDragged && performance.now() - aT0 < 260; t.fire = false; if (quick) { t.fireQ = 2; } else { t.fireQ = 1; } /* keep last aim for the release tick */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
   az.addEventListener('pointerup', aend); az.addEventListener('pointercancel', (e) => { if (e.pointerId === aId) { aId = null; t.fire = false; t.aimX = t.aimZ = 0; ab.classList.remove('active'); rest(); } }); az.addEventListener('lostpointercapture', (e) => { if (e.pointerId === aId) aend(e); });
-  const btn = (id, key) => { const el = q(id); el.addEventListener('pointerdown', (e) => { t[key] = true; Input.lastUsed = 'touch'; el.classList.add('down'); if (key === 'dash' && navigator.vibrate && S().settings.vibrate) navigator.vibrate(6); e.preventDefault(); }); const up = () => el.classList.remove('down'); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); };
-  btn('#btnDash', 'dash'); btn('#btnDef', 'deflect');
+  const btn = (el, key, hk, ms) => { el.addEventListener('pointerdown', (e) => { t[key] = true; Input.lastUsed = 'touch'; el.classList.add('down'); if (t.hud[hk] <= 0) vib(ms); e.preventDefault(); }); const up = () => el.classList.remove('down'); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); };
+  btn(bDash, 'dash', 'dash', 10); btn(bDef, 'deflect', 'defl', 6);
   q('#btnPause').addEventListener('pointerdown', (e) => { Input.onPause && Input.onPause(); e.preventDefault(); });
   root.addEventListener('contextmenu', (e) => e.preventDefault());
-  rest(); window.addEventListener('resize', () => { if (jId === null && aId === null) rest(); }, { passive: true });
+  // per-frame visual sync (cooldown sweeps, charge ring, ammo). Purely cosmetic: never touches input state.
+  const last = { charge: -1, dash: -1, defl: -1, ammo: -1, full: false };
+  const sweep = (el, key, v) => { const r = Math.round(v * 100) / 100; if (r === last[key]) return; if (last[key] > 0 && r === 0) { el.classList.remove('ready'); void el.offsetWidth; el.classList.add('ready'); } last[key] = r; el.style.setProperty('--r', r); el.classList.toggle('cool', r > 0); };
+  bDash.addEventListener('animationend', () => bDash.classList.remove('ready')); bDef.addEventListener('animationend', () => bDef.classList.remove('ready'));
+  t.sync = (h) => {
+    const d = h || { charge: 0, dash: 0, defl: 0, ammo: 1 }; t.hud = d;
+    const c = Math.round(d.charge * 50) / 50; if (c !== last.charge) { last.charge = c; chg.style.strokeDashoffset = (CH * (1 - c)).toFixed(1); const full = c >= 1; if (full !== last.full) { last.full = full; ab.classList.toggle('full', full); if (full) vib(16); } ab.classList.toggle('charging', c > 0); }
+    sweep(bDash, 'dash', d.dash); sweep(bDef, 'defl', d.defl);
+    if (d.ammo !== last.ammo) { last.ammo = d.ammo; ab.classList.toggle('empty', d.ammo <= 0); }
+  };
+  layout(); rest(); window.addEventListener('resize', () => { if (jId === null && aId === null) { layout(); rest(); } }, { passive: true });
 }

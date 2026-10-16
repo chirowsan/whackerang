@@ -48,7 +48,7 @@ class Fighter {
     if (this.dashT > 0) {
       this.dashT -= dt; const sp = 17; this.vx = this.dashDir[0] * sp; this.vz = this.dashDir[1] * sp;
       if (this.dashT <= 0) { this.vx *= 0.35; this.vz *= 0.35; }
-      if (Math.random() < 0.7) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.18, 0.25, this.color, 0, 0, 0, -0.2);
+      if (Math.random() < 0.7) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.2, 0.3, Math.random() < 0.5 ? this.hero.trail : this.color, 0, 0, 0, -0.2);
     } else {
       const sp = this.speed; const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * dt; const stopping = (inp.mx === 0 && inp.mz === 0);
       const a2 = stopping ? (ice ? 1.6 : 34) * dt : acc;
@@ -58,6 +58,7 @@ class Fighter {
     this.ex = 0; this.ez = 0; if (hz === T.CONV) { const k = idx(ci(this.x), cj(this.z)); this.ex = g.layout.dx[k] * 2.6; this.ez = g.layout.dz[k] * 2.6; }
     this.x += (this.vx + this.ex) * dt; this.z += (this.vz + this.ez) * dt; g.resolve(this, FR);
     if (this.dashT > 0 && !this.pushed) g.tryPush(this);
+    this.stepT = (this.stepT || 0) - dt; if (this.move > 0.6 && this.dashT <= 0 && this.stepT <= 0) { this.stepT = 0.13; fx.glow.spawn(this.x - dirx(this.vface) * 0.15, 0.08, this.z - dirz(this.vface) * 0.15, (Math.random() - 0.5) * 0.4, 0.5, (Math.random() - 0.5) * 0.4, 0.09, 0.32, this.hero.trail, 0, 0, 0, -0.25); }
     const sp2 = Math.hypot(this.vx, this.vz); this.move += ((sp2 > 0.5 ? Math.min(1, sp2 / 5) : 0) - this.move) * Math.min(1, dt * 12);
     // --- aiming / throwing
     const aiming = inp.aimX !== 0 || inp.aimZ !== 0;
@@ -109,7 +110,7 @@ class Boom {
   constructor(g, owner, x, z, ang, c, o) {
     this.g = g; this.owner = owner; this.x = x; this.z = z; this.th = ang; this.t = 0; this.phase = 'out'; this.alive = true; this.carry = o.carry; this.bounces = 0; this.total = 0;
     this.giant = o.giant; this.fire = o.fire; this.homing = o.homing; this.hitR = o.giant ? 0.85 : 0.3; this.v0 = 13 + 8 * c; this.tout = 0.8 + 0.7 * c; this.retT = 0; this.w = CURVE * (1 - 0.35 * c); this.spin = 0; this.fade = 0;
-    this.mesh = buildBoomerang(owner.color); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
+    this.mesh = buildBoomerang(owner.color, owner.hero); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
   }
   update(dt) {
     const g = this.g, o = this.owner; this.total += dt; this.spin += dt * 19;
@@ -140,7 +141,7 @@ class Boom {
   }
   caught(quiet) {
     const o = this.owner; if (o.alive && this.carry) o.giveAmmo(); this.kill();
-    if (!quiet && o.alive) { sfx('catch'); fx.sparks(o.x, 0.6, o.z, 8, [o.color, 0xffffff], { speed: 3, life: 0.4, size: 0.09 }); fx.ring(o.x, 0.1, o.z, 0xffffff, 1.6, 0.3); o.throwT = 0.5; o.catchPop = 0.2; this.g.onEvent('catch', { f: o }); }
+    if (!quiet && o.alive) { sfx('catch'); fx.sparks(o.x, 0.6, o.z, 8, [o.color, 0xffffff], { speed: 3, life: 0.4, size: 0.09 }); fx.ring(o.x, 0.1, o.z, 0xffffff, 1.6, 0.3); o.throwT = 0.5; o.catchPop = 0.2; o.happyT = 1.0; this.g.onEvent('catch', { f: o }); }
   }
   kill() { if (!this.alive) return; this.alive = false; this.g.scene.remove(this.mesh); }
   vis(dt) {
@@ -254,7 +255,7 @@ export class Game {
     const o = b.owner; if (b.carry && o.alive) o.giveAmmo();
     b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z) + (Math.random() - 0.5) * 0.15; b.phase = 'out'; b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hitR *= 1.0;
     f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06;
-    b.mesh.removeFromParent(); b.mesh = buildBoomerang(f.color); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
+    b.mesh.removeFromParent(); b.mesh = buildBoomerang(f.color, f.hero); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
   }
   explode(x, z, owner) {
     sfx('explode'); shake(0.55); pulseFov(0.6); this.hitstop = Math.max(this.hitstop, 0.07);
@@ -269,6 +270,7 @@ export class Game {
     shake(kind === 'boom' ? 0.6 : 0.3); pulseFov(0.5);
     if (kind === 'boom') { sfx('hit'); sfx('ko'); const w = pick(['BONK!', 'KO!', 'POW!', 'BOOM!', 'THWACK!']); fx.popup(w, f.x, f.z, 'pop-hit'); }
     else if (kind === 'fall') { sfx('fall'); fx.popup('WHOOPS!', f.x, f.z, 'pop-cyan'); } else if (kind === 'lava') { sfx('sizzle'); fx.popup('SIZZLE!', f.x, f.z, 'pop-hit'); fx.sparks(f.x, 0.4, f.z, 20, [0xff7a1a, 0xffd060], { speed: 5, up: 4 }); } else { sfx('spike'); sfx('ko'); fx.popup('OUCH!', f.x, f.z, 'pop-hit'); }
+    if (killer && killer.alive) killer.happyT = 1.3;
     this.onEvent('ko', { f, killer, kind });
   }
   // -------- power-ups
@@ -337,7 +339,9 @@ export class Game {
       const m = f.model, r = m.root; r.position.set(f.x, f.alive ? 0 : Math.max(f.air, -3), f.z); r.rotation.y = f.vface;
       if (!f.alive) { r.position.y = f.air > -3 ? f.air : -3; if (f.deathKind === 'boom') r.position.y = Math.max(0, f.air); }
       const spawnK = f.spawnT; if (f.alive) r.scale.setScalar(0.7 + 0.3 * Math.min(1, spawnK * 1.2) + (f.catchPop > 0 ? f.catchPop * 0.6 : 0)); if (f.catchPop > 0) f.catchPop -= dt;
-      m.update(dt, { move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT });
+      let scared = 0; if (f.alive) for (const b of this.booms) { if (b.owner !== f && b.alive && Math.abs(b.x - f.x) < 3.2 && Math.abs(b.z - f.z) < 3.2) { scared = 1; break; } }
+      if (f.happyT > 0) f.happyT -= dt;
+      m.update(dt, { move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT, air: f.alive ? 0 : 0, win: this.state === 'roundEnd' && this.winner === f && f.alive, scared, happy: f.happyT > 0 ? 1 : 0, catchPop: f.catchPop > 0 ? f.catchPop : 0 });
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
       // aim arrow

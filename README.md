@@ -31,3 +31,7 @@ Source in `src/` (game.js sim, ai.js bots, arena.js, models.js, gfx.js, fx.js, a
 
 ## Source layout
 `source/` holds the unbundled sources (`src/`, `style.css`, `index.template.html`, `build.mjs`) and the headless Puppeteer test scripts (`tools/`). The build expects three.js r160 vendored at `vendor/three/three.module.js` (npm `three@0.160.0`, copy `build/three.module.js` + `examples/jsm`).
+
+## v1.1
+- New touch controls: SVG joystick/aim stick with charge ring, glossy dash/deflect buttons with cooldown sweeps, haptics, safe-area aware, polished pause button and HUD chips.
+- New fighters: panda chef Bao, ninja fox Nori, tiny robot Bolt, cat pirate Salty, lizard monk Pico, penguin samurai Yuki - expressive faces (blink/angry/happy/scared/KO), accessories, squash & stretch, idle quirks, victory pose, per-fighter boomerang skins, select-screen portraits with quips.

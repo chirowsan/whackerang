@@ -6,7 +6,9 @@ import { Input, initInput, initTouch } from './input.js';
 import { fx } from './fx.js';
 import { Game } from './game.js';
 import { UI, $ } from './ui.js';
-import { makePortraits, portrait } from './portraits.js';
+import { buildFighter, buildBoomerang } from './models.js';
+import { makePortraits, portrait, snap } from './portraits.js';
+import { faceDebugCanvas } from './faces.js';
 import { pick, shuffle } from './util.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
@@ -21,6 +23,8 @@ const app = {
     root.classList.toggle('off', !(want && inMatch)); root.classList.toggle('left', !!st.leftHanded);
     document.documentElement.style.setProperty('--cs', String(st.ctrlScale || 1)); document.body.classList.toggle('touch-on', want && inMatch);
     if (Input.touch.reset) Input.touch.reset();
+    const inGame = this.mode === 'play' || this.mode === 'matchEnd'; const rv = want && inGame && Input.touch.layout ? Input.touch.layout() : { L: 0, R: 0 };
+    if (rv.L !== gfx.reserveL || rv.R !== gfx.reserveR) { gfx.reserveL = rv.L; gfx.reserveR = rv.R; if (gfx.ok) fitCamera(this.mode === 'menu' ? 'menu' : 'play'); }
   },
   reloadSettings() { loadSave(); applyVolumes(); setQuality(S().settings.quality); this.applyTouch(); },
   toggleFullscreen() {
@@ -97,7 +101,7 @@ function boot() {
   Input.unproject = (x, y) => { const c = gfx.camera; c.updateMatrixWorld(); const rc = canvas.getBoundingClientRect(); const v = new THREE.Vector3(((x - rc.left) / rc.width) * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1, 0.5).unproject(c); const o = c.position; const dy = v.y - o.y; if (Math.abs(dy) < 1e-4) return null; const k = -o.y / dy; if (k <= 0) return null; return [o.x + (v.x - o.x) * k, o.z + (v.z - o.z) * k]; };
   Input.onPause = () => { if (app.mode === 'play') { app.paused ? (UI.cur === 'pause' && app.resume()) : app.pause(); } };
   // resize wiring
-  let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); if (Input.touch.reset) Input.touch.reset(); }); };
+  let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); app.applyTouch(); }); };
   window.addEventListener('resize', rz); window.addEventListener('orientationchange', () => setTimeout(rz, 120)); document.addEventListener('fullscreenchange', () => setTimeout(rz, 80)); document.addEventListener('webkitfullscreenchange', () => setTimeout(rz, 80));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', rz); if (window.ResizeObserver) new ResizeObserver(rz).observe(document.documentElement);
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.mode === 'play' && !app.paused) app.pause(); });
@@ -121,11 +125,12 @@ function boot() {
     if (!app.game || app.mode === 'menu' || app.paused || true) { const p = Input.menuPoll(); if (UI.cur) UI.padMenu(p); else if (app.mode === 'play' && p.back && false) app.pause(); }
     if (app.mode !== 'play' || app.paused) Input.edge.clear();
     app.hudT -= dt; if (app.hudT <= 0 && app.game) { app.hudT = 0.1; UI.hudUpdate(app.game); }
+    if (Input.touch.enabled && Input.touch.sync) { const th = app.touchF && app.touchF.g === app.game ? app.touchF.f : (app.touchF = { g: app.game, f: app.game && app.mode === 'play' ? app.game.fighters.find((x) => !x.isBot && x.def.slot === 0) : null }).f; if (th && app.mode === 'play') Input.touch.sync({ charge: th.alive && th.charging ? Math.min(1, th.chargeT / 0.7) : 0, dash: th.dashCd > 0 ? Math.min(1, th.dashCd / (0.95 * th.mods.dashCd)) : 0, defl: th.deflectCd > 0 ? Math.min(1, th.deflectCd / 0.85) : 0, ammo: th.alive ? th.ammo : 1 }); else Input.touch.sync(null); }
     const t1 = performance.now(); render(); const t2 = performance.now();
     prof.frames++; prof.sum += dt * 1000; prof.max = Math.max(prof.max, dt * 1000); prof.sim += t1 - t0; prof.rend += t2 - t1; if (dt > 0.034) prof.over++;
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { Game, HEROES, ARENAS, app, UI, S, Input, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) app.game && app.game.update(STEP); }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  window.__bg = { buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, UI, S, Input, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) app.game && app.game.update(STEP); }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }
