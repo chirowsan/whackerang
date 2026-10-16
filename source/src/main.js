@@ -106,7 +106,7 @@ function boot() {
   ['pointerdown', 'keydown', 'touchstart'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   resize(); app.startAttract(); UI.show('menu'); app.applyTouch();
-  if (location.protocol.startsWith('http')) { const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l); const i = document.createElement('link'); i.rel = 'apple-touch-icon'; i.href = 'icon-192.png'; document.head.appendChild(i); }
+  if (location.protocol.startsWith('http')) { const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l); const fv = document.createElement('link'); fv.rel = 'icon'; fv.href = 'icon-192.png'; document.head.appendChild(fv); const i = document.createElement('link'); i.rel = 'apple-touch-icon'; i.href = 'icon-192.png'; document.head.appendChild(i); }
   $('#loading').remove(); app.ready = true;
   if (app.isTouchDevice() && !S().settings.a2hs && !matchMedia('(display-mode: standalone)').matches) { setTimeout(() => { if (app.mode === 'menu') { UI.toast('Tip: Chrome ⋮ → Add to Home screen for full-screen play', 4200); S().settings.a2hs = true; save(); } }, 2600); }
   console.log('Boomerang Brawl', BUILD, gfx.quality, 'dpr', gfx.dprCur);
