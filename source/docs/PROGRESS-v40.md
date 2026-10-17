@@ -13,3 +13,8 @@
 - step4b: signed APK (3839668 B) + AAB (3708941 B) built, versionCode 40, same cert SHA256 6E:59:E1:4A as v3.3
 - step4c: minified release build (v4.0-20261017-1206) net_ui 24/24 re-passed; web dist built
 - step4d: net_life 25/25 + net_ui 24/24 on final minified release build; docs final; staging source zip + pages
+- step4e: pushed a2d7b6a to Pages; verifying live
+- FOUND real bug: live PeerJS broker closes the sender unless OFFER/ANSWER/CANDIDATE payloads have official shape (type:'data', connectionId, label/reliable/serialization); local relay accepted anything so tests missed it. Fixing in Signal.send
+- fix in src/net/rtc.js Signal.send (official PeerJS payload shape) + strict broker-mimic in relay.mjs; verified guest reaches lobby via REAL public broker (+local STUN); rebuilding release
+- step4f: rebuilt signed APK/AAB + dist as v4.0-20261017-1227 with broker fix; re-running net_life/net_ui/net_broker/smoke31 on final build
+- step4g: final build v4.0-20261017-1227: net_life 25/25 (1st run 2 timing flakes under load, rerun clean), net_ui 24/24, net_broker lobby ok, smoke31 0/0

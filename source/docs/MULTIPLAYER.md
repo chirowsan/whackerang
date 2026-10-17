@@ -36,9 +36,9 @@ Room codes are **5 consonants** (20^5 = 3.2 million) - deliberately a bit longer
 ## Signaling options evaluated
 | Option | Cost | Verdict |
 |---|---|---|
-| **PeerJS public broker** `wss://0.peerjs.com/peerjs` | free, no account | **Default.** Our own ~150-line client speaks its protocol (no library bundled). Best-effort public service, no SLA. Only the OPEN handshake was verified against the live broker from this box (see "Not verified"). |
+| **PeerJS public broker** `wss://0.peerjs.com/peerjs` | free, no account | **Default.** Our own ~150-line client speaks its protocol (no library bundled). Best-effort public service, no SLA. The signaling handshake (not a full match) was verified against the live broker from this box (see Results and "Not verified"). |
 | **Copy/paste codes** (`WKz.…`, offer/answer) | free, no server at all | **Built-in fallback** ("Can't connect? Use a code" in the online menu). Works when the broker is unreachable; clunky but needs nothing. Not trickle-ICE, so the code contains all candidates. |
-| **Own WebSocket relay** `server/relay/relay.mjs` | free to run locally; hosting needs an account/machine | Included, tested locally (all tests below used it). Same protocol, so it's a drop-in replacement. |
+| **Own WebSocket relay** `server/relay/relay.mjs` | free to run locally; hosting needs an account/machine | Included, tested locally (the match matrix used it). Same protocol, so it's a drop-in replacement. |
 | **Cloudflare Workers + Durable Objects relay** | free plan exists; needs a Cloudflare account | Best *optional* upgrade for independence from the PeerJS broker. **Not done - needs Chirow to create a free Cloudflare account.** |
 | Other free brokers / Firebase / Supabase / ably | free tiers but accounts + keys | Rejected for now (sign-up). |
 
@@ -73,11 +73,11 @@ Method details: see "How the tests were run" below.
 |---|---|
 | `net_life.mjs` (lifecycle / abuse) | **25 / 25 pass** |
 | `net_ui.mjs` (real clicks, 915x412 touch viewport) | **24 / 24 pass** |
-| Both of the above re-run on the final minified release build `v4.0-20261017-1206` | **25 / 25 and 24 / 24** (`net_*_release_build.txt`) |
+| Both of the above re-run on the final minified release build `v4.0-20261017-1206` | **25 / 25 and 24 / 24**, plus `smoke31` 0 failures / 0 errors (`*_release_build.txt`). Honest note: the first net_life run on this build had 2 timing-sensitive failures (name-sanitise check, bot-takeover check) while the box was busy; an immediate re-run passed 25/25 (both logs kept) |
 | `smoke31.mjs` (all modes x speeds, 12 campaign stages, tutorial, UI screens) | **0 failures, 0 console/page errors** |
 | `touch31.mjs` (real CDP touch events) | pass, no errors |
 | `v33test.mjs` (every hero, cameras, audio) | pass, no errors |
-| Live PeerJS broker, OPEN handshake (re-checked today from this box) | `{"type":"OPEN"}` received |
+| **Real public PeerJS broker, full signaling** (`tools/net_broker.mjs`: host + guest, OFFER/ANSWER/CANDIDATE through `wss://0.peerjs.com`, data path via local STUN) | guest reached the lobby, host saw 2 players, 0 errors (after the fix below) |
 
 ### Network matrix (players, mode, simulated one-way delay / loss) - 0 console errors in every run
 | Run | Sim s | Snaps/s guests get | Guest vs host snapshot compare | Notes |
@@ -98,10 +98,13 @@ No persistent crate/hole/item/coin mismatch (4+ consecutive seconds) in any run.
 
 Honest caveat on the metric: the snapshot comparison is exact for fighter position/alive/ammo/lives/score at the same tick, but guests see the world about 85-240 ms late by design, so the loose "state at the same wall second" columns always show small skew.
 
+### Bug found and fixed on release day: the live broker rejected our signaling
+All matrix runs used our own relay, which accepts any payload. Testing the deployed v4.0 build against the **real** PeerJS broker showed it silently closes the sender's socket when OFFER / ANSWER / CANDIDATE payloads are not in the official PeerJS shape (`type:"data"`, `connectionId`, plus `label` / `reliable:false` / `serialization` on OFFER). Our messages had only `sdp`/`cid`, so on the live broker every join ended in "room not found". Fix: `Signal.send` in `src/net/rtc.js` now adds the official fields (our own `cid` / `proto` still ride along), and `server/relay/relay.mjs` now rejects malformed payloads the same way the public broker does (`STRICT=0` turns that off), so the local tests would catch this regression. The first v4.0 push to Pages (build `v4.0-20261017-1206`) had this bug for about 25 minutes; it was replaced by the fixed build (see release notes).
+
 ## Not verified (read this before promising anything to players)
 * **Real internet.** Every connection test was on one machine (loopback). No test crossed a real router, ISP, or the public internet, and no two different networks were used. Latency/loss are simulated.
 * **Real phones.** Touch was tested with emulated touch events in desktop Chrome. No Android/iOS device was used to play online; mobile Safari/WebView WebRTC behaviour, battery, and background-tab throttling are unknown. (A backgrounded phone tab stops sending inputs and would hit the 6 s timeout.)
-* **Full public-broker handshake.** Only the broker's OPEN message was checked against the live PeerJS broker. A complete two-browser introduction through it was not run (all matches used our own relay, same protocol). The broker is a free best-effort service with no SLA and may be down or rate-limited at any time.
+* **Public broker in real conditions.** The full signaling handshake through the live PeerJS broker was run once per build from this box (both browsers on the same machine, local STUN for the data path). Matches themselves were not played through it, and a real two-network introduction was not run. The broker is a free best-effort service with no SLA and may be down or rate-limited at any time; the copy/paste code path is the fallback.
 * **Strict NAT / TURN.** Symmetric NAT / CGNAT / school or hotel networks were not tested. The community TURN servers listed in the code are unverified and may not accept the shared credentials; do not count on them. Without a working TURN, such pairs will see the "Couldn't connect" screen after about 25 s. The copy/paste code fallback still needs a direct path, so it does not fix strict NAT either.
 * **Would an account be needed for reliability?** Probably yes, eventually, for anything beyond a few friends. Reliable play needs (a) a signaling host we control (a free Cloudflare Workers relay needs a free Cloudflare account; our `relay.mjs` needs any always-on machine) and (b) a TURN relay with real credentials (coturn on a small VPS, or a paid/free-tier TURN provider, all requiring an account). I did **not** sign up for anything; v4.0 ships with zero accounts, which is why reliability for strict-NAT players is best-effort.
 * **More than 4 players, long sessions (> a few minutes), and many rooms at once** were not tested. Longest run: about 63 s of sim per run, 2 rounds.

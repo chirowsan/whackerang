@@ -1,0 +1,3 @@
+host {"code":"CFPDG","signal":true}
+guest [ 'lobby', 'null' ] hostPlayers 2 errs [[],[]]
+EXIT 0

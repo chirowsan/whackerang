@@ -1,6 +1,6 @@
 PASS main menu has Play online
 PASS online menu shows create/join + privacy note
-PASS lobby shows a 5-letter room code "ZKJDJ"
+PASS lobby shows a 5-letter room code "VKCCX"
 PASS join code field normalises to upper-case
 PASS share link ?room=CODE auto-joins the lobby
 PASS host lobby lists 2 players

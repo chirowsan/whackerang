@@ -28,7 +28,12 @@ export class Signal {
       };
     });
   }
-  send(type, dst, payload) { if (!this.open) return false; try { this.ws.send(JSON.stringify({ type, dst, payload })); return true; } catch (e) { return false; } }
+  send(type, dst, payload) {
+    if (!this.open) return false;
+    // The live PeerJS broker closes the sender unless OFFER/ANSWER/CANDIDATE payloads have the official PeerJS shape (type 'data' + connectionId, and label/reliable/serialization on OFFER). Our own fields (cid, proto) ride along.
+    if (payload && (type === 'OFFER' || type === 'ANSWER' || type === 'CANDIDATE')) { const cn = 'dc_' + (payload.cid || ''); payload = { ...payload, type: 'data', connectionId: cn }; if (type === 'OFFER') { payload.label = cn; payload.reliable = false; payload.serialization = 'binary'; } }
+    try { this.ws.send(JSON.stringify({ type, dst, payload })); return true; } catch (e) { return false; }
+  }
   close() { this.closed = true; this.open = false; clearInterval(this.hb); try { this.ws && this.ws.close(); } catch (e) {} }
 }
 

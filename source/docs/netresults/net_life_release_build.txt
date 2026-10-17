@@ -1,11 +1,11 @@
-PASS host opens room via signaling "SNSCJ"
+PASS host opens room via signaling "THLRS"
 PASS two guests join lobby
 PASS lobby lists 3 players
 PASS third guest joins (room of 4)
 PASS fifth player rejected: room full "reject:full"
 PASS wrong game version rejected "reject:version"
 PASS unknown room code gives "no-room" "no-room"
-PASS profane name replaced + invalid cosmetics sanitised by host {"slot":1,"name":"Jolly Jelly","hero":"bao","hat":"none","skin":"default","trail":"none","ready":false,"team":1,"host":false,"conn":true,"ping":10,"rematch":false}
+PASS profane name replaced + invalid cosmetics sanitised by host {"slot":1,"name":"Wacky Wombat","hero":"bao","hat":"none","skin":"default","trail":"none","ready":false,"team":1,"host":false,"conn":true,"ping":1,"rematch":false}
 PASS safe name with markup stripped
 PASS malformed/oversize packets ignored (host alive, no console errors) []
 PASS message flood from a guest gets them removed (rate limit) {"stillThere":false}
@@ -21,7 +21,7 @@ PASS rejoined player controls their fighter again ["human",false]
 PASS same client id was used
 PASS host leaves: guests are told the room closed {"code":"ended","msg":"The host closed the room.","canRejoin":false}
 PASS guests are back at the menu with a message screen
-PASS host drops (tab killed): guest gets "lost connection" message {"afterMs":7102,"msg":"Lost connection to the host."}
+PASS host drops (tab killed): guest gets "lost connection" message {"afterMs":7088,"msg":"Lost connection to the host."}
 PASS no console errors in any client [[],[],[],[],[],[],[]]
 {"summary":{"pass":25,"fail":0}}
 EXIT 0

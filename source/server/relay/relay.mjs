@@ -10,6 +10,7 @@ const ORIGINS = (process.env.ORIGINS || '').split(',').map((s) => s.trim()).filt
 const clients = new Map(); // id -> ws
 const server = http.createServer((req, res) => { if (req.url.startsWith('/healthz')) { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok ' + clients.size); } else { res.writeHead(404); res.end(); } });
 const wss = new WebSocketServer({ server, path: '/peerjs', maxPayload: MAX_MSG, verifyClient: (i) => !ORIGINS.length || !i.origin || ORIGINS.includes(i.origin) });
+const STRICT = process.env.STRICT !== '0';
 const TYPES = new Set(['OFFER', 'ANSWER', 'CANDIDATE', 'LEAVE', 'EXPIRE']);
 wss.on('connection', (ws, req) => {
   const u = new URL(req.url, 'http://x'); const id = (u.searchParams.get('id') || '').slice(0, 64); const token = u.searchParams.get('token') || '';
@@ -19,6 +20,8 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (data) => {
     ws.alive = Date.now(); const t = Date.now(); if (t - ws.win > 1000) { ws.win = t; ws.n = 0; } if (++ws.n > RATE) return;
     let m; try { m = JSON.parse(data.toString()); } catch (e) { return; } if (!m || typeof m.type !== 'string') return; if (m.type === 'HEARTBEAT') return; if (!TYPES.has(m.type) || typeof m.dst !== 'string') return;
+    // Mimic the public PeerJS broker (observed Oct 2026): it closes the sender when OFFER/ANSWER/CANDIDATE payloads lack the official shape. Keeping this on locally means tests catch wire-format regressions. STRICT=0 disables.
+    if (STRICT && (m.type === 'OFFER' || m.type === 'ANSWER' || m.type === 'CANDIDATE')) { const q = m.payload; const ok = q && typeof q === 'object' && q.type === 'data' && typeof q.connectionId === 'string' && (m.type !== 'OFFER' || (typeof q.label === 'string' && typeof q.serialization === 'string' && q.reliable === false)); if (!ok) { ws.close(1000); return; } }
     const dst = clients.get(m.dst); if (!dst || dst.readyState !== 1) { ws.send(JSON.stringify({ type: 'EXPIRE', src: m.dst, dst: id })); return; }
     dst.send(JSON.stringify({ type: m.type, src: id, dst: m.dst, payload: m.payload }));
   });
