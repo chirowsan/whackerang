@@ -110,7 +110,8 @@ export class ArenaView {
   addCrate(i, j) { const g = buildCrate(this.id); g.position.set(cx(i), 0, cz(j)); this.root.add(g); this.crates.set(idx(i, j), g); return g; }
   addSpike(i, j) {
     const g = new THREE.Group(); g.position.set(cx(i), 0.01, cz(j)); this.root.add(g);
-    mesh(BOXG, toon(0x3a3340), g, { pos: [0, 0.02, 0], scale: [0.92, 0.05, 0.92], cast: false });
+    mesh(BOXG, toon(0x4a0a10), g, { pos: [0, 0.02, 0], scale: [0.92, 0.05, 0.92], cast: false });
+    { const bm = new THREE.MeshBasicMaterial({ color: 0xff3a1a }); for (const [a, b, w, d] of [[0, -0.47, 0.98, 0.08], [0, 0.47, 0.98, 0.08], [-0.47, 0, 0.08, 0.86], [0.47, 0, 0.08, 0.86]]) { const o = new THREE.Mesh(BOXG, bm); o.position.set(a, 0.05, b); o.scale.set(w, 0.03, d); g.add(o); } }
     const cones = new THREE.Group(); g.add(cones); const cm = toon(0xd8dde8);
     for (const [a, b] of [[-0.26, -0.26], [0.26, -0.26], [-0.26, 0.26], [0.26, 0.26], [0, 0]]) mesh(new THREE.ConeGeometry(0.1, 0.6, 6), cm, cones, { pos: [a, 0.3, b], cast: false });
     this.spikes.push({ i, j, cones, g }); cones.position.y = -0.7;

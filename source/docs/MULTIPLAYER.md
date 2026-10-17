@@ -2,9 +2,8 @@
 
 Friends-only online play for 2-4 players. Everything is free: no server of ours, no accounts, nothing paid.
 
-## What the player sees
-Main menu > **Play online** > *Create room* (5-letter code + share link) or *Join with code*. Opening `https://chirowsan.github.io/whackerang/?room=CODE` auto-joins.
-Lobby: player list with ping bars, hero pick, ready-up, host chooses mode / arena / speed (Chill default) / rounds, bots fill empty seats, 6 preset emotes.
+## What the player sees (v4.1)
+Main menu > **Play online** > two big buttons. **Create room**: straight to a lobby with a huge 4-letter code, Share (native share sheet, falls back to copying the `?room=CODE` link) and Start. Defaults: Classic, Chill, Medium bots fill empty seats, hero auto-picked (no two players get the same hero), guests auto-ready. A small **Options** button holds name, hero, emotes and the host settings (mode, arena, speed, rounds, add a bot). **Join room**: four big boxes with the keyboard open; the 4th letter joins automatically; a wrong code shows a red error and lets you retype. Opening `https://chirowsan.github.io/whackerang/?room=CODE` auto-joins. Codes are 4 consonants (old 5-letter codes still join).
 Online modes: Classic, Team, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag, Crumble.
 Not online: Campaign, Survival, Boss Rush (they depend on dynamic enemy waves). Boomerang type is forced to the classic boomerang online.
 After a match: rematch (starts when every connected human, host included, votes) or back to lobby (host).

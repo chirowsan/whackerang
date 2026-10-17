@@ -1,0 +1,34 @@
+PASS main menu has Play online
+PASS online screen: exactly two big buttons (Create room, Join room), no inputs
+PASS Create room goes straight to a lobby with a 4-letter code "GDDL"
+PASS lobby has Share and Start, no advanced options visible
+PASS defaults: Classic, Chill, Medium bots, bots fill
+PASS Start is enabled for a lone host (bots fill)
+PASS code is huge (>= 50px tall letters) {"h":76.5,"w":282.90625}
+PASS join screen shows 4 boxes and the keyboard field is focused
+PASS wrong code: clear "Room not found" error on the join screen
+PASS 4th letter auto-joins (no Join press), guest is in the lobby
+PASS host lobby lists 2 players
+PASS guest is auto-ready: host START not locked, no Ready button
+PASS guest got a different fighter than the host
+PASS Options overlay opens with emotes + fighter
+EMODBG ["eb0:","eb1:🔥"]
+PASS lobby emote shows on the host screen ["eb0:","eb1:🔥"]
+PASS host Options has mode/arena/speed
+PASS team mode shows team colours in the lobby
+PASS both clients are in the match
+PASS touch controls active on the phone viewport
+PASS ping chip visible in match
+PASS in-match menu: no pause online, offers leave
+PASS results screen on both with rewards
+PASS host won, guest lost (host-validated result) {"hostWon":true,"guestWon":false}
+PASS online gold capped per match {"won":true,"coins":0,"xp":5,"kos":0,"capped":false,"time":1,"ups":[]}
+PASS rematch starts a new match when everybody votes
+PASS host returns everyone to the lobby
+PASS guest leaves: back to main menu
+PASS host sees the guest leave
+PASS share link ?room=CODE still auto-joins the lobby
+PASS host closes room: back to main menu
+PASS single-player still starts after online
+PASS no console errors [[],[]]
+{"summary":{"pass":32,"fail":0}}

@@ -16,18 +16,19 @@ const PRIVACY = 'Friends only: you share a short room code. No chat, no voice, n
 
 export const ERR = {
   'no-signal': ['Can\u2019t reach the room service', 'The free room-code service could not be reached from this network (it may be blocked or offline). You can still play by swapping codes by hand: use \u201CConnect without server\u201D. Or try another network.'],
-  'no-room': ['Room not found', 'No open room has that code. Check the 5 letters and ask the host to keep their lobby open, then try again.'],
+  'no-room': ['Room not found', 'Check the 4 letters. The host must keep their room open.'],
   nat: ['Couldn\u2019t connect directly', 'Your network and the host\u2019s network could not make a direct link. Strict mobile or school/office networks sometimes block this, and a relay (TURN) isn\u2019t free. Try: switch Wi-Fi \u2194 mobile data, use a phone hotspot, or let another friend host.'],
-  'reject:version': ['Different game version', 'Your game and the host\u2019s game are different versions. Reload the page (or update the app) and try again.'],
+  'reject:version': ['Different game version', 'Your game and the host\u2019s game are different versions. Reload the page (or update the app).'],
   'reject:full': ['Room is full', 'This room already has 4 players.'],
-  'reject:locked': ['Match in progress', 'A match is already running in that room. Ask the host to open the lobby, then join again.'],
-  'bad-code': ['Check the code', 'Room codes have 5 letters (no vowels), like BKTQM.'],
+  'reject:locked': ['Match in progress', 'A match is running. Ask the host to go back to the lobby.'],
+  'bad-code': ['Check the code', 'Room codes have 4 letters, like BKTQ.'],
   'no-webrtc': ['Online play isn\u2019t supported here', 'This browser doesn\u2019t support WebRTC. Try Chrome on Android or desktop.'],
   error: ['Something went wrong', 'The connection could not be set up. Please try again.'],
   ended: ['Room closed', ''],
 };
 
 let notes = null; // transient messages shown in the lobby
+let optsOpen = false; // host/guest lobby Options overlay
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t); return true; } catch (e) { try { const ta = h('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (x) { return false; } } };
 const shareRoom = async () => { const url = shareLink(Net.code); try { if (navigator.share) { await navigator.share({ title: 'Whackerang', text: `Join my Whackerang room ${Net.code}`, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } UI.toast((await copyText(url)) ? 'Link copied! Send it to your friends.' : url, 2400); };
@@ -47,25 +48,36 @@ const startHost = async () => {
   try { await Net.host(); UI.show('netLobby'); } catch (e) { UI.show('netMsg', { err: { code: e.message === 'no-webrtc' ? 'no-webrtc' : 'error' } }); }
 };
 const startJoin = async (raw) => {
-  const code = normCode(raw); if (!validCode(code)) { sfx('deny'); return UI.toast(`Room codes have ${CODE_LEN} letters`, 1800); }
+  const code = normCode(raw); if (!validCode(code)) { sfx('deny'); return UI.show('netJoin', { err: { code: 'bad-code' } }); }
   if (!rtcSupported()) return UI.show('netMsg', { err: { code: 'no-webrtc' } });
   UI.show('netConnect', { title: `Joining room ${code}...` });
-  try { await Net.join(code); } catch (e) { UI.show('netMsg', { err: { code: e.message === 'bad-code' ? 'bad-code' : 'error' }, wasJoin: true }); }
+  try { await Net.join(code); } catch (e) { UI.show(e.message === 'bad-code' ? 'netJoin' : 'netMsg', { err: { code: e.message === 'bad-code' ? 'bad-code' : 'error' }, wasJoin: true }); }
 };
 
 Object.assign(UI, {
   netMenu(p) {
-    const a = this.app; const el = h('div', 'screen page netscr'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Play online')); hd.appendChild(this.coinChip()); el.appendChild(hd);
-    const pn = h('div', 'panel net-panel scroll'); const nm = nameRow(); pn.appendChild(nm.row);
-    const cr = h('div', 'net-actions');
-    cr.appendChild(this.btn('<b>Create room</b><small>You host, friends join with a code</small>', 'primary big netbtn', () => { nm.commit(); startHost(); }, { id: 'net-create' }));
-    const jr = h('div', 'net-join'); const inp = h('input', 'code-in', null, { type: 'text', maxlength: 9, placeholder: 'ROOM CODE', autocomplete: 'off', autocapitalize: 'characters', spellcheck: 'false', id: 'net-code', 'aria-label': 'Room code', inputmode: 'text' });
-    inp.addEventListener('input', () => { const c = normCode(inp.value); inp.value = c; go.classList.toggle('locked', !validCode(c)); }); inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') go.click(); });
-    const go = this.btn('Join ▶', 'primary netgo locked', () => { nm.commit(); startJoin(inp.value); }, { id: 'net-join' });
-    jr.appendChild(inp); jr.appendChild(go); cr.appendChild(jr); pn.appendChild(cr);
-    const alt = h('div', 'net-alt'); alt.appendChild(this.btn('Connect without server (swap codes)', 'small', () => this.show('netManual', {}), { id: 'net-manual' })); pn.appendChild(alt);
-    pn.appendChild(h('div', 'net-priv', '🔒 ' + esc(PRIVACY))); el.appendChild(pn);
-    if (p && p.auto) { const c = normCode(p.auto); inp.value = c; setTimeout(() => { if (UI.cur === 'netMenu') startJoin(c); }, 120); }
+    const el = h('div', 'screen page netscr netmenu2'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Play online')); hd.appendChild(this.coinChip()); el.appendChild(hd);
+    const pn = h('div', 'nm2'); const row = h('div', 'nm2-btns');
+    row.appendChild(this.btn('<i class="nm2-ic">➕</i><b>Create room</b>', 'primary nm2-btn', () => startHost(), { id: 'net-create' }));
+    row.appendChild(this.btn('<i class="nm2-ic">🔑</i><b>Join room</b>', 'nm2-btn nm2-join', () => this.show('netJoin'), { id: 'net-joinroom' }));
+    pn.appendChild(row); pn.appendChild(h('div', 'nm2-priv', '🔒 Friends only. No chat, no strangers.')); el.appendChild(pn);
+    if (p && p.auto) { const c = normCode(p.auto); setTimeout(() => { if (UI.cur === 'netMenu') startJoin(c); }, 120); }
+    return el;
+  },
+  netJoin(p) {
+    const el = h('div', 'screen page netscr netjoin2'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('netMenu'))); hd.appendChild(h('h2', '', 'Join room')); el.appendChild(hd);
+    const pn = h('div', 'nj2'); pn.appendChild(h('div', 'nj2-hint', 'Type the 4-letter code'));
+    const boxes = h('div', 'nj2-boxes'); const bx = []; for (let i = 0; i < CODE_LEN; i++) { const b = h('div', 'nj2-box'); bx.push(b); boxes.appendChild(b); }
+    const inp = h('input', 'nj2-in', null, { type: 'text', maxlength: 5, autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', inputmode: 'text', enterkeyhint: 'go', id: 'net-code', 'aria-label': 'Room code' });
+    boxes.appendChild(inp); pn.appendChild(boxes);
+    const err = h('div', 'nj2-err', '', { id: 'net-joinerr' }); pn.appendChild(err);
+    let old = (p && p.err && Net.lastCode) ? Net.lastCode.slice(0, CODE_LEN) : ''; const paint = () => { const c = normCode(inp.value) || old; bx.forEach((b, i) => { b.textContent = c[i] || ''; b.classList.toggle('on', i === Math.min(c.length, CODE_LEN - 1) && !err.textContent); b.classList.toggle('fill', !!c[i]); }); };
+    let fired = false; inp.addEventListener('input', () => { old = ''; const c = normCode(inp.value); inp.value = c; err.textContent = ''; boxes.classList.remove('bad'); paint(); if (c.length === CODE_LEN && !fired) { fired = true; startJoin(c); } });
+    inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { const c = normCode(inp.value); if (validCode(c) && !fired) { fired = true; startJoin(c); } } });
+    boxes.addEventListener('pointerdown', () => setTimeout(() => inp.focus(), 0));
+    if (p && p.err) { const [t, m] = ERR[p.err.code] || ERR.error; err.innerHTML = `<b>${esc(t)}</b>${m ? `<small>${esc(m)}</small>` : ''}`; boxes.classList.add('bad'); sfx('deny'); }
+    paint(); pn.appendChild(err); el.appendChild(pn);
+    setTimeout(() => { try { inp.focus({ preventScroll: true }); } catch (e) {} }, 80); setTimeout(() => { if (UI.cur === 'netJoin' && document.activeElement !== inp) { try { inp.focus(); } catch (e) {} } }, 400);
     return el;
   },
   netConnect(p) {
@@ -81,56 +93,59 @@ Object.assign(UI, {
     if (p.wasJoin && e.code !== 'bad-code' && e.code !== 'reject:version' && e.code !== 'no-webrtc') b.appendChild(this.btn('Try again', e.code === 'no-signal' ? '' : 'primary', () => (Net.lastCode ? startJoin(Net.lastCode) : this.show('netMenu'))));
     b.appendChild(this.btn('Online menu', '', () => this.show('netMenu'))); b.appendChild(this.btn('Main menu', 'back', () => this.show('menu'), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
   },
-  // ---- lobby
+  // ---- lobby (v4.1: code + share + start; everything else under Options)
   netLobby() {
     const a = this.app, s = S(); const isHost = Net.isHost; const L = Net.lobby; const me = Net.me(); const set = L.settings || Net.defaultSettings();
-    const key = [s.hero, s.hats[s.hero], s.eq.skin, s.eq.trail, s.settings.onlineName].join('|'); if (Net._pk !== key) { Net._pk = key; if (me) setTimeout(() => Net.active && Net.setMine(), 0); }
-    const el = h('div', 'screen page netscr netlobby'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('netLeave'))); hd.appendChild(h('h2', '', 'Lobby')); 
-    const cc = h('div', 'codechip'); cc.innerHTML = `<small>ROOM CODE</small><b id="lobby-code">${esc(Net.code)}</b>`; hd.appendChild(cc);
-    if (Net.code !== 'MANUAL') { hd.appendChild(this.btn('📤 Share link', 'small gold', () => shareRoom(), { id: 'net-share' })); hd.appendChild(this.btn('Copy code', 'small', async () => { UI.toast((await copyText(Net.code)) ? 'Code copied' : Net.code, 1400); })); }
-    else if (isHost) hd.appendChild(h('div', 'chip dimc', 'No room service: add friends by code'));
-    el.appendChild(hd);
-    const body = h('div', 'netbody'); const left = h('div', 'panel netplayers'); const right = h('div', 'panel netset scroll');
-    // players
-    const teamy = TEAM_MODES.includes(set.mode); const list = h('div', 'plist');
+    const key = [s.hero, s.hats[s.hero], s.eq.skin, s.eq.trail, s.settings.onlineName].join('|'); if (Net._pk !== key) { const first = Net._pk === undefined || Net._pk === null; Net._pk = key; if (me && !first) setTimeout(() => Net.active && Net.setMine(), 0); }
+    if (!s.settings.onlineName) { s.settings.onlineName = randomPreset(); save(); }
+    const el = h('div', 'screen page netscr netlobby nl2' + (optsOpen ? ' opts' : '')); const hd = h('header'); const bk = this.backBtn(() => this.show('netLeave')); bk.id = 'net-leave'; hd.appendChild(bk); hd.appendChild(h('h2', '', isHost ? 'Your room' : 'Room')); hd.appendChild(this.btn('⚙ Options', 'small', () => { optsOpen = true; this.show('netLobby'); }, { id: 'net-options' })); el.appendChild(hd);
+    const main = h('div', 'nl2-main');
+    if (Net.code !== 'MANUAL') {
+      const cc = h('div', 'nl2-code'); cc.innerHTML = `<small>${isHost ? 'FRIENDS TYPE THIS CODE' : 'ROOM'}</small><b id="lobby-code">${esc(Net.code)}</b>`; main.appendChild(cc);
+      if (isHost) main.appendChild(this.btn('📤 Share', 'gold big nl2-share', () => shareRoom(), { id: 'net-share' }));
+    } else main.appendChild(h('div', 'nl2-nocode', 'No room service reachable.<br>Tap <b>Options</b> &gt; <b>Add friend by code</b>.'));
+    const list = h('div', 'nl2-players'); const teamy = TEAM_MODES.includes(set.mode);
     for (let sl = 0; sl < 4; sl++) {
       const p = L.players.find((q) => q.slot === sl && q.conn !== false); const row = h('div', 'prow' + (p ? '' : ' empty') + (p && p.slot === Net.mySlot ? ' me' : ''), null, { 'data-slot': sl });
       if (p) {
         const hero = HEROES.find((x) => x.id === p.hero) || HEROES[0]; row.appendChild(h('img', 'pimg', null, { src: portrait(hero, p.hat || 'none'), alt: hero.name }));
-        const info = h('div', 'pinfo', `<b>${esc(p.name)}</b><small>${esc(hero.name)}${p.host ? ' · HOST' : ''}</small>`); row.appendChild(info);
-        if (teamy) { const tb = h('button', 'tmb t' + p.team, p.team === 0 ? 'CYAN' : 'PINK', { 'data-nav': 1 }); if (p.slot === Net.mySlot) tb.addEventListener('click', () => { sfx('click'); Net.setMine({ team: 1 - p.team }); }); else tb.disabled = true; row.appendChild(tb); }
-        const st = h('div', 'pst', ''); st.innerHTML = (p.host ? '<span class="rdy on">★</span>' : `<span class="rdy ${p.ready ? 'on' : ''}">${p.ready ? '✓ READY' : '...'}</span>`) + `<span class="pg" data-ping="${p.slot}">${bars(p.host ? 0 : p.ping)}</span>`; row.appendChild(st);
+        row.appendChild(h('div', 'pinfo', `<b>${esc(p.name)}</b><small>${p.host ? 'HOST' : (p.slot === Net.mySlot ? 'YOU' : 'READY')}${teamy ? ' · ' + (p.team === 0 ? 'CYAN' : 'PINK') : ''}</small>`));
+        const st = h('div', 'pst', ''); st.innerHTML = `<span class="pg" data-ping="${p.slot}">${bars(p.host ? 0 : p.ping)}</span>`; row.appendChild(st);
         if (isHost && !p.host) { const kb = h('button', 'kick', '✕', { title: 'Remove player', 'data-nav': 1 }); kb.addEventListener('click', () => { sfx('click'); const pe = Net.H.slots[p.slot]; Net.kick(pe, 'kicked'); }); row.appendChild(kb); }
         row.appendChild(h('div', 'ebub', '', { id: 'eb' + sl }));
-      } else row.appendChild(h('div', 'pinfo', '<b>Open slot</b><small>' + (set.bots ? 'A bot will play here' : 'Waiting for a friend') + '</small>'));
+      } else row.appendChild(h('div', 'pinfo', '<b>' + (set.bots ? 'Bot' : 'Empty') + '</b><small>' + (set.bots ? 'fills this seat' : 'waiting') + '</small>'));
       list.appendChild(row);
     }
-    left.appendChild(list);
-    const em = h('div', 'emorow'); LOBBY_EMOJI.forEach((e, i) => { const b = h('button', 'emo', e, { 'data-nav': 1, 'aria-label': 'emote ' + (i + 1) }); b.addEventListener('click', () => { Net.lobbyEmoji(i); sfx('click'); }); em.appendChild(b); }); left.appendChild(em);
-    if (isHost && Net.code !== 'MANUAL' || isHost) left.appendChild(this.btn('➕ Add friend by code', 'small', () => this.show('netManual', { host: true }), { id: 'net-addman' }));
-    const nt = h('div', 'net-notes', '', { id: 'net-notes' }); left.appendChild(nt); if (Net.status) nt.textContent = Net.status;
-    // settings
-    right.appendChild(h('h4', '', isHost ? 'Match settings' : 'Match settings (host picks)'));
-    const segN = (label, k, opts) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([val, t]) => { const b = h('button', set[k] === val ? 'on' : '', t, { 'data-nav': 1 }); if (isHost) b.addEventListener('click', () => { sfx('click'); Net.setSetting(k, val); }); else b.disabled = true; sg.appendChild(b); }); r.appendChild(sg); return r; };
-    const mr = h('div', 'row', '<span>Mode</span>'); const ms = h('div', 'modechips'); ONLINE_MODES.forEach((m) => { const M = MODES[m]; const b = h('button', 'mchip' + (set.mode === m ? ' on' : ''), `${M.icon} ${M.name}`, { 'data-nav': 1, 'data-mode': m }); if (isHost) b.addEventListener('click', () => { sfx('click'); Net.setSetting('mode', m); }); else b.disabled = true; ms.appendChild(b); }); mr.appendChild(ms); mr.style.cssText = 'flex-direction:column;align-items:stretch'; right.appendChild(mr);
-    right.appendChild(h('div', 'note-line', MODES[set.mode].blurb.replace('You and a bot partner vs two bots.', 'Two teams of two.').replace(' 2v2 with a bot partner.', ' Two teams of two.')));
-    right.appendChild(segN('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]));
-    if (['classic', 'team', 'crumble'].includes(set.mode)) right.appendChild(segN('First to', 'rounds', [[1, '1'], [2, '2'], [3, '3'], [5, '5']]));
-    right.appendChild(segN('Empty slots', 'bots', [[true, 'Bots'], [false, 'None']]));
-    if (set.bots) right.appendChild(segN('Bot skill', 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
-    if (!MODES[set.mode].size) right.appendChild(segN('Map size', 'size', [['small', 'Small'], ['large', 'Large']]));
-    if (!MODES[set.mode].noTraps) right.appendChild(segN('Traps', 'traps', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
-    right.appendChild(segN('Arena events', 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
-    right.appendChild(segN('Daily twist', 'mutator', [['off', 'Off'], ['daily', todayMutator().name]]));
-    { const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt'); [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', set.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id] || ARENA_SW.random}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); if (isHost) b.addEventListener('click', () => { sfx('click'); Net.setSetting('arena', A.id); }); else b.disabled = true; ao.appendChild(b); }); ar.appendChild(ao); ar.style.cssText = 'flex-direction:column;align-items:stretch'; right.appendChild(ar); }
-    right.appendChild(h('div', 'net-priv', '🔒 ' + esc(PRIVACY)));
-    body.appendChild(left); body.appendChild(right); el.appendChild(body); setTimeout(() => { for (const k in emoRecent) if (performance.now() - emoRecent[k].t < 1500) flash(+k, emoRecent[k].e); }, 0);
-    // footer
-    const ft = h('div', 'netfoot'); const hero = this.heroById(s.hero);
-    ft.appendChild(this.btn(`Fighter: <b>${esc(hero.name)}</b> · Change`, 'small', () => this.show('heroes', { mode: 'pick', ret: 'netLobby' }), { id: 'net-hero' }));
-    if (isHost) { const can = Net.canStart(); const st = this.btn('▶ START', 'primary' + (can ? '' : ' locked'), () => { if (!Net.canStart()) { sfx('deny'); return UI.toast('Waiting for everyone to press Ready', 1800); } Net.startMatch(); }, { id: 'net-start' }); ft.appendChild(st); }
-    else { const rd = me && me.ready; ft.appendChild(this.btn(rd ? '✓ Ready (tap to undo)' : 'Ready!', rd ? 'gold' : 'primary', () => Net.setReady(!rd), { id: 'net-ready' })); }
-    ft.appendChild(this.btn('Leave', 'hot small', () => this.show('netLeave'), { id: 'net-leave' })); el.appendChild(ft); return el;
+    main.appendChild(list); main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); el.appendChild(main);
+    const ft = h('div', 'netfoot nl2-foot');
+    if (isHost) { const can = Net.canStart(); ft.appendChild(this.btn('▶ START', 'primary big nl2-start' + (can ? '' : ' locked'), () => { if (!Net.canStart()) { sfx('deny'); return UI.toast('Need at least 2 players, or turn bots on in Options', 1800); } Net.startMatch(); }, { id: 'net-start' })); }
+    else ft.appendChild(h('div', 'nl2-wait', 'Waiting for the host to start<i>.</i><i>.</i><i>.</i>', { id: 'net-wait' }));
+    el.appendChild(ft);
+    if (Net.status) { const nt = el.querySelector('#net-notes'); if (nt) nt.textContent = Net.status; }
+    // ---- options overlay
+    const ov = h('div', 'nl2-ov'); const box = h('div', 'panel nl2-box'); const oh = h('div', 'nl2-oh'); oh.appendChild(h('h3', '', 'Options')); oh.appendChild(this.btn('Done', 'primary small', () => { optsOpen = false; this.show('netLobby'); }, { id: 'net-options-done' })); box.appendChild(oh);
+    const body = h('div', 'nl2-ob scroll'); const nm = nameRow(); body.appendChild(nm.row); nm.row.querySelector('input').addEventListener('change', () => setTimeout(() => Net.active && Net.setMine(), 0));
+    const hero = this.heroById(s.hero); body.appendChild(this.btn(`Fighter: <b>${esc(hero.name)}</b> · Change`, 'small', () => this.show('heroes', { mode: 'pick', ret: 'netLobby' }), { id: 'net-hero' }));
+    const em = h('div', 'emorow'); LOBBY_EMOJI.forEach((e, i) => { const b = h('button', 'emo', e, { 'data-nav': 1, 'aria-label': 'emote ' + (i + 1) }); b.addEventListener('click', () => { Net.lobbyEmoji(i); sfx('click'); }); em.appendChild(b); }); body.appendChild(em);
+    if (isHost) {
+      body.appendChild(h('h4', '', 'Match settings'));
+      const segN = (label, k, opts) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([val, t]) => { const b = h('button', set[k] === val ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); Net.setSetting(k, val); }); sg.appendChild(b); }); r.appendChild(sg); return r; };
+      const mr = h('div', 'row', '<span>Mode</span>'); const ms = h('div', 'modechips'); ONLINE_MODES.forEach((m) => { const M = MODES[m]; const b = h('button', 'mchip' + (set.mode === m ? ' on' : ''), `${M.icon} ${M.name}`, { 'data-nav': 1, 'data-mode': m }); b.addEventListener('click', () => { sfx('click'); Net.setSetting('mode', m); }); ms.appendChild(b); }); mr.appendChild(ms); body.appendChild(mr);
+      body.appendChild(h('div', 'note-line', MODES[set.mode].blurb.replace('You and a bot partner vs two bots.', 'Two teams of two.').replace(' 2v2 with a bot partner.', ' Two teams of two.')));
+      body.appendChild(segN('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]));
+      if (['classic', 'team', 'crumble'].includes(set.mode)) body.appendChild(segN('First to', 'rounds', [[1, '1'], [2, '2'], [3, '3'], [5, '5']]));
+      body.appendChild(segN('Empty slots', 'bots', [[true, 'Bots'], [false, 'None']]));
+      if (set.bots) body.appendChild(segN('Bot skill', 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
+      if (!MODES[set.mode].size) body.appendChild(segN('Map size', 'size', [['small', 'Small'], ['large', 'Large']]));
+      if (!MODES[set.mode].noTraps) body.appendChild(segN('Traps', 'traps', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
+      body.appendChild(segN('Arena events', 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
+      body.appendChild(segN('Daily twist', 'mutator', [['off', 'Off'], ['daily', todayMutator().name]]));
+      { const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt'); [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', set.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id] || ARENA_SW.random}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); Net.setSetting('arena', A.id); }); ao.appendChild(b); }); ar.appendChild(ao); body.appendChild(ar); }
+      body.appendChild(this.btn('➕ Add friend by code (no server)', 'small', () => this.show('netManual', { host: true }), { id: 'net-addman' }));
+    } else body.appendChild(h('div', 'note-line', 'The host picks the mode and settings.'));
+    body.appendChild(h('div', 'net-priv', '🔒 ' + esc(PRIVACY))); box.appendChild(body); ov.appendChild(box); el.appendChild(ov);
+    setTimeout(() => { for (const k in emoRecent) if (performance.now() - emoRecent[k].t < 1500) flash(+k, emoRecent[k].e); }, 0);
+    return el;
   },
   netLeave() {
     const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', Net.isHost ? 'Close the room?' : 'Leave the room?')); d.appendChild(h('p', 'net-m', Net.isHost ? 'You are the host. Leaving closes the room for everyone.' : 'You can rejoin with the code while the host keeps the room open.'));

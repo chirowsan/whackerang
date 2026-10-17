@@ -1,0 +1,58 @@
+migration {"migrated":["chill",true,31,77,2],"afterSaveFastReload":"chill","stored":"chill"}
+classic chill dojo/small: state=roundEnd playT=9s ts=0.62 alive=1/2 kos=0,3 traps=4
+team chill rooftop/large: state=roundEnd playT=4s ts=0.62 alive=1/4 kos=1,0,1,0 traps=12
+survival chill jungle/huge: state=play playT=41s ts=0.62 alive=5/5 kos=5,0,0,0,0 traps=13
+koth chill ice/small: state=play playT=39s ts=0.62 alive=3/4 kos=2,0,1,5 traps=6
+bomb chill volcano/large: state=roundEnd playT=21s ts=0.62 alive=1/3 kos=0,0,0 traps=12
+ctf chill pirate/huge: state=play playT=40s ts=0.62 alive=4/4 kos=2,1,1,2 traps=7
+coins chill space/small: state=play playT=40s ts=0.62 alive=4/4 kos=6,3,3,4 traps=6
+ball chill haunted/large: state=play playT=41s ts=0.62 alive=4/4 kos=0,0,0,0 traps=12
+crumble chill dojo/huge: state=roundEnd playT=7s ts=0.62 alive=1/3 kos=1,1,1 traps=14
+bossrush chill rooftop/small: state=roundEnd playT=34s ts=0.62 alive=3/4 kos=0,3,1,1 traps=8
+classic normal jungle/large: state=roundEnd playT=10s ts=0.8 alive=1/2 kos=1,2 traps=8
+team normal ice/huge: state=roundEnd playT=27s ts=0.8 alive=1/4 kos=0,2,0,0 traps=20
+survival normal volcano/small: state=play playT=29s ts=0.8 alive=1/2 kos=2,1 traps=7
+koth normal pirate/large: state=play playT=28s ts=0.8 alive=2/4 kos=1,2,4,1 traps=9
+bomb normal space/huge: state=play playT=29s ts=0.8 alive=2/3 kos=0,0,0 traps=26
+ctf normal haunted/small: state=play playT=28s ts=0.8 alive=3/4 kos=5,3,1,0 traps=10
+coins normal dojo/large: state=play playT=28s ts=0.8 alive=3/4 kos=3,0,2,2 traps=4
+ball normal rooftop/huge: state=play playT=29s ts=0.8 alive=4/4 kos=0,0,0,0 traps=12
+crumble normal jungle/small: state=roundEnd playT=3s ts=0.8 alive=0/4 kos=0,1,1,1 traps=5
+bossrush normal ice/large: state=play playT=28s ts=0.8 alive=3/3 kos=1,2,0 traps=12
+classic fast volcano/huge: state=roundEnd playT=3s ts=1 alive=1/4 kos=0,0,1,1 traps=25
+team fast pirate/small: state=roundEnd playT=16s ts=1 alive=1/3 kos=1,1,0 traps=5
+survival fast space/large: state=play playT=36s ts=1 alive=4/4 kos=2,0,0,0 traps=18
+koth fast haunted/huge: state=play playT=34s ts=1 alive=3/4 kos=0,0,6,7 traps=16
+bomb fast dojo/small: state=roundEnd playT=26s ts=1 alive=1/2 kos=0,0 traps=3
+ctf fast rooftop/large: state=play playT=36s ts=1 alive=4/4 kos=1,2,3,2 traps=12
+coins fast jungle/huge: state=play playT=36s ts=1 alive=3/4 kos=0,3,1,1 traps=17
+ball fast ice/small: state=play playT=37s ts=1 alive=4/4 kos=0,0,0,0 traps=12
+crumble fast volcano/large: state=roundEnd playT=12s ts=1 alive=1/3 kos=0,1,2 traps=16
+bossrush fast pirate/huge: state=play playT=35s ts=1 alive=3/3 kos=0,2,0 traps=7
+stage 1 dojo state=roundEnd t=6
+stage 2 rooftop state=roundEnd t=11
+stage 3 jungle state=play t=22
+stage 4 dojo state=roundEnd t=11
+stage 5 ice state=play t=23
+stage 6 rooftop state=roundEnd t=7
+stage 7 jungle state=roundEnd t=12
+stage 8 rooftop state=play t=22
+stage 9 ice state=play t=21
+stage 10 jungle state=play t=23
+stage 11 rooftop state=roundEnd t=11
+stage 12 ice state=roundEnd t=10
+tutorial ok state=play
+ui ["menu",false,false,false]
+ui ["modes",false,false,false]
+ui ["setup",true,true,false]
+ui ["setup",true,false,false]
+ui ["setup",true,true,false]
+ui ["settings",true,false,false]
+ui ["howto",true,true,false]
+ui ["campaign",false,false,false]
+ui ["stageInfo",true,false,false]
+ui ["shop",false,false,false]
+ui ["profile",false,false,false]
+ui ["heroes",false,false,false]
+ui ["goldstore",false,false,false]
+RESULT: failures 0 console/page errors 0 []

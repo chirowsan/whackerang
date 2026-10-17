@@ -18,3 +18,4 @@
 - fix in src/net/rtc.js Signal.send (official PeerJS payload shape) + strict broker-mimic in relay.mjs; verified guest reaches lobby via REAL public broker (+local STUN); rebuilding release
 - step4f: rebuilt signed APK/AAB + dist as v4.0-20261017-1227 with broker fix; re-running net_life/net_ui/net_broker/smoke31 on final build
 - step4g: final build v4.0-20261017-1227: net_life 25/25 (1st run 2 timing flakes under load, rerun clean), net_ui 24/24, net_broker lobby ok, smoke31 0/0
+- step4h: GitHub release v4.0 published, downloads HTTP 200 + identical; /workspace/out populated. DONE

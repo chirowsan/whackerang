@@ -1,0 +1,2 @@
+host {"code":"GDPM","signal":true}
+guest [ 'lobby', 'null' ] hostPlayers 2 errs [[],[]]

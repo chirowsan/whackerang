@@ -99,7 +99,7 @@ export const Net = {
     if (!p.conn) return; // everything else needs a seated player
     switch (m.t) {
       case 'ready': p.ready = !!m.r; this.syncLobby(); break;
-      case 'prof': if (this.phase === 'lobby') { this.applyProfile(p, m); this.syncLobby(); } break;
+      case 'prof': if (this.phase === 'lobby') { const from = p.autoFrom, to = p.autoTo; this.applyProfile(p, m); if (from && m.hero === from) { p.hero = to; p.hat = 'none'; } else p.autoFrom = null; this.syncLobby(); } break;
       case 'team': if (this.phase === 'lobby') { p.team = m.v === 1 ? 1 : 0; this.balanceTeams(); this.syncLobby(); } break;
       case 'emo': { const t = now(); if (t - (p.emoT || 0) < 900) break; p.emoT = t; const e = (m.e | 0); if (e >= 0 && e < LOBBY_EMOJI.length) { this.sendAll({ t: 'emo', s: p.slot, e }); this.onEmote && this.onEmote(p.slot, e); } break; }
       case 'emote': this.hostEmote(p, String(m.id || '')); break;
@@ -118,13 +118,17 @@ export const Net = {
     else {
       if (this.phase === 'match') { send({ t: 'reject', r: 'locked' }); setTimeout(() => p.link.close(), 300); return; }
       const free = [1, 2, 3].find((i) => !H.slots[i] || (!H.slots[i].conn && this.phase === 'lobby')); if (!free) { send({ t: 'reject', r: 'full' }); setTimeout(() => p.link.close(), 300); return; }
-      p.slot = free; p.ready = false; p.team = 1; this.applyProfile(p, m); H.slots[free] = p;
+      p.slot = free; p.ready = true; p.team = 1; this.applyProfile(p, m); this.pickFreeHero(p); H.slots[free] = p;
     }
     p.conn = true; p.ping = 0; p.rq = { q: [], cur: { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, assist: true, touchy: false }, edges: { dash: false, deflect: false, ult: false }, last: 0, ack: 0, stall: 0, nrx: 0, tpkt: 0 };
     H.peers.set(p.pid, p); H.pend.delete(p.pid); this.balanceTeams();
     send({ t: 'welcome', slot: p.slot, code: this.code, proto: PROTO, rejoin: !!p.rejoin }); this.syncLobby();
     this.note(`${p.name} ${p.rejoin ? 'is back' : 'joined'}`);
     if (p.rejoin && this.phase === 'match') this.hostRejoin(p);
+  },
+  pickFreeHero(p) { // v4.1: two phones with the same fighter would look identical; give a late joiner a free default fighter instead
+    const H = this.H; const taken = new Set(H.slots.filter((q) => q && q !== p && q.conn).map((q) => q.hero)); if (!taken.has(p.hero)) return;
+    const free = ['bao', 'nori', 'tako', 'kuma'].find((id) => !taken.has(id)); if (free) { p.autoFrom = p.hero; p.autoTo = free; p.hero = free; p.hat = 'none'; }
   },
   applyProfile(p, m) {
     p.name = safeName(m.name); p.hero = HEROES.some((h) => h.id === m.hero) ? m.hero : 'bao'; p.hat = hexOk(m.hat, HATS.map((h) => h.id)) ? m.hat : 'none'; p.skin = SKINS[m.skin] ? m.skin : 'default'; p.trail = TRAILS[m.trail] ? m.trail : 'none';
@@ -222,7 +226,7 @@ export const Net = {
   setSetting(k, v) {
     if (!this.isHost || this.phase !== 'lobby') return; const s = this.H.settings; if (!(k in s)) return;
     if (k === 'mode' && !ONLINE_MODES.includes(v)) return; if (k === 'speed' && !SPEEDS[v]) return; s[k] = v;
-    for (const p of this.H.slots) if (p && !p.isHost) p.ready = false; this.syncLobby();
+    this.syncLobby(); // v4.1: guests are auto-ready, settings changes do not un-ready them
   },
   setMine(upd) { // my own profile / ready / team
     const pr = this.profile();
@@ -256,7 +260,7 @@ export const Net = {
     const H = this.H; if (!this.isHost || this.phase === 'match') return false; const s = H.settings; const app = this.app;
     const defs = this.buildDefs(); this.defsRaw = defs; const mut = s.mutator === 'daily' ? todayMutator().id : 'off';
     const size = (MODES[s.mode] && MODES[s.mode].size) || s.size; const need = ['classic', 'team', 'crumble'].includes(s.mode) ? s.rounds : 1;
-    this.phase = 'match'; H.rematch.clear(); H.kosTotal = {}; for (const p of H.peers.values()) { p.ready = p.isHost; p.joinedMatch = !p.isHost && p.conn; }
+    this.phase = 'match'; H.rematch.clear(); H.kosTotal = {}; for (const p of H.peers.values()) { p.ready = true; p.joinedMatch = !p.isHost && p.conn; }
     H.rec.start(); app.net = this; this.input = this.makeInput();
     app.match = { mode: s.mode, rulesMode: s.mode, players: this.hydrate(defs, 0), round: 0, need, arena: s.arena, size, traps: s.traps, trapSet: s.mode === 'ball' ? [['bumper', 'q4'], ['jump', 'r2']] : null, mutator: mut, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {}, online: true, events: s.events };
     S().played++; save();
@@ -308,7 +312,7 @@ export const Net = {
   },
   rematch() { if (this.isHost) { this.H.rematch.add(0); this.syncLobby(); this.maybeRematch(); } else if (this.isGuest) { this.gSend({ t: 'rematch' }); this.lobby.players.forEach((p) => { if (p.slot === this.mySlot) p.rematch = true; }); this.emit(); } },
   startNow() { if (this.isHost && this.phase === 'results') this.startMatch(); },
-  toLobby() { if (!this.isHost) return; this.phase = 'lobby'; this.H.rematch.clear(); for (const p of this.H.peers.values()) if (!p.isHost) p.ready = false; this.H.rec.stop(); this.sendAll({ t: 'tolobby' }); this.syncLobby(); this.app.netToLobby(); },
+  toLobby() { if (!this.isHost) return; this.phase = 'lobby'; this.H.rematch.clear(); for (const p of this.H.peers.values()) if (!p.isHost) p.ready = true; this.H.rec.stop(); this.sendAll({ t: 'tolobby' }); this.syncLobby(); this.app.netToLobby(); },
   // result -> local rewards (same code path for host and guests; only host-sent, clamped numbers are trusted)
   finishLocal(res) {
     const s = S(); const mySlot = this.mySlot; const me = res.players.find((p) => p.slot === mySlot && !p.bot) || null; if (!me) return;

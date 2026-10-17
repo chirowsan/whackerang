@@ -1,7 +1,8 @@
 // Shared online constants + safe-name tools (no free-text chat anywhere: only these names and preset emotes).
 export const PROTO = 1;
 export const MAX_PLAYERS = 4;
-export const CODE_LEN = 5;
+export const CODE_LEN = 4; // v4.1: 4 letters (v4.0 used 5; 5-letter codes from old links are still accepted when joining)
+export const CODE_MAX = 5;
 export const CODE_ALPHA = 'BCDFGHJKLMNPQRSTVWXZ'; // consonants only: cannot spell words, easy to read aloud
 export const ID_PREFIX = 'whkr4-', GUEST_PREFIX = 'whkg4-';
 export const PAGES_URL = 'https://chirowsan.github.io/whackerang/';
@@ -14,8 +15,8 @@ export const ICE_DEFAULT = [
 ];
 export const rndInt = (n) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
 export const makeCode = () => { let s = ''; for (let i = 0; i < CODE_LEN; i++) s += CODE_ALPHA[rndInt(CODE_ALPHA.length)]; return s; };
-export const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').replace(/[AEIOUY]/g, '').slice(0, CODE_LEN);
-export const validCode = (s) => s.length === CODE_LEN && [...s].every((c) => CODE_ALPHA.includes(c));
+export const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, CODE_MAX);
+export const validCode = (s) => (s.length === CODE_LEN || s.length === CODE_MAX) && /^[A-Z]+$/.test(s);
 export const rid = (n = 8) => { let s = ''; const a = 'abcdefghijkmnpqrstuvwxyz23456789'; for (let i = 0; i < n; i++) s += a[rndInt(a.length)]; return s; };
 export const shareLink = (code) => `${PAGES_URL}?room=${code}`;
 

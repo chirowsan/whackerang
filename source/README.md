@@ -14,6 +14,11 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.1 (easier online, clearer traps)
+- **Online in two taps:** Play online shows just *Create room* and *Join room*. Create goes straight to a lobby with a huge 4-letter code, **Share** (native share sheet, or copy link) and **Start**. Defaults: Classic, Chill, Medium bots fill empty slots, heroes auto-picked, guests auto-ready. Mode, arena, speed, hero and emotes live behind a small **Options** button. Join shows four big boxes, opens the keyboard, and joins by itself on the 4th letter (clear error if the room isn't found). `?room=CODE` links still auto-join; old 5-letter codes still work.
+- **Traps you can read at a glance:** every harmful trap now shares one look: red/orange stripes, a skull/spikes/flame badge, a ground decal, and a blinking warning before it fires. Teleporters are upright blue/violet swirling portals with a number (1/2) and are never red or striped. Jump pads are green/yellow with chevrons. A small legend is at the top of How to play.
+- Android versionCode 41 / versionName 4.1.0 (same signing key).
+
 ## What's new in v4.0 (online play with friends)
 - **Play online (2-4 players):** main menu > Play online > *Create room* (you get a 5-letter code and a share link `...?room=CODE`) or *Join with code*. Friends who open the link join automatically. No account, no chat, no voice, no public matchmaking.
 - **Lobby:** player list with ping bars, hero pick, ready-up, host picks mode / arena / speed / rounds, bots fill empty slots, quick emotes (6 presets). Modes online: Classic, Team, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag, Crumble. Rematch and back-to-lobby after a match.

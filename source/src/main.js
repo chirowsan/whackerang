@@ -254,7 +254,7 @@ const app = {
   netToLobby() { this.match = null; this.mode = 'menu'; this.paused = false; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show('netLobby'); this.applyTouch(); },
   netClosed() {},
   netFailed(err, wasJoin) { // async failure or the room ended: back to the menu with a plain-language reason
-    this.tut = null; this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); this.applyTouch(); UI.show('netMsg', { err, wasJoin });
+    this.tut = null; this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); this.applyTouch(); UI.show(wasJoin && ['no-room', 'bad-code', 'reject:full', 'reject:locked', 'reject:version'].includes(err.code) ? 'netJoin' : 'netMsg', { err, wasJoin });
   },
   // ---- tutorial
   skipTutorial() { const s = S(); s.tutorialDone = true; save(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.quickPlay(); },

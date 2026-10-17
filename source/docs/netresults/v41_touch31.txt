@@ -1,0 +1,129 @@
+hud0 {
+  mx: 0,
+  tx: 0,
+  x: -6,
+  z: 0,
+  sp: 0,
+  state: 'play',
+  alive: true,
+  same: true,
+  enabled: true,
+  pt: 0.8
+}
+{
+ "stickRadiusPx": 47.5,
+ "curve_frac_target_smoothed": [
+  [
+   0.05,
+   0,
+   0
+  ],
+  [
+   0.1,
+   0,
+   0
+  ],
+  [
+   0.2,
+   0.05,
+   0.05
+  ],
+  [
+   0.3,
+   0.13,
+   0.13
+  ],
+  [
+   0.5,
+   0.37,
+   0.37
+  ],
+  [
+   0.7,
+   0.67,
+   0.67
+  ],
+  [
+   0.9,
+   1,
+   1
+  ],
+  [
+   1,
+   1,
+   1
+  ]
+ ],
+ "ramp_mx_every_2frames_33ms": [
+  0.32,
+  0.54,
+  0.69,
+  0.79,
+  0.86,
+  0.9,
+  0.94,
+  0.96
+ ],
+ "release_mx_every_33ms": [
+  0.46,
+  0.22,
+  0.1,
+  0.05,
+  0,
+  0
+ ],
+ "afterRelease": {
+  "mx": 0,
+  "tx": 0,
+  "x": -0.3,
+  "z": 0,
+  "sp": 0,
+  "state": "play",
+  "alive": true,
+  "same": true,
+  "enabled": true,
+  "pt": 3.9
+ },
+ "tapThrow": {
+  "th": 2.172,
+  "toEnemy": 1.571,
+  "diffDeg": 34.5
+ },
+ "dragOff10deg_assistON": {
+  "th": 1.074,
+  "toEnemy": 1.571,
+  "diffDeg": 28.5
+ },
+ "dragOff20deg_assistON": {
+  "th": 1.105,
+  "toEnemy": 1.571,
+  "diffDeg": 26.7
+ },
+ "dragOff30deg_assistON": {
+  "th": 0.526,
+  "toEnemy": 1.571,
+  "diffDeg": 59.8
+ },
+ "dragOff45deg_assistON": {
+  "th": 0.624,
+  "toEnemy": 1.571,
+  "diffDeg": 54.2
+ },
+ "dragOff20deg_assistOFF": {
+  "th": 1.24,
+  "toEnemy": 1.571,
+  "diffDeg": 18.9
+ },
+ "dashBtnPx": 94,
+ "aimPadPx": 132,
+ "dash": {
+  "dashT": 0.08733333333333335,
+  "cd": 0.88,
+  "label": "1.4"
+ },
+ "dashAfter": {
+  "cd": -0.7343333333333303,
+  "label": ""
+ }
+}
+errors []

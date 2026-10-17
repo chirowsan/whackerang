@@ -5,7 +5,7 @@ import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKIN
 import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
 import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
 import { todayMutator, MUTATORS } from './mutators.js';
-import { TRAP_INFO } from './traps.js';
+import { TRAP_INFO, legendImages } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
 import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS, chestState, claimChest, CHEST_GOLD, dailyReadyCount } from './progress.js';
 import { sfx, applyVolumes } from './audio.js';
@@ -76,7 +76,7 @@ Object.assign(UI, {
     const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
     left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? this.show('tutintro') : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.0';
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.1';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
     g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
@@ -84,7 +84,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
-    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.0'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.1'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -257,7 +257,7 @@ Object.assign(UI, {
     const cv = this.mm; if (!cv || !game) return; const c = cv.getContext('2d'), W = cv.width, H = cv.height, sx = W / AW, sz = H / AH; c.clearRect(0, 0, W, H);
     c.fillStyle = 'rgba(12,8,36,.72)'; c.fillRect(0, 0, W, H);
     for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { const k = j * AW + i; const t = game.layout.t[k]; let col = null; if (game.hole[k] < 0) col = '#000'; else if (game.sol[k]) col = t === 2 ? '#b98a54' : '#7d86a8'; else if (t === 4) col = '#ff6a1a'; else if (t === 3) col = '#cfd6e6'; else if (t === 5) col = '#4ab0ff'; if (col) { c.fillStyle = col; c.fillRect(i * sx, j * sz, sx + 0.5, sz + 0.5); } }
-    for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#ff5ad0' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
+    for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#7a8cff' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
     for (const q of game.fighters) { if (!q.alive) continue; c.fillStyle = hex(q.color); c.strokeStyle = '#fff'; c.lineWidth = q.isBot ? 1 : 2; c.beginPath(); c.arc((q.x + HX) * sx, (q.z + HZ) * sz, q.isBot ? 3.2 : 4.4, 0, 6.3); c.fill(); c.stroke(); }
     if (game.camPoints) for (const p of game.camPoints()) { c.fillStyle = p[2] || '#ffd23c'; c.fillRect((p[0] + HX) * sx - 3, (p[1] + HZ) * sz - 3, 6, 6); }
     const f = gfx.follow; if (f) { const vw = 22 * (f.k || 1) * f.d / f.dMin, vh = 13 * (f.k || 1) * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
@@ -361,13 +361,18 @@ UI.howto = function (p) {
     <li><b>Quick start:</b> Play now jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls.</li>
     <li>Everything is still earnable by playing. The store stays in TEST MODE; nothing is charged.</li></ul></div>`);
   const wn40 = h('div', 'hw-new', `<h4>What's new in v4.0 <small>"Play with friends"</small></h4><ul>
-    <li><b>Online multiplayer for 2-4 friends:</b> tap <b>Play online</b>, <b>Create room</b> and share the 5-letter code (or the link). Friends tap <b>Join</b> and type it. Pick your fighter, press Ready, and the host starts. Empty seats are filled by bots.</li>
+    <li><b>Online multiplayer for 2-4 friends:</b> tap <b>Play online</b>, <b>Create room</b> and share the 4-letter code (or the link). Friends tap <b>Join room</b> and type it. The host taps Start; empty seats are filled by bots.</li>
     <li><b>Modes online:</b> Classic, Team 2v2, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag and Crumbling Floor. The host picks the mode, arena, speed (Chill is the default) and bots.</li>
     <li><b>Safe by design:</b> friends-only room codes, no chat, no voice, no public matchmaking, preset or filtered names, emoji and emote presets only.</li>
     <li><b>If someone drops</b> a bot takes their seat and they can rejoin with the same code. If the host leaves the room closes. If your network blocks direct connections you get a clear message and the option to swap codes by hand.</li>
     <li>Online wins still earn gold and XP (capped per match and per day). The store stays in TEST MODE.</li></ul>`);
-  wn40.style.gridColumn = '1 / -1';
-  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); pn.insertBefore(wn40, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
+  const LG = legendImages();
+  const wn41 = h('div', 'hw-new', `<h4>What's new in v4.1 <small>"Easier online, clearer floor"</small></h4><ul>
+    <li><b>Online in two taps:</b> <b>Create room</b> shows a huge 4-letter code, a <b>Share</b> button and <b>Start</b>. <b>Join room</b> opens a 4-box code entry and joins by itself on the 4th letter. Friends are ready automatically; the advanced stuff (mode, arena, speed, fighter, emotes) is under <b>Options</b>.</li>
+    <li><b>Clearer traps:</b> every harmful trap now shares one look (red, striped border, a skull / spikes / flame / bolt badge, pulsing red glow before it fires). Portals are blue or violet swirls with a number and never look like a trap. Jump pads are friendly green with yellow arrows.</li></ul>
+    <div class="hw-legend"><div><img src="${LG.hazard}" alt="danger"><b>DANGER</b><small>Red + stripes + skull. Stay off when it blinks.</small></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b><small>Blue or violet swirl with a number. Same number = twins. Step in to zip across.</small></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b><small>Green + yellow arrows. A friendly hop over danger.</small></div></div>`);
+  wn41.style.gridColumn = '1 / -1'; wn40.style.gridColumn = '1 / -1';
+  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); pn.insertBefore(wn40, pn.firstChild); pn.insertBefore(wn41, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
     <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>
