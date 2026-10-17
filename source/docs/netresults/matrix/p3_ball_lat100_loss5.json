@@ -1,0 +1,124 @@
+{
+ "N": 3,
+ "MODE": "ball",
+ "SECS": 62,
+ "DELAY": 100,
+ "JITTER": 20,
+ "LOSS": 0.05,
+ "code": "SQVTK",
+ "signal": true,
+ "joined": true,
+ "persistentMismatch": {
+  "crates": 0,
+  "holes": 0,
+  "pu": 0,
+  "coins": 0,
+  "score": 0
+ },
+ "cmp": 568,
+ "aliveMismatchSamples": 0,
+ "stateMismatch": 2,
+ "crateMismatch": 0,
+ "scoreMismatch": 2,
+ "phaseBad": 2,
+ "posErr": {
+  "p50": 0.84,
+  "p90": 7.34,
+  "p99": 13.61,
+  "max": 0
+ },
+ "wallSeconds": 604,
+ "hostSimSeconds": 50.8,
+ "clients": [
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 0,
+   "kBPerSimSecUp": 0,
+   "i": 0,
+   "role": "host",
+   "phase": "results",
+   "rtt": 0,
+   "snapRateHz": 1.7,
+   "rxKBps": 0,
+   "txKBps": 0,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 19.1,
+   "kBPerSimSecDown": 0,
+   "kBPerSimSecUp": 0,
+   "i": 1,
+   "role": "guest",
+   "phase": "ended",
+   "rtt": 105,
+   "snapRateHz": 1.6,
+   "rxKBps": 0,
+   "txKBps": 0,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 19,
+   "kBPerSimSecDown": 0,
+   "kBPerSimSecUp": 0,
+   "i": 2,
+   "role": "guest",
+   "phase": "ended",
+   "rtt": 102,
+   "snapRateHz": 1.6,
+   "rxKBps": 0,
+   "txKBps": 0,
+   "world": null
+  }
+ ],
+ "snapCheck": [
+  {
+   "guest": 1,
+   "snapsMatched": 11310,
+   "fighterRecords": 45240,
+   "mismatches": 213,
+   "maxPosErr": 0.0547
+  },
+  {
+   "guest": 2,
+   "snapsMatched": 11310,
+   "fighterRecords": 45240,
+   "mismatches": 213,
+   "maxPosErr": 0.0547
+  }
+ ],
+ "hostLinks": 0,
+ "errors": [
+  [],
+  [],
+  []
+ ],
+ "final": [
+  {
+   "st": "roundEnd",
+   "f": [
+    "5.96:5.18:1:1:99:0",
+    "-1.65:3.01:1:0:99:0",
+    "0.36:7.6:1:1:99:0",
+    "3.79:6.95:1:1:99:0"
+   ]
+  },
+  {
+   "st": "intro",
+   "f": [
+    "0.2:1.2:1:1:1:0",
+    "-3.3:-1.1:1:1:1:0",
+    "4:-1.4:1:1:1:0",
+    "1.9:-3.4:1:1:1:0"
+   ]
+  },
+  {
+   "st": "intro",
+   "f": [
+    "0.2:1.2:1:1:1:0",
+    "-3.3:-1.1:1:1:1:0",
+    "4:-1.4:1:1:1:0",
+    "1.9:-3.4:1:1:1:0"
+   ]
+  }
+ ]
+}

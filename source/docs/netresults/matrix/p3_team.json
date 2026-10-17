@@ -1,0 +1,138 @@
+{
+ "N": 3,
+ "MODE": "team",
+ "SECS": 35,
+ "DELAY": 0,
+ "JITTER": 0,
+ "LOSS": 0,
+ "code": "ZLHDX",
+ "signal": true,
+ "joined": true,
+ "persistentMismatch": {
+  "crates": 0,
+  "holes": 0,
+  "pu": 0,
+  "coins": 0,
+  "score": 0
+ },
+ "cmp": 96,
+ "aliveMismatchSamples": 0,
+ "stateMismatch": 0,
+ "crateMismatch": 0,
+ "scoreMismatch": 0,
+ "phaseBad": 0,
+ "posErr": {
+  "p50": 0.13,
+  "p90": 0.64,
+  "p99": 1.11,
+  "max": 0
+ },
+ "wallSeconds": 54,
+ "hostSimSeconds": 35.3,
+ "clients": [
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 2.17,
+   "kBPerSimSecUp": 10.71,
+   "i": 0,
+   "role": "host",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 13,
+   "rxKBps": 1.41,
+   "txKBps": 6.96,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 5.36,
+   "kBPerSimSecUp": 1.08,
+   "i": 1,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 4,
+   "snapRateHz": 13,
+   "rxKBps": 3.49,
+   "txKBps": 0.7,
+   "world": {
+    "late": 0,
+    "starved": 0,
+    "errs": 0,
+    "corr": 24.201664913635582,
+    "maxErr": 1.1137144814749909,
+    "interpMs": 195
+   }
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 5.34,
+   "kBPerSimSecUp": 1.09,
+   "i": 2,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 13,
+   "rxKBps": 3.47,
+   "txKBps": 0.71,
+   "world": {
+    "late": 0,
+    "starved": 4,
+    "errs": 0,
+    "corr": 18.78702162428219,
+    "maxErr": 1.0880639747290142,
+    "interpMs": 194
+   }
+  }
+ ],
+ "snapCheck": [
+  {
+   "guest": 1,
+   "snapsMatched": 1847,
+   "fighterRecords": 7388,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  },
+  {
+   "guest": 2,
+   "snapsMatched": 1847,
+   "fighterRecords": 7388,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  }
+ ],
+ "hostLinks": 2,
+ "errors": [
+  [],
+  [],
+  []
+ ],
+ "final": [
+  {
+   "st": "roundEnd",
+   "f": [
+    "-4.98:-2.2:0:1:0:0",
+    "0.15:2.88:0:0:0:0",
+    "7.44:5.58:1:0:1:0",
+    "4.43:2:0:1:0:0"
+   ]
+  },
+  {
+   "st": "roundEnd",
+   "f": [
+    "-4.39:-1.96:0:1:0:0",
+    "0.79:2.89:0:0:0:0",
+    "7.44:5.58:1:0:1:0",
+    "4.43:2.02:0:1:0:0"
+   ]
+  },
+  {
+   "st": "roundEnd",
+   "f": [
+    "-4.39:-1.96:0:1:0:0",
+    "0.79:2.89:0:0:0:0",
+    "7.44:5.58:1:0:1:0",
+    "4.43:2.02:0:1:0:0"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,138 @@
+{
+ "N": 3,
+ "MODE": "ball",
+ "SECS": 62,
+ "DELAY": 0,
+ "JITTER": 0,
+ "LOSS": 0,
+ "code": "VNVBF",
+ "signal": true,
+ "joined": true,
+ "persistentMismatch": {
+  "crates": 0,
+  "holes": 0,
+  "pu": 0,
+  "coins": 0,
+  "score": 0
+ },
+ "cmp": 180,
+ "aliveMismatchSamples": 0,
+ "stateMismatch": 0,
+ "crateMismatch": 0,
+ "scoreMismatch": 0,
+ "phaseBad": 0,
+ "posErr": {
+  "p50": 0.29,
+  "p90": 0.64,
+  "p99": 1.8,
+  "max": 0
+ },
+ "wallSeconds": 96,
+ "hostSimSeconds": 62.4,
+ "clients": [
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 2.16,
+   "kBPerSimSecUp": 13.84,
+   "i": 0,
+   "role": "host",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 12.9,
+   "rxKBps": 1.4,
+   "txKBps": 8.95,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 6.93,
+   "kBPerSimSecUp": 1.08,
+   "i": 1,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 12.9,
+   "rxKBps": 4.48,
+   "txKBps": 0.7,
+   "world": {
+    "late": 0,
+    "starved": 4,
+    "errs": 0,
+    "corr": 173.94114716236743,
+    "maxErr": 1.748146884174924,
+    "interpMs": 191
+   }
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 6.92,
+   "kBPerSimSecUp": 1.08,
+   "i": 2,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 1,
+   "snapRateHz": 12.9,
+   "rxKBps": 4.47,
+   "txKBps": 0.7,
+   "world": {
+    "late": 0,
+    "starved": 0,
+    "errs": 0,
+    "corr": 137.882759055613,
+    "maxErr": 1.1952994832898791,
+    "interpMs": 191
+   }
+  }
+ ],
+ "snapCheck": [
+  {
+   "guest": 1,
+   "snapsMatched": 3597,
+   "fighterRecords": 14388,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  },
+  {
+   "guest": 2,
+   "snapsMatched": 3595,
+   "fighterRecords": 14380,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  }
+ ],
+ "hostLinks": 2,
+ "errors": [
+  [],
+  [],
+  []
+ ],
+ "final": [
+  {
+   "st": "play",
+   "f": [
+    "0.65:7.6:1:1:99:0",
+    "-1.06:-1.44:1:1:99:0",
+    "0.96:1.07:1:1:99:0",
+    "-0.16:6.91:1:1:99:0"
+   ]
+  },
+  {
+   "st": "play",
+   "f": [
+    "0.65:7.6:1:1:99:0",
+    "-1.6:-1.76:1:1:99:0",
+    "0.92:1.06:1:1:99:0",
+    "-0.69:6.75:1:1:99:0"
+   ]
+  },
+  {
+   "st": "play",
+   "f": [
+    "0.65:7.6:1:1:99:0",
+    "-1.45:-1.67:1:1:99:0",
+    "0.59:0.88:1:1:99:0",
+    "0.06:7.02:1:1:99:0"
+   ]
+  }
+ ]
+}

@@ -4,7 +4,7 @@ const TFX = (id) => (TRAILS[id] || TRAILS.none).fx;
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { S, speedCfg } from './save.js';
-import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle } from './util.js';
+import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle, mulberry32 } from './util.js';
 import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS } from './data.js';
 import { ArenaEvents } from './events.js';
 import { installRules } from './rules.js';
@@ -193,15 +193,16 @@ export class Game {
   constructor(o) {
     this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this.arenaId = o.arenaId; this.round = o.round || 1;
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
-    this.layout = genLayout(this.arenaId); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
+    this.layout = genLayout(this.arenaId, o.netSeed); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
+    const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
     this.hole = new Float32Array(AW * AH); this.spk = new Float32Array(AW * AH); this.spkWarn = new Uint8Array(AW * AH); this.spkPh = new Float32Array(AW * AH);
     this.crateHp = new Uint8Array(AW * AH); this.sol = new Uint8Array(AW * AH);
-    for (let k = 0; k < AW * AH; k++) { const t = this.layout.t[k]; if (t === T.CRATE) this.crateHp[k] = 2; this.sol[k] = (t === T.PILLAR || t === T.CRATE) ? 1 : 0; this.spkPh[k] = Math.random() * 4.2; }
+    for (let k = 0; k < AW * AH; k++) { const t = this.layout.t[k]; if (t === T.CRATE) this.crateHp[k] = 2; this.sol[k] = (t === T.PILLAR || t === T.CRATE) ? 1 : 0; this.spkPh[k] = nrnd() * 4.2; }
     this.fighters = []; this.booms = []; this.powerups = []; this.pushes = [];
-    this.mut = o.mutator || null; this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) });
+    this.mut = o.mutator || null; { const _mr = Math.random; if (o.netSeed != null) Math.random = mulberry32((o.netSeed ^ 0x7a9) >>> 0); try { this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) }); } finally { Math.random = _mr; } }
     const n = o.players.length; this.nHumans = o.players.filter((p) => p.ctrl !== 'bot').length || 1; const order = this.rules.teams && n === 4 ? [0, 3, 1, 2] : n === 1 ? [0] : n === 2 ? [0, 1] : n === 3 ? [0, 1, 3] : [0, 1, 2, 3];
     o.players.forEach((d, i) => { const sp = spawns()[order[i]]; this.fighters.push(new Fighter(this, d, i, [cx(sp[0]), cz(sp[1])])); });
-    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.introT = o.intro === undefined ? 3.2 : o.intro; this.lastCount = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = speedCfg();
+    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.introT = o.intro === undefined ? 3.2 : o.intro; this.lastCount = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
     this.puT = 3.5; this.suddenRing = -1; this.suddenT = 0; this.sudden = false; this.crackT = 8; this.result = null; this.koFlash = 0; this.playTime = 0; this.winner = null; this.winTeam = -1;
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
   }
@@ -245,10 +246,10 @@ export class Game {
   isFoe(a, b) { return a !== b && a.team !== b.team; }
   nearestEnemy(f, x, z, maxD, excl) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
   pickAim(f, base, explicit) {
-    const assist = f.isBot ? false : S().settings.aimAssist; let tg = null;
+    const assist = f.isBot ? false : (f.netIn ? f.netIn.assist : S().settings.aimAssist); let tg = null;
     if (assist) {
       let bs = 1e9;
-      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
+      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = f.netIn ? f.netIn.touchy : Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
       if (!tg && !explicit) tg = this.nearestEnemy(f, f.x, f.z, 1e9);
     }
     if (!tg) return base;
@@ -376,10 +377,11 @@ export class Game {
   }
   // -------- main update
   update(dt) {
+    if (this.guestUpdate) { this.guestUpdate(dt); return; }
     if (this.hitstop > 0) { this.hitstop -= dt; this.vis(dt); return; }
     if (this.slowT > 0) { this.slowT -= dt; dt *= 0.4; if (this.mode !== 'attract') gfx.fovHold = 1; } else if (gfx.fovHold && this.mode !== 'attract') gfx.fovHold = 0;
     // v3.1 Game Speed: one global time scale for the whole simulation (the 3-2-1 intro and the round-end pause stay real-time)
-    const cfg = this.cfg = speedCfg(); const rdt = dt; if (this.state !== 'intro' && this.mode !== 'attract') dt *= cfg.ts; else if (this.mode === 'attract') dt *= Math.max(cfg.ts, 0.7);
+    const cfg = this.cfg = this.netCfg || speedCfg(); const rdt = dt; if (this.state !== 'intro' && this.mode !== 'attract') dt *= cfg.ts; else if (this.mode === 'attract') dt *= Math.max(cfg.ts, 0.7);
     this.time += dt;
     if (this.state === 'intro') {
       this.introT -= rdt; const c = Math.ceil(this.introT);
@@ -424,3 +426,4 @@ export class Game {
   }
 }
 installRules(Game, { Boom, Fighter }); installRules2(Game);
+export { Boom, Fighter };

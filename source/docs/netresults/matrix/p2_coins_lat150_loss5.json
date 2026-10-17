@@ -1,0 +1,101 @@
+{
+ "N": 2,
+ "MODE": "coins",
+ "SECS": 62,
+ "DELAY": 150,
+ "JITTER": 30,
+ "LOSS": 0.05,
+ "code": "GJVHM",
+ "signal": true,
+ "joined": true,
+ "persistentMismatch": {
+  "crates": 0,
+  "holes": 0,
+  "pu": 0,
+  "coins": 0,
+  "score": 0
+ },
+ "cmp": 63,
+ "aliveMismatchSamples": 6,
+ "stateMismatch": 0,
+ "crateMismatch": 2,
+ "scoreMismatch": 0,
+ "phaseBad": 0,
+ "posErr": {
+  "p50": 0.17,
+  "p90": 0.65,
+  "p99": 2.53,
+  "max": 0
+ },
+ "wallSeconds": 67,
+ "hostSimSeconds": 62.7,
+ "clients": [
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 1,
+   "kBPerSimSecUp": 7.82,
+   "i": 0,
+   "role": "host",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 18.9,
+   "rxKBps": 0.94,
+   "txKBps": 7.37,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 19.1,
+   "kBPerSimSecDown": 7.44,
+   "kBPerSimSecUp": 1.05,
+   "i": 1,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 151,
+   "snapRateHz": 18,
+   "rxKBps": 7.01,
+   "txKBps": 0.99,
+   "world": {
+    "late": 114,
+    "starved": 3,
+    "errs": 0,
+    "corr": 153.2101160298023,
+    "maxErr": 10.910318497685559,
+    "interpMs": 164
+   }
+  }
+ ],
+ "snapCheck": [
+  {
+   "guest": 1,
+   "snapsMatched": 2520,
+   "fighterRecords": 10080,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  }
+ ],
+ "hostLinks": 1,
+ "errors": [
+  [],
+  []
+ ],
+ "final": [
+  {
+   "st": "play",
+   "f": [
+    "-0.74:2.49:0:1:97:4",
+    "-3.4:-4.48:0:0:93:1",
+    "-9.36:4.89:1:0:96:12",
+    "9.05:-1.56:1:0:95:5"
+   ]
+  },
+  {
+   "st": "play",
+   "f": [
+    "-0.1:2.01:0:1:97:4",
+    "-3.85:-5.33:0:0:93:1",
+    "-9.36:4.86:1:0:96:12",
+    "9.11:-1.7:1:0:95:3"
+   ]
+  }
+ ]
+}

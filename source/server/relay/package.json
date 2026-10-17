@@ -1,0 +1,1 @@
+{ "name": "whackerang-relay", "version": "1.0.0", "private": true, "type": "module", "main": "relay.mjs", "scripts": { "start": "node relay.mjs" }, "dependencies": { "ws": "^8.18.0" }, "engines": { "node": ">=18" } }

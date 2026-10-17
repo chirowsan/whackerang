@@ -1,0 +1,12 @@
+import { startRelay, openN, ev, sleep, waitFor } from './netlib.mjs';
+const relay = await startRelay(9102); const T = await openN(2, { relay: relay.url });
+const [A, B] = T.pages;
+for (const p of [A,B]) await ev(p, () => { const O = window.WebSocket; window.__ws = []; window.WebSocket = function (...a) { const w = new O(...a); const log = (d, x) => window.__ws.push(d + ' ' + String(x).slice(0, 120)); const s = w.send.bind(w); w.send = (x) => { log('>', x); return s(x); }; w.addEventListener('message', (e) => log('<', e.data)); return w; }; });
+for (const p of [A,B]) await ev(p, () => { const O = window.RTCPeerConnection; window.__pc = []; window.RTCPeerConnection = function (...a) { const pc = new O(...a); window.__pc.push(pc); pc.addEventListener('icecandidate', (e) => window.__ws.push('ICE ' + (e.candidate ? e.candidate.candidate.slice(0, 80) : 'end'))); pc.addEventListener('iceconnectionstatechange', () => window.__ws.push('ICES ' + pc.iceConnectionState)); pc.addEventListener('connectionstatechange', () => window.__ws.push('CONN ' + pc.connectionState)); pc.addEventListener('icegatheringstatechange', () => window.__ws.push('GATH ' + pc.iceGatheringState)); return pc; }; window.RTCPeerConnection.prototype = O.prototype; });
+const r = await ev(A, async () => await __bg.net.host()); console.log('host', JSON.stringify(r));
+await ev(B, (c) => { __bg.net.join(c).catch((e) => console.log('joinerr', e.message)); }, r.code);
+await sleep(8000);
+console.log('B status', await ev(B, () => JSON.stringify([__bg.net.status, __bg.net.error, __bg.net.phase])));
+console.log('A ws', await ev(A, () => window.__ws.join('\n'))); console.log('B ws', await ev(B, () => window.__ws.join('\n')));
+console.log(B.logs.slice(-10)); console.log(A.logs.slice(-10));
+await T.close(); relay.stop();

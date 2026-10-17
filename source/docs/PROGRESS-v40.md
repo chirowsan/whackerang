@@ -1,0 +1,15 @@
+# v4.0 progress (internal)
+- Done+tested: net core (rtc/signal/relay), 2p/4p matches over real WebRTC (local STUN), lobby/ready/rematch/leave UI (tools/net_ui.mjs 23/24), lifecycle (tools/net_life.mjs 22/25).
+- Fixing: guestEvent used app.UI (undefined); error message screens after host closes.
+- TODO: re-run matrix (tools/net_batch.sh), smoke/touch suites, docs/MULTIPLAYER.md, release.
+- net_life 25/25 pass
+- net_ui 24/24; starting final matrix
+- step1a: p3 Ball lat100/loss5 rerun alone clean (hostLinks 2, phaseBad 0, snap mismatches 0/27824, scoreMismatch 2 = interp-delay skew at score events); original odd run ended match early (hostSim 50.8s, phase results/ended) so links closed - not a desync
+- step1b: p3 Ball no-loss clean (hostLinks 2, scoreMismatch 0, phaseBad 0, 0 errors)
+- step1 verdict: odd run had wallSeconds 604 vs 93 normal (CPU stall >6s heartbeat timeout dropped guests) = contention not Ball desync; no code fix needed
+- step2: smoke31 (0 failures, 0 errors), touch31 (errors []), v33test (errors []) all pass on v4.0 build
+- step3: docs/MULTIPLAYER.md finished (tests, results table, Not-verified)
+- step4a: versions bumped to versionCode 40 / 4.0.0; starting android build
+- step4b: signed APK (3839668 B) + AAB (3708941 B) built, versionCode 40, same cert SHA256 6E:59:E1:4A as v3.3
+- step4c: minified release build (v4.0-20261017-1206) net_ui 24/24 re-passed; web dist built
+- step4d: net_life 25/25 + net_ui 24/24 on final minified release build; docs final; staging source zip + pages

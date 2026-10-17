@@ -14,6 +14,13 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.0 (online play with friends)
+- **Play online (2-4 players):** main menu > Play online > *Create room* (you get a 5-letter code and a share link `...?room=CODE`) or *Join with code*. Friends who open the link join automatically. No account, no chat, no voice, no public matchmaking.
+- **Lobby:** player list with ping bars, hero pick, ready-up, host picks mode / arena / speed / rounds, bots fill empty slots, quick emotes (6 presets). Modes online: Classic, Team, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag, Crumble. Rematch and back-to-lobby after a match.
+- **Under the hood:** peer-to-peer WebRTC, host-authoritative (guests send inputs, the host runs the only simulation, guests interpolate and predict their own fighter). Free signaling (PeerJS public broker) + public STUN; copy/paste connection codes as a no-server fallback. Details, limits and test results: `docs/MULTIPLAYER.md`. Optional self-hosted relay: `server/relay/`.
+- Disconnects: a guest who drops is replaced by a bot (and gets control back if they rejoin); if the host leaves, everyone gets a clear message. Online wins earn normal coins/XP with a per-match and per-day cap. The gold shop stays in TEST MODE.
+- Android versionCode 40 / versionName 4.0.0 (same signing key, updates v3.3 in place). Adds the normal `ACCESS_NETWORK_STATE` permission (no prompt).
+
 ## What's new in v3.3 (bigger, louder, cuter)
 Chill stays the default speed, payments stay TEST MODE, nothing was removed.
 - **Closer camera:** fighters read about 30% bigger on a phone. The camera now follows you on every map size (small maps included) and fighters are drawn slightly larger. Settings > **Camera**: Close (default) or Wide (the v3.2 full-arena view). Edge arrows now also point to rivals hidden behind the touch controls.

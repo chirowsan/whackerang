@@ -1,0 +1,74 @@
+{
+ "heroes": [
+  "bao",
+  "nori",
+  "tako",
+  "kuma",
+  "pico",
+  "yuki",
+  "gus",
+  "wisp"
+ ],
+ "poses": {
+  "n": 72,
+  "bad": []
+ },
+ "ults": [
+  "bao ok alive=2 ult=",
+  "nori ok alive=2 ult=",
+  "tako ok alive=2 ult=",
+  "kuma ok alive=3 ult=",
+  "pico ok alive=2 ult=",
+  "yuki ok alive=2 ult=",
+  "gus ok alive=3 ult=",
+  "wisp ok alive=2 ult="
+ ],
+ "cam": [
+  "close/small follow=true k=0.88 d=34.6..35.3 heroZoom=1.15 mm=false",
+  "close/large follow=true k=0.88 d=34.7..39.0 heroZoom=1.15 mm=true",
+  "close/huge follow=true k=0.88 d=34.7..56.7 heroZoom=1.15 mm=true",
+  "wide/small follow=false k=null d=1000000000.0..0.0 heroZoom=1 mm=false",
+  "wide/large follow=true k=1 d=39.6..43.4 heroZoom=1 mm=true",
+  "wide/huge follow=true k=1 d=39.5..43.2 heroZoom=1 mm=true"
+ ],
+ "settings": {
+  "labels": [
+   "Mute all audio",
+   "Master volume",
+   "Background music",
+   "Camera",
+   "Screen flashes",
+   "Arena events",
+   "Game speed",
+   "Music",
+   "Sound FX",
+   "Screen shake",
+   "Hit-stop freeze",
+   "Vibration",
+   "Aim assist (auto-aim)",
+   "Smooth touch stick",
+   "Graphics",
+   "Bloom glow",
+   "Touch controls",
+   "Left-handed layout",
+   "Control size",
+   "Progress",
+   "Display",
+   "Fullscreen on first tap",
+   "Install",
+   "Chrome ⋮ → Add to Home screen for a full-screen app",
+   "Build",
+   "v4.0-dev · sharp 1x",
+   "Training"
+  ],
+  "musicOn": false,
+  "master": 0.5,
+  "camera": "wide"
+ },
+ "sfx": {
+  "n": 171,
+  "bad": []
+ }
+}
+errors []
+EXIT 0

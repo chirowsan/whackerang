@@ -14,11 +14,15 @@ import { buildFighter, buildBoomerang } from './models.js';
 import { makePortraits, portrait, snap } from './portraits.js';
 import { faceDebugCanvas } from './faces.js';
 import { resolveMutator } from './mutators.js';
+import { Net } from './net/net.js';
+import { SPEEDS } from './save.js';
+import './netui.js';
 import { pick, shuffle, setArenaSize } from './util.js';
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
 const STEP = 1 / 60;
+const now = () => performance.now();
 const fmtT = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const app = {
   BUILD, game: null, mode: 'menu', paused: false, acc: 0, simT: 0, hudT: 0, match: null, ready: false, frames: 0,
@@ -26,7 +30,7 @@ const app = {
   touchWanted() { const t = S().settings.touch; return t === 'on' || (t === 'auto' && this.isTouchDevice()); },
   applyTouch() {
     const root = $('#touch'), st = S().settings; const want = this.touchWanted(); const inMatch = this.mode === 'play' && !this.paused;
-    Input.touch.enabled = want; Input.solo = !(st && S().setup.players === 2 && this.mode === 'play');
+    Input.touch.enabled = want; Input.solo = !!this.net || !(st && S().setup.players === 2 && this.mode === 'play');
     root.classList.toggle('off', !(want && inMatch)); root.classList.toggle('left', !!st.leftHanded);
     document.documentElement.style.setProperty('--cs', String(st.ctrlScale || 1)); document.body.classList.toggle('touch-on', want && inMatch);
     if (Input.touch.reset) Input.touch.reset();
@@ -53,9 +57,10 @@ const app = {
     if (this.showPed) { this.game && this.game.scene.remove(this.showPed.ped, this.showBoom.mesh); this.showPed = null; this.showBoom = null; }
     if (this.game) { this.game.dispose(); this.game = null; } gfx.fovHold = 0; document.body.classList.remove('slowmo'); setTempo(1);
     setArenaSize(opts.mode === 'attract' ? 'small' : (opts.size || 'small'));
-    this.game = new Game({ ...opts, mutator: opts.mode === 'attract' ? null : resolveMutator(opts.mutator), input: Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
+    this.game = new Game({ ...opts, mutator: opts.mode === 'attract' ? null : resolveMutator(opts.mutator), input: opts.input || Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
     fitCamera(opts.mode === 'attract' ? 'menu' : 'play'); UI.hudStart(this.game);
     AU.mute = opts.mode === 'attract';
+    if (this.net && opts.mode !== 'attract') { if (this.net.isHost) this.net.onGameCreated(this.game, opts); else if (this.net.isGuest) this.net.onGuestGame(this.game, opts); }
   },
   startAttract() {
     const s = S(); const hd = this.humanDef(0); if (this.pv && this.pv.cat === 'hats') hd.hat = this.pv.id; const others = shuffle(HEROES.filter((h) => h.id !== hd.hero.id)).slice(0, 3);
@@ -133,25 +138,25 @@ const app = {
   nextRound(first) {
     const m = this.match; m.round++; UI.clear(); this.paused = false; this.resultShown = false;
     const aid = m.arena === 'random' ? pick(ARENAS.filter((a) => a.id !== m.last || ARENAS.length < 2)).id : m.arena; m.last = aid;
-    const rules = m.rules ? { ...m.rules } : rulesFor(m.rulesMode || m.mode, { arena: aid, eventLevel: S().settings.events });
-    if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: S().settings.events }); Object.assign(rules, r2); } }
+    const rules = m.rules ? { ...m.rules } : rulesFor(m.rulesMode || m.mode, { arena: aid, eventLevel: m.events || S().settings.events });
+    if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: m.events || S().settings.events }); Object.assign(rules, r2); } }
     m.curRules = rules; this.mode = 'play';
-    this.setGame({ mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator }); music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
+    { const o = { mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator }; this.setGame(this.net && this.net.isHost ? this.net.hostGameOpts(o) : o); } music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
     if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0, ...(first ? {} : {}) }; const d = this.game.fighters[1]; if (d) d.stunT = 9999; UI.tutorialShow(this.tut); }
   },
   restartRound() { const m = this.match; if (!m) return; m.round--; if (m.mode !== 'classic' && m.mode !== 'team') { m.st = { deaths: 0, passes: 0, kos: 0 }; } this.nextRound(); },
   humanF() { const g = this.game; return g && g.fighters.find((x) => !x.isBot && x.def.slot === 0); },
   emote(id) {
-    const f = this.humanF(), g = this.game; if (!f || !f.alive || this.mode !== 'play' || this.paused) return; if (f.emoteT > 0) return; const e = EMOTES[id] || EMOTES.gg; f.emoteT = 1.4; sfx('emote');
+    const f = this.humanF(), g = this.game; if (!f || !f.alive || this.mode !== 'play' || this.paused) return; if (f.emoteT > 0) return; if (this.net && this.net.isGuest) { if (now() - (this._emT || 0) < 1500) return; this._emT = now(); this.net.gSend({ t: 'emote', id: String(id) }); UI.emoteClose && UI.emoteClose(); return; } const e = EMOTES[id] || EMOTES.gg; f.emoteT = 1.4; sfx('emote');
     fx.popup(e.text, f.x, f.z, 'pop-emote', 2.3); g.onEvent('emote', { f, id }); UI.emoteClose && UI.emoteClose();
   },
   gameEvent(n, d) {
-    const m = this.match, g = this.game; if (this.tut) this.tutEvent(n, d); const human = d && d.f && !d.f.isBot;
+    const m = this.match, g = this.game; if (this.tut) this.tutEvent(n, d); if (this.net && this.net.isHost) this.net.relayEvent(n, d); const mine = (f) => !!f && !f.isBot && (!this.net || f.def.slot === 0); const human = mine(d && d.f);
     if (n === 'countdown') { if (this.mode !== 'play') return; if (d.n === 3) UI.banner(UI.introTitle(m, g), UI.introSub(m, g)); else if (d.n > 0) UI.banner(String(d.n)); }
     else if (n === 'go') { if (this.mode === 'play') UI.banner(m && m.mode === 'tutorial' ? 'GO!' : 'FIGHT!', null, '#ffd23c'); }
     else if (n === 'ko') {
-      if (this.mode !== 'play') return; const f = d.f; if (!f.isBot && navigator.vibrate && S().settings.vibrate) navigator.vibrate(f.deathKind === 'boom' ? 60 : 30); S().kos++;
-      if (m) { if (human) m.st.deaths++; if (d.killer && !d.killer.isBot && d.killer.team !== f.team) { m.st.kos++; track('ko'); if (['saw', 'hammer', 'boulder', 'crush', 'fire', 'zap', 'laser', 'spike'].includes(d.kind)) track('trapko'); } }
+      if (this.mode !== 'play') return; const f = d.f; if (mine(f) && navigator.vibrate && S().settings.vibrate && !(this.net && this.net.isGuest)) navigator.vibrate(f.deathKind === 'boom' ? 60 : 30); if (!this.net || mine(d.killer)) S().kos++;
+      if (m) { if (human) m.st.deaths++; if (mine(d.killer) && d.killer.team !== f.team) { m.st.kos++; track('ko'); if (['saw', 'hammer', 'boulder', 'crush', 'fire', 'zap', 'laser', 'spike'].includes(d.kind)) track('trapko'); } }
       if (f.boss) { UI.banner('BOSS DOWN!', f.name + ' is defeated', '#ffd23c'); }
       const k = d.killer; if (k && k !== f && k.alive && k.team !== f.team) { k.koChain = g.time - (k.lastKoT || -99) < 4.5 ? (k.koChain || 0) + 1 : 1; k.lastKoT = g.time; if (k.koChain >= 2 && !k.isBot) { sfx('combo', k.koChain); fx.popup(['', '', 'DOUBLE KO!', 'TRIPLE KO!', 'MEGA KO!'][Math.min(4, k.koChain)], k.x, k.z, 'pop-gold', 2.5); } }
     }
@@ -161,10 +166,10 @@ const app = {
     else if (n === 'dash') { if (human) track('dash'); }
     else if (n === 'catch') { if (human) track('catch'); }
     else if (n === 'parry') { if (human) track('deflect'); }
-    else if (n === 'shatter') { if (d.killer && !d.killer.isBot) track('shatter'); }
+    else if (n === 'shatter') { if (mine(d.killer)) track('shatter'); }
     else if (n === 'chainko') { if (human) track('chainko'); }
-    else if (n === 'ult') { if (human) track('ult'); if (d.f.isBot === false) UI.banner(ULTS[d.f.hero.id].name.toUpperCase(), null, '#ffe066'); }
-    else if (n === 'bomb') { if (d.from && !d.from.isBot && m) m.st.passes++; if (d.f && !d.f.isBot) UI.toast('You have the bomb! Hit a rival to pass it!', 1800); }
+    else if (n === 'ult') { if (human) track('ult'); if (mine(d.f)) UI.banner(ULTS[d.f.hero.id].name.toUpperCase(), null, '#ffe066'); }
+    else if (n === 'bomb') { if (mine(d.from) && m) m.st.passes++; if (mine(d.f)) UI.toast('You have the bomb! Hit a rival to pass it!', 1800); }
     else if (n === 'wave') { UI.banner('WAVE ' + d.n, d.n % 5 === 0 ? 'Elite incoming!' : null, '#ff9a6a'); if (m) track('wave', d.n); }
     else if (n === 'wind') { UI.toast('Wind gust!', 1400); }
     else if (n === 'zoneMove') { UI.toast('The hill moved!', 1200); }
@@ -180,6 +185,7 @@ const app = {
     }
   },
   onRoundEnd(d) {
+    if (this.net && this.net.isHost && this.match && this.match.online) { this.net.hostRoundEnd(d); return; }
     const m = this.match, g = this.game; const info = (win) => m.players.map((p, i) => ({ name: p.name, wins: p.wins, team: p.team === undefined ? i : p.team, color: p.color || PLAYER_COLORS[i % 4], img: portrait(p.hero, p.hat) }));
     const humanTeam = m.players[0].team === undefined ? 0 : m.players[0].team; const humanWon = d.winTeam === humanTeam && d.winTeam >= 0;
     const teamBased = !!g.rules.teams;
@@ -223,10 +229,33 @@ const app = {
     this.lastResult = base; setTimeout(() => { if (this.mode === 'matchEnd') { UI.show('matchEnd', base); this.applyTouch(); } }, 400);
   },
   rematch() { const m = this.match; if (!m) return; if (m.stage) this.startStage(m.stage.n); else if (m.mode === 'tutorial') this.startTutorial(); else this.startMode(m.mode); },
-  pause() { if (this.mode !== 'play' || this.paused || !this.game || this.game.state === 'matchEnd') return; this.paused = true; this.applyTouch(); UI.show('pause'); sfx('click'); },
-  resume() { if (!this.paused) return; this.paused = false; UI.clear(); Input.flush(); this.applyTouch(); },
-  quitToMenu(play) { this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show(play ? 'modes' : 'menu'); this.applyTouch(); },
+  pause() { if (this.net && this.mode === 'play' && this.game) { if (UI.cur === 'netPause') UI.clear(); else { UI.show('netPause'); sfx('click'); } this.applyTouch(); return; } if (this.mode !== 'play' || this.paused || !this.game || this.game.state === 'matchEnd') return; this.paused = true; this.applyTouch(); UI.show('pause'); sfx('click'); },
+  resume() { if (this.net) { UI.clear(); Input.flush(); this.applyTouch(); return; } if (!this.paused) return; this.paused = false; UI.clear(); Input.flush(); this.applyTouch(); },
+  quitToMenu(play) { if (this.net) this.net.leave(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show(play ? 'modes' : 'menu'); this.applyTouch(); },
   startAttractKeep() { this.startAttract(); },
+  // ---------- online (v4.0) ----------
+  netStartGuestRound(c) {
+    const s = c.speed && SPEEDS[c.speed] ? SPEEDS[c.speed] : SPEEDS.chill;
+    this.match = { mode: c.mode, rulesMode: c.mode, players: c.players, round: c.round, need: c.need, arena: c.arena, size: c.size, traps: c.traps, trapSet: c.trapSet, mutator: c.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {}, online: true, curRules: c.rules };
+    UI.clear(); this.paused = false; this.resultShown = false; this.mode = 'play';
+    this.setGame({ mode: 'vs', arenaId: c.arena, players: c.players, round: c.round, rules: c.rules, size: c.size, traps: c.traps, trapSet: c.trapSet, mutator: c.mutator, netSeed: c.seed, netCfg: s, net: Net });
+    music(c.mode === 'bomb' ? 'bomb' : c.mode === 'koth' ? 'koth' : c.arena); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
+  },
+  net_roundEnd(m) {
+    const g = this.game, mt = this.match; if (!g || !mt) return; const me = mt.players.find((p) => p.slot === 0); const myTeam = me ? (me.team === undefined ? mt.players.indexOf(me) : me.team) : -1; const teamy = !!g.rules.teams;
+    let t1, t2; if (m.draw || m.winTeam < 0) { t1 = 'DRAW'; t2 = null; } else if (teamy) { t1 = m.winTeam === myTeam ? 'YOUR TEAM WINS THE ROUND' : 'RIVAL TEAM WINS THE ROUND'; } else { const w = mt.players[m.w >= 0 ? m.w : 0]; t1 = (w ? w.name : 'Someone').toUpperCase() + ' WINS THE ROUND'; }
+    (m.wins || []).forEach((w, i) => { if (mt.players[i]) mt.players[i].wins = w; });
+    UI.banner(t1, `Next round starting...`, '#ffd23c'); sfx('round');
+  },
+  net_matchEnd(res) {
+    this.mode = 'matchEnd'; const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) fx.confetti(f.x, f.z, 80, 1.6); } this.applyTouch();
+    setTimeout(() => { if (this.mode === 'matchEnd' && this.net) { UI.show('netResults'); this.applyTouch(); } }, 900);
+  },
+  netToLobby() { this.match = null; this.mode = 'menu'; this.paused = false; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show('netLobby'); this.applyTouch(); },
+  netClosed() {},
+  netFailed(err, wasJoin) { // async failure or the room ended: back to the menu with a plain-language reason
+    this.tut = null; this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); this.applyTouch(); UI.show('netMsg', { err, wasJoin });
+  },
   // ---- tutorial
   skipTutorial() { const s = S(); s.tutorialDone = true; save(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.quickPlay(); },
   tutEvent(n, d) { const t = this.tut; if (!t || !d || !d.f || d.f.isBot) return; if ((t.step === 1 && n === 'throw') || (t.step === 2 && n === 'catch') || (t.step === 3 && n === 'dash')) this.tutAdv(); },
@@ -252,8 +281,8 @@ function boot() {
   let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); app.applyTouch(); }); };
   window.addEventListener('resize', rz); window.addEventListener('orientationchange', () => setTimeout(rz, 120)); document.addEventListener('fullscreenchange', () => setTimeout(rz, 80)); document.addEventListener('webkitfullscreenchange', () => setTimeout(rz, 80));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', rz); if (window.ResizeObserver) new ResizeObserver(rz).observe(document.documentElement);
-  document.addEventListener('visibilitychange', () => { if (document.hidden && app.mode === 'play' && !app.paused) app.pause(); });
-  window.addEventListener('blur', () => { if (app.mode === 'play' && !app.paused && !S().settings.noAutoPause) app.pause(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && app.mode === 'play' && !app.paused && !app.net) app.pause(); });
+  window.addEventListener('blur', () => { if (app.mode === 'play' && !app.paused && !app.net && !S().settings.noAutoPause) app.pause(); });
   const unlock = () => { initAudio(); resumeAudio(); iosAudioKick(); applyVolumes(); if (!app.musicOn) { app.musicOn = true; music(app.mode === 'play' && app.game ? app.game.arenaId : 'menu'); } };
   ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); }); window.addEventListener('pageshow', () => resumeAudio()); window.addEventListener('focus', () => resumeAudio());
@@ -263,6 +292,8 @@ function boot() {
   initHead(); initHardening(); initWakeLock(); initFullscreenFirstTap(app); initInstall(UI); initSW(app, UI); pwa.onChange = () => { if (UI.cur === 'menu') UI.show('menu'); };
   $('#loading').remove(); app.ready = true;
   if (IS_IOS && !isStandalone() && !IS_APP && !S().settings.a2hs) { setTimeout(() => { if (app.mode === 'menu') { showIosHint(); S().settings.a2hs = true; save(); } }, 2600); }
+  Net.init(app, UI); Net.onError = (e, j) => app.netFailed(e, j);
+  try { const q = new URLSearchParams(location.search); const rc = q.get('room'); if (rc) { history.replaceState(null, '', location.pathname); setTimeout(() => UI.show('netMenu', { auto: rc }), 300); } } catch (e) {}
   console.log('Whackerang', BUILD, gfx.quality, 'dpr', gfx.dprCur);
   // loop
   let last = performance.now(), fAcc = 0, fN = 0;
@@ -270,7 +301,7 @@ function boot() {
   const frame = (now) => {
     requestAnimationFrame(frame); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1; if (dt <= 0) return;
     const t0 = performance.now(); app.frames++;
-    if (app.game && (!app.paused || app.mode === 'menu')) { app.acc += dt; let n = 0; while (app.acc >= STEP && n < 4) { app.game.update(STEP); app.acc -= STEP; n++; } if (app.acc > STEP * 4) app.acc = 0; }
+    if (app.game && (!app.paused || app.mode === 'menu')) { app.acc += dt; let n = 0; const hn = app.net && app.net.isHost && app.mode === 'play' && app.game.mode !== 'attract' ? app.net : null; while (app.acc >= STEP && n < 4) { if (hn) hn.beforeStep(); app.game.update(STEP); if (hn) hn.afterStep(); app.acc -= STEP; n++; } if (app.acc > STEP * 4) app.acc = 0; }
     const dts = app.paused ? 0 : dt; fx.update(dts); app.showcaseTick(dt); gfx.time = (gfx.time || 0) + dt; if (app.game && app.mode === 'play' && gfx.follow) app.camFollow(dt); updateGfx(dt, gfx.time);
     if (!app.game || app.mode === 'menu' || app.paused || true) { const p = Input.menuPoll(); if (UI.cur) UI.padMenu(p); else if (app.mode === 'play' && p.back && false) app.pause(); }
     if (app.mode !== 'play' || app.paused) Input.edge.clear();
@@ -283,6 +314,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  window.__bg = { net: Net, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

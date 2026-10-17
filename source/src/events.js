@@ -62,21 +62,25 @@ export class ArenaEvents {
       const k = this.windOn ? this.windK : 0; g.wind = k > 0.01 ? [this.windDir[0] * 2.4 * k, this.windDir[1] * 2.4 * k] : null;
       if (this.windOn && Math.random() < 0.9) { const x = rr(-HX, HX), z = rr(-HZ, HZ), sp = 14; fx.glow.spawn(x - this.windDir[0] * 3, 0.4 + Math.random() * 1.5, z - this.windDir[1] * 3, this.windDir[0] * sp, 0, this.windDir[1] * sp, 0.05, 0.45, 0xffffff, 0, 0, 0, 3); }
     }
+    this.updateMeteors(dt);
+    this.visual(dt);
+  }
+  updateMeteors(dt) {
+    const g = this.g;
     for (let i = this.meteors.length - 1; i >= 0; i--) {
       const m = this.meteors[i]; m.t += dt; const k = Math.min(1, m.t / m.warn);
       m.mk.pulse(this.t, 0.25, 14); m.mk.g.scale.setScalar(m.r * (0.55 + 0.45 * k)); m.body.position.y = 0.4 + (1 - k * k) * 13; m.body.scale.setScalar(0.5 + k * 0.35); m.body.rotation.x += dt * 6;
       if (Math.random() < 0.6) fx.glow.spawn(m.x, m.body.position.y, m.z, (Math.random() - 0.5), 1.5, (Math.random() - 0.5), 0.22, 0.4, Math.random() < 0.5 ? 0xff7a1a : 0xffd060, 0, 0, 0, -0.5);
       if (m.t >= m.warn) { this.impact(m); m.mk.dispose(); this.root.remove(m.body); this.meteors.splice(i, 1); }
     }
-    this.visual(dt);
   }
   visual(dt) { for (const b of this.bumpers) { b.hot = Math.max(0, b.hot - dt); const s = 1 + b.hot * 1.2; b.top.scale.set(s, 1 + b.hot, s); b.ring.material.opacity = 0.3 + 0.2 * Math.sin(this.t * 5) + b.hot * 2; } }
-  spawnMeteor() {
+  spawnMeteor(px, pz) {
     const g = this.g; let x, z; const alive = g.fighters.filter((f) => f.alive && !f.boss);
-    if (alive.length && Math.random() < 0.6) { const f = pick(alive); x = clamp(f.x + f.vx * 0.6, -HX + 1, HX - 1); z = clamp(f.z + f.vz * 0.6, -HZ + 1, HZ - 1); } else { x = rr(-HX + 1.5, HX - 1.5); z = rr(-HZ + 1.5, HZ - 1.5); }
+    if (px !== undefined) { x = px; z = pz; } else if (alive.length && Math.random() < 0.6) { const f = pick(alive); x = clamp(f.x + f.vx * 0.6, -HX + 1, HX - 1); z = clamp(f.z + f.vz * 0.6, -HZ + 1, HZ - 1); } else { x = rr(-HX + 1.5, HX - 1.5); z = rr(-HZ + 1.5, HZ - 1.5); }
     const mk = new Marker(g.scene, 0xff4f3a, 1.5, 0.25); mk.set(x, z);
     const body = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), glowMat(0xff7a1a, 1.8)); body.position.set(x, 13, z); this.root.add(body);
-    this.meteors.push({ x, z, t: 0, warn: 1.5, r: 1.5, mk, body }); sfx('meteorwarn');
+    this.meteors.push({ x, z, t: 0, warn: 1.5, r: 1.5, mk, body }); sfx('meteorwarn'); if (g.netRec) g.netRec('meteor', x, z);
   }
   impact(m) {
     const g = this.g; sfx('explode'); shake(0.35); fx.flash('#ffb070', 0.18, 180); fx.shockwave(m.x, m.z, 0xff9a40, 4.5); fx.sparks(m.x, 0.5, m.z, 30, [0xffd060, 0xff7a20], { speed: 8, up: 3, life: 0.7 }); fx.burst(m.x, 0.4, m.z, 14, [0x4a3a38, 0x6a5a58, 0xff7a20], { speed: 5, up: 4, size: 0.16 }); fx.scorch(m.x, m.z, 3, 0x000000, 0.55, 12); fx.puff(m.x, 0.4, m.z, 8, 0xff9a40, 0.6);

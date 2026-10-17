@@ -1,0 +1,27 @@
+PASS main menu has Play online
+PASS online menu shows create/join + privacy note
+PASS lobby shows a 5-letter room code "ZKJDJ"
+PASS join code field normalises to upper-case
+PASS share link ?room=CODE auto-joins the lobby
+PASS host lobby lists 2 players
+EMODBG {"cur":0,"all":["eb0:","eb1:🔥"],"rows":4}
+PASS lobby emote shows on the host screen
+PASS START is locked until guests ready
+PASS START unlocks after ready
+PASS team mode shows team buttons in lobby
+PASS both clients are in the match
+PASS touch controls active on the phone viewport
+PASS ping chip visible in match
+PASS in-match menu: no pause online, offers leave
+PASS results screen on both with rewards
+PASS host won, guest lost (host-validated result) {"hostWon":true,"guestWon":false}
+PASS online gold capped per match {"won":true,"coins":0,"xp":5,"kos":0,"capped":false,"time":1,"ups":[]}
+PASS rematch starts a new match when everybody votes
+PASS host returns everyone to the lobby
+PASS guest leaves: back to main menu
+PASS host sees the guest leave
+PASS host closes room: back to main menu
+PASS single-player still starts after online
+PASS no console errors [[],[]]
+{"summary":{"pass":24,"fail":0}}
+EXIT 0

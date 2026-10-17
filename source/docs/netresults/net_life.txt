@@ -1,0 +1,26 @@
+PASS host opens room via signaling "VPCDP"
+PASS two guests join lobby
+PASS lobby lists 3 players
+PASS third guest joins (room of 4)
+PASS fifth player rejected: room full "reject:full"
+PASS wrong game version rejected "reject:version"
+PASS unknown room code gives "no-room" "no-room"
+PASS profane name replaced + invalid cosmetics sanitised by host {"slot":1,"name":"Wobbly Waffle","hero":"bao","hat":"none","skin":"default","trail":"none","ready":false,"team":1,"host":false,"conn":true,"ping":10,"rematch":false}
+PASS safe name with markup stripped
+PASS malformed/oversize packets ignored (host alive, no console errors) []
+PASS message flood from a guest gets them removed (rate limit) {"stillThere":false}
+PASS host can start when guests ready
+PASS guests enter match
+PASS guest A has its own fighter as local slot 0 ["1:human:Zippy Fox","0:human:Shellyb","2:human:Captain Boom","-1:bot:Yuki"]
+PASS joining during a match is refused ("locked") "reject:locked"
+PASS guest leaves mid-match: bot takes over its fighter "bot"
+PASS dropped guest sees a clear message + Rejoin option {"code":"ended","msg":"Lost connection to the host.","canRejoin":true}
+PASS other guest informed (toast) and still playing
+PASS rejoin returns to the running match "match"
+PASS rejoined player controls their fighter again ["human",false]
+PASS same client id was used
+PASS host leaves: guests are told the room closed {"code":"ended","msg":"The host closed the room.","canRejoin":false}
+PASS guests are back at the menu with a message screen
+PASS host drops (tab killed): guest gets "lost connection" message {"afterMs":7577,"msg":"Lost connection to the host."}
+PASS no console errors in any client [[],[],[],[],[],[],[]]
+{"summary":{"pass":25,"fail":0}}

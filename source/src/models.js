@@ -54,7 +54,7 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
 const lblTex = {};
 function labelTex(text, color) {
   const k = text + color; if (lblTex[k]) return lblTex[k];
-  const c = document.createElement('canvas'); c.width = 128; c.height = 56; const x = c.getContext('2d'); x.font = '900 40px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  const c = document.createElement('canvas'); c.width = 128; c.height = 56; const x = c.getContext('2d'); let fs = 40; x.font = '900 ' + fs + 'px system-ui,sans-serif'; while (x.measureText(text).width > 112 && fs > 16) { fs -= 2; x.font = '900 ' + fs + 'px system-ui,sans-serif'; } x.textAlign = 'center'; x.textBaseline = 'middle';
   x.lineJoin = 'round'; x.lineWidth = 9; x.strokeStyle = '#140a30'; x.strokeText(text, 64, 30); x.fillStyle = '#' + new THREE.Color(color).getHexString(); x.fillText(text, 64, 30);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; lblTex[k] = t; return t;
 }

@@ -1,0 +1,138 @@
+{
+ "N": 3,
+ "MODE": "crumble",
+ "SECS": 35,
+ "DELAY": 0,
+ "JITTER": 0,
+ "LOSS": 0,
+ "code": "NCWBG",
+ "signal": true,
+ "joined": true,
+ "persistentMismatch": {
+  "crates": 0,
+  "holes": 0,
+  "pu": 0,
+  "coins": 0,
+  "score": 0
+ },
+ "cmp": 98,
+ "aliveMismatchSamples": 0,
+ "stateMismatch": 0,
+ "crateMismatch": 0,
+ "scoreMismatch": 0,
+ "phaseBad": 0,
+ "posErr": {
+  "p50": 0.17,
+  "p90": 0.61,
+  "p99": 2.05,
+  "max": 0
+ },
+ "wallSeconds": 54,
+ "hostSimSeconds": 35.9,
+ "clients": [
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 2.13,
+   "kBPerSimSecUp": 10.25,
+   "i": 0,
+   "role": "host",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 13.3,
+   "rxKBps": 1.42,
+   "txKBps": 6.84,
+   "world": null
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 5.13,
+   "kBPerSimSecUp": 1.07,
+   "i": 1,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 13.3,
+   "rxKBps": 3.43,
+   "txKBps": 0.71,
+   "world": {
+    "late": 0,
+    "starved": 4,
+    "errs": 0,
+    "corr": 0,
+    "maxErr": 0,
+    "interpMs": 161
+   }
+  },
+  {
+   "snapsPerSimSecond": 20,
+   "kBPerSimSecDown": 5.12,
+   "kBPerSimSecUp": 1.06,
+   "i": 2,
+   "role": "guest",
+   "phase": "match",
+   "rtt": 0,
+   "snapRateHz": 13.3,
+   "rxKBps": 3.42,
+   "txKBps": 0.71,
+   "world": {
+    "late": 0,
+    "starved": 4,
+    "errs": 0,
+    "corr": 0,
+    "maxErr": 0,
+    "interpMs": 161
+   }
+  }
+ ],
+ "snapCheck": [
+  {
+   "guest": 1,
+   "snapsMatched": 1838,
+   "fighterRecords": 7352,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  },
+  {
+   "guest": 2,
+   "snapsMatched": 1838,
+   "fighterRecords": 7352,
+   "mismatches": 0,
+   "maxPosErr": 0.0007
+  }
+ ],
+ "hostLinks": 2,
+ "errors": [
+  [],
+  [],
+  []
+ ],
+ "final": [
+  {
+   "st": "intro",
+   "f": [
+    "-7.5:-3.5:1:1:1:0",
+    "7.5:3.5:1:1:1:0",
+    "7.5:-3.5:1:1:1:0",
+    "-7.5:3.5:1:1:1:0"
+   ]
+  },
+  {
+   "st": "intro",
+   "f": [
+    "-7.5:-3.5:1:1:1:0",
+    "7.5:3.5:1:1:1:0",
+    "7.5:-3.5:1:1:1:0",
+    "-7.5:3.5:1:1:1:0"
+   ]
+  },
+  {
+   "st": "intro",
+   "f": [
+    "-7.5:-3.5:1:1:1:0",
+    "7.5:3.5:1:1:1:0",
+    "7.5:-3.5:1:1:1:0",
+    "-7.5:3.5:1:1:1:0"
+   ]
+  }
+ ]
+}

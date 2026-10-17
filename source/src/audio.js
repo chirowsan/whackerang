@@ -63,7 +63,9 @@ const lastPlay = {};
 export const AU = { mute: false };
 const DUCK = { hit: 0.45, ko: 0.5, koStinger: 0.4, explode: 0.4, ult: 0.45, hurt: 0.55, shatter: 0.6, fanfare: 0.5, win: 0.5, lose: 0.5 };
 let curGain = 1;
+export const sfxTap = { fn: null };
 export function sfx(name, p = 1) {
+  if (sfxTap.fn) sfxTap.fn(name, p);
   if (!ctx || !enabled || AU.mute) return;
   const t = ctx.currentTime;
   if (lastPlay[name] && t - lastPlay[name] < 0.03) return; lastPlay[name] = t;

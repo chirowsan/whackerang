@@ -76,15 +76,15 @@ Object.assign(UI, {
     const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
     left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? this.show('tutintro') : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '3.3';
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.0';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
+    g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
     g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Hats' })));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
-    g.appendChild(this.btn('How to play', '', () => this.show('howto')));
-    g.appendChild(this.btn("What's new" + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '3.3'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.0'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -360,11 +360,21 @@ UI.howto = function (p) {
     <li><b>Progress:</b> Daily missions on the main menu, a Daily Chest when all 3 are done, animated results screen with XP bar and gold count-up, one-tap <b>Play again</b>.</li>
     <li><b>Quick start:</b> Play now jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls.</li>
     <li>Everything is still earnable by playing. The store stays in TEST MODE; nothing is charged.</li></ul></div>`);
-  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
+  const wn40 = h('div', 'hw-new', `<h4>What's new in v4.0 <small>"Play with friends"</small></h4><ul>
+    <li><b>Online multiplayer for 2-4 friends:</b> tap <b>Play online</b>, <b>Create room</b> and share the 5-letter code (or the link). Friends tap <b>Join</b> and type it. Pick your fighter, press Ready, and the host starts. Empty seats are filled by bots.</li>
+    <li><b>Modes online:</b> Classic, Team 2v2, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag and Crumbling Floor. The host picks the mode, arena, speed (Chill is the default) and bots.</li>
+    <li><b>Safe by design:</b> friends-only room codes, no chat, no voice, no public matchmaking, preset or filtered names, emoji and emote presets only.</li>
+    <li><b>If someone drops</b> a bot takes their seat and they can rejoin with the same code. If the host leaves the room closes. If your network blocks direct connections you get a clear message and the option to swap codes by hand.</li>
+    <li>Online wins still earn gold and XP (capped per match and per day). The store stays in TEST MODE.</li></ul>`);
+  wn40.style.gridColumn = '1 / -1';
+  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); pn.insertBefore(wn40, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
     <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>
     <h4 style="margin-top:1em">Daily twist</h4><p>Setup has a <b>Daily twist</b> option: one of these every day.</p><ul>${mu}</ul>
+    <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>
+    <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device, directly between phones; nothing is stored on a server.</p>
+    <p><b>Can\u2019t connect?</b> Switch Wi-Fi and mobile data, use a phone hotspot, or let another friend host. As a last resort use <b>Connect without server</b> to swap two codes by hand.</p>
     <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged. Gold buys looks and conveniences, never power.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
 };
