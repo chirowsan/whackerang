@@ -234,7 +234,7 @@ export class Game {
     const ti2 = i + dxi, tj2 = j + dzi; const k2 = idx(ti2, tj2);
     if (!inb(ti2, tj2) || this.sol[k2] || this.hole[k2] !== 0 || this.layout.t[k2] === T.LAVA || this.layout.t[k2] === T.SPIKE || this.fighters.some((o) => o.alive && ci(o.x) === ti2 && cj(o.z) === tj2)) { sfx('bounce'); return; }
     this.crateHp[k2] = this.crateHp[k]; this.crateHp[k] = 0; this.sol[k2] = 1; this.sol[k] = 0; this.layout.t[k] = T.FLOOR; this.layout.t[k2] = T.CRATE;
-    const mesh = this.view.crates.get(k); this.view.crates.delete(k); this.view.crates.set(k2, mesh); this.pushes.push({ mesh, t: 0, x0: mesh.position.x, z0: mesh.position.z, x1: cx(ti2), z1: cz(tj2) });
+    const mesh = this.view.crates.get(k); this.view.crates.delete(k); this.view.crates.set(k2, mesh); this.view.aoWait = 0.6; this.pushes.push({ mesh, t: 0, x0: mesh.position.x, z0: mesh.position.z, x1: cx(ti2), z1: cz(tj2) });
     f.dashT = Math.min(f.dashT, 0.04); sfx('push'); fx.puff(cx(i), 0.2, cz(j), 6, 0xffffff, 0.3); shake(0.1);
   }
   breakCrate(k, byFire) {
@@ -303,7 +303,7 @@ export class Game {
   reflect(b, f) {
     const o = b.owner; if (b.carry && o.alive) o.giveAmmo();
     b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z) + (Math.random() - 0.5) * 0.15; b.phase = 'out'; b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hit.clear();
-    f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
+    f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.star(b.x, 0.6, b.z, 0x9ff0ff, 3.4, 0.32); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
     b.ribbon.release(); b.ribbon = fx.ribbon(f.color, b.giant ? 0.55 : 0.3, false);
     b.mesh.removeFromParent(); b.mesh = buildBoomerang(f.color, f.hero, f.skin, b.type); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
   }

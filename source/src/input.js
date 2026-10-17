@@ -106,14 +106,14 @@ export function initTouch(root) {
   // sizes + layout (CSS vars drive the DOM; returns horizontal space the controls need so the camera can keep the arena clear)
   const layout = () => {
     const st = S().settings, sc = st.ctrlScale || 1, left = !!st.leftHanded, w = window.innerWidth, h = window.innerHeight; sa = safe();
-    B = Math.min(132 * sc, h * 0.42); R = B * 0.36; D = Math.min(94 * sc, h * 0.35); F = D * 0.84;
-    const sl = Math.max(sa.l, 0), sr = Math.max(sa.r, 0), sb = Math.max(sa.b, 0), mar = Math.max(12, w * 0.015), gp = 7 * sc;
+    B = Math.min(100 * sc, h * 0.3); R = B * 0.38; D = Math.min(66 * sc, h * 0.21); F = D * 0.84;
+    const sl = Math.max(sa.l, 0), sr = Math.max(sa.r, 0), sb = Math.max(sa.b, 0), mar = Math.max(6, w * 0.008), gp = 5 * sc;
     // Thumb cluster, bottom corner of the throwing hand: boomerang (aim) stick in the corner, DASH to its left, DEFLECT up-left on the arc.
-    const ax = w - sr - mar - B / 2, ay = h - sb - 12 - B / 2;
+    const ax = w - sr - mar - B / 2, ay = h - sb - 5 - B / 2;
     const arc = (deg, r) => [ax + Math.cos(deg * Math.PI / 180) * r, ay - Math.sin(deg * Math.PI / 180) * r];
-    let [dx, dy] = arc(184, B / 2 + D / 2 + gp); dy = Math.min(dy, h - sb - 6 - D / 2);
-    let [fx, fy] = arc(122, B / 2 + F / 2 + gp); fy = Math.max(fy, h * 0.3);
-    const U = F * 0.9; let [ux, uy] = arc(154, B / 2 + F / 2 + gp + U + 16); uy = Math.max(uy, h * 0.3);
+    let [dx, dy] = arc(184, B / 2 + D / 2 + gp); dy = Math.min(dy, h - sb - 4 - D / 2);
+    let [fx, fy] = arc(122, B / 2 + F / 2 + gp); fy = Math.max(fy, h * 0.4);
+    const U = F * 0.9; let [ux, uy] = arc(150, B / 2 + F / 2 + gp + U + 8); uy = Math.max(uy, h * 0.4);
     const X = (x) => (left ? w - x : x);
     const rs = document.documentElement.style; rs.setProperty('--sb', B + 'px'); rs.setProperty('--bd', D + 'px'); rs.setProperty('--bf', F + 'px');
     rs.setProperty('--bu', U + 'px'); rs.setProperty('--ux', X(ux) + 'px'); rs.setProperty('--uy', uy + 'px'); rs.setProperty('--dx', X(dx) + 'px'); rs.setProperty('--dy', dy + 'px'); rs.setProperty('--fx', X(fx) + 'px'); rs.setProperty('--fy', fy + 'px');
@@ -121,7 +121,7 @@ export function initTouch(root) {
     const joyW = mar + B + 10, clW = Math.max(w - dx + D / 2, w - ux + U / 2) - 22; // arena may tuck slightly under the dash button's outer edge
     const bx = sl + mar + B / 2, by = ay;
     t.pos = { joy: [left ? w - sr - mar - B / 2 : bx, by], aim: [X(ax), ay] };
-    return { L: left ? clW : joyW + sl, R: left ? joyW + sr : clW };
+    void clW; void joyW; return { L: 0, R: 0 }; // v4.2: controls float over the arena, the camera reserves nothing
   };
   t.layout = layout;
   const rest = () => { const p = t.pos || (layout(), t.pos); place(jb, p.joy[0], p.joy[1]); place(ab, p.aim[0], p.aim[1]); jk.style.transform = ak.style.transform = 'translate(-50%,-50%)'; boomEl.style.transform = 'rotate(0deg)'; };

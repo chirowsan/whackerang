@@ -156,7 +156,7 @@ export class Traps {
   // ---------- trap constructors (each returns array of trap objects)
   lamp(x, z, y = 1.2, parent) { const post = this.add(G.cyl, this.mat(0x30323c), x, y / 2, z, 0.06, y, 0.06, parent); const m = this.mat(0xff3030, 0.1); const l = this.add(G.sph, m, x, y + 0.1, z, 0.15, 0.15, 0.15, parent); return { post, l, m, set(on, hot) { this.m.emissiveIntensity = on ? (hot ? 3.2 : 1.8) : 0.05; this.m.color.setHex(on ? (hot ? 0xff2020 : 0xffb030) : 0x552020); this.m.emissive.setHex(on ? (hot ? 0xff2020 : 0xffb030) : 0x330000); } }; }
   mk_pit(layout, o) {
-    const ps = this.spots(layout, 1.4, { snap: 'int', min: 2.5 }); if (!ps) return null; const out = [];
+    const ps = o && o.at ? [o.at] : this.spots(layout, 1.4, { snap: 'int', min: 2.5 }); if (!ps) return null; const out = [];
     ps.forEach(([x, z], n) => {
       const grp = new THREE.Group(); grp.position.set(x, 0, z); this.root.add(grp);
       this.add(G.box, this.mat(0x1a1420), 0, 0.018, 0, 2, 0.04, 2, grp); const fr = this.mat(0xff6a1a, 0.6);
@@ -164,8 +164,8 @@ export class Traps {
       const cones = new THREE.Group(); grp.add(cones); const sm = this.mat(0xcfd6e6);
       for (let a = -0.5; a <= 0.5; a += 1) for (let b = -0.5; b <= 0.5; b += 1) this.add(G.cone, sm, a * 0.9, 0.35, b * 0.9, 0.3, 0.7, 0.3, cones);
       const lp = this.lamp(x - 1.15, z - 1.15, 0.7);
-      const tr = { type: 'pit', x, z, ph: (n * 1.7 + rr(0, 1)) , P: 4.6 / this.speed, up: 0, warn: false, lp, cones, fr,
-        update(dt, T) { const c = (T + this.ph) % this.P, w0 = this.P - 2.2, u0 = this.P - 1.2; const w = c > w0 && c < u0, u = c >= u0; if (w && !this.warn) warnS(x, z); if (u && !this.up) { warnS(x, z, 'spike'); fx.puff(x, 0.2, z, 5, 0xffffff, 0.3); } this.warn = w; this.up = u; },
+      const tr = { type: 'pit', tut0: !!(o && o.tut), tutW: !!(o && o.tut), x, z, ph: (n * 1.7 + rr(0, 1)) , P: 4.6 / this.speed, up: 0, warn: false, lp, cones, fr,
+        update(dt, T) { if (this.tut0) { this.tut0 = false; this.ph = (((this.P - 3.8 - T) % this.P) + this.P) % this.P; } const c = (T + this.ph) % this.P, w0 = this.P - (this.tutW ? 3.4 : 2.2), u0 = this.P - 1.2; const w = c > w0 && c < u0, u = c >= u0; if (w && !this.warn) warnS(x, z); if (u && !this.up) { warnS(x, z, 'spike'); fx.puff(x, 0.2, z, 5, 0xffffff, 0.3); } this.warn = w; this.up = u; },
         vis(t) { const c = this.up ? 1 : this.warn ? 0.12 + Math.abs(Math.sin(t * 22)) * 0.08 : 0; this.cones.position.y = -0.8 + c * 0.8 + (this.up ? 0 : 0); this.fr.emissive.setHex(this.up ? 0xff2020 : this.warn && Math.sin(t * 24) > 0 ? 0xff2020 : 0xff6a1a); lp.set(this.warn || this.up, this.up || this.warn); },
         hits(f) { return this.up && Math.abs(f.x - x) < 1.0 && Math.abs(f.z - z) < 1.0 ? 'spike' : null; },
         danger(px, pz) { const c = (this.g_T + this.ph) % this.P; return Math.abs(px - x) < 1.35 && Math.abs(pz - z) < 1.35 && c > this.P - 2.5 ? 8 : 0; } };

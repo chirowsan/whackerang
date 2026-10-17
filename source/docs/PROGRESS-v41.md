@@ -6,3 +6,4 @@
 - traps.js: shared hazard language (stripe frame+badge+glow, tr.haz), new upright blue/violet numbered portals, green/yellow jump pad, fence/switch recoloured off purple/blue; verifying shots
 - version bump 4.1.0/41, README + MULTIPLAYER updated; running final suites on release build
 - final suites on release build v4.1: net_life 25/25, net_ui 32/32, net_broker ok, smoke31 0 fail, touch31/v33test 0 errors; building APK/AAB
+- v4.1 shipped: Pages f506fc6 live, release v4.1 (apk/aab/debug verified 200 + identical), /workspace/out copies + source zip 15.9MB

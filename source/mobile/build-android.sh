@@ -8,7 +8,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 cd "$(dirname "$0")"
 : "${JAVA_HOME:?set JAVA_HOME to a JDK 17}"; : "${ANDROID_HOME:?set ANDROID_HOME}"
 BT="$ANDROID_HOME/build-tools/34.0.0"; KEYSTORE="${KEYSTORE:-$HOME/dev/keys/bb-release.jks}"
-export BUILD="${BUILD:-v4.1-$(date +%Y%m%d-%H%M)}"
+export BUILD="${BUILD:-v4.2-$(date +%Y%m%d-%H%M)}"
 npm install --no-audit --no-fund
 (cd .. && node build.mjs --min --app)
 npx cap sync android

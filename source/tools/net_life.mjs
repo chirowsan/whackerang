@@ -5,7 +5,7 @@ const T = await openN(5, { relay: relay.url, w: 480, h: 270 }); const [H, A, B, 
 const phase = (p) => ev(p, () => __bg.net.phase); const err = (p) => ev(p, () => __bg.net.error && __bg.net.error.code);
 const host = await ev(H, async () => { const n = __bg.net; const r = await n.host(); n.setSetting('mode', 'classic'); n.setSetting('rounds', 3); return r; }); ok('host opens room via signaling', host.signal && host.code.length === 4, host.code);
 const join = (p) => ev(p, (c) => { __bg.net.join(c).catch(() => {}); }, host.code);
-await join(A); await join(B); await waitFor(async () => (await phase(A)) === 'lobby' && (await phase(B)) === 'lobby', 25000);
+await join(A); await waitFor(async () => (await phase(A)) === 'lobby', 25000); await join(B); await waitFor(async () => (await phase(A)) === 'lobby' && (await phase(B)) === 'lobby', 25000);
 ok('two guests join lobby', (await phase(A)) === 'lobby' && (await phase(B)) === 'lobby');
 ok('lobby lists 3 players', (await ev(H, () => __bg.net.lobby.players.length)) === 3);
 // 4th guest joins, 5th is rejected as full

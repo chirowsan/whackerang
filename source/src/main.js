@@ -1,4 +1,4 @@
-import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon } from './gfx.js';
+import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
 import { S, save, loadSave } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
@@ -17,7 +17,8 @@ import { resolveMutator } from './mutators.js';
 import { Net } from './net/net.js';
 import { SPEEDS } from './save.js';
 import './netui.js';
-import { pick, shuffle, setArenaSize } from './util.js';
+import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
+const HXc = () => _HX, HZc = () => _HZ;
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
@@ -142,7 +143,7 @@ const app = {
     if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: m.events || S().settings.events }); Object.assign(rules, r2); } }
     m.curRules = rules; this.mode = 'play';
     { const o = { mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator }; this.setGame(this.net && this.net.isHost ? this.net.hostGameOpts(o) : o); } music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
-    if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0, ...(first ? {} : {}) }; const d = this.game.fighters[1]; if (d) d.stunT = 9999; UI.tutorialShow(this.tut); }
+    if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0 }; const d = this.game.fighters[1]; if (d) { d.stunT = 9999; d.inv = 1e9; d.x = 6; d.z = -3; } const hf = this.humanF(); if (hf) hf.inv = 0; UI.tutorialShow(this.tut); }
   },
   restartRound() { const m = this.match; if (!m) return; m.round--; if (m.mode !== 'classic' && m.mode !== 'team') { m.st = { deaths: 0, passes: 0, kos: 0 }; } this.nextRound(); },
   humanF() { const g = this.game; return g && g.fighters.find((x) => !x.isBot && x.def.slot === 0); },
@@ -258,12 +259,25 @@ const app = {
   },
   // ---- tutorial
   skipTutorial() { const s = S(); s.tutorialDone = true; save(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.quickPlay(); },
-  tutEvent(n, d) { const t = this.tut; if (!t || !d || !d.f || d.f.isBot) return; if ((t.step === 1 && n === 'throw') || (t.step === 2 && n === 'catch') || (t.step === 3 && n === 'dash')) this.tutAdv(); },
-  tutAdv() { const t = this.tut; t.step++; t.t = 0; sfx('pickup'); UI.tutorialShow(t); if (t.step === 5 && this.game) { const d = this.game.fighters[1]; if (d) d.stunT = 0; } },
+  // v4.2 hands-on tutorial: move -> throw -> catch -> dodge a trap -> done. Each step advances only when the player really does it.
+  tutEvent(n, d) { const t = this.tut; if (!t || !d || !d.f || d.f.isBot) return; if ((t.step === 1 && n === 'throw') || (t.step === 2 && n === 'catch')) this.tutAdv(); },
+  tutAdv() {
+    const t = this.tut; if (!t || t.step >= 4) return; t.step++; t.t = 0; t.moved = 0; sfx('pickup'); UI.tutorialShow(t);
+    if (t.step === 3) this.tutSpawnPit();
+    if (t.step === 4) { const g = this.game; const f = this.humanF(); if (f) { fx.confetti(f.x, f.z, 50, 1.2); } setTimeout(() => { if (this.tut === t && this.match && this.match.tutorial && this.mode === 'play') { UI.tutorialHide(); this.finishMatch({ won: true, winnerName: '' }); } }, 1500); }
+  },
+  tutSpawnPit() { // a real spike trap, warned by the red hazard pulse, right under the player's feet
+    const g = this.game, f = this.humanF(); if (!g || !f) return; const t = this.tut; const x = Math.max(-HXc() + 3, Math.min(HXc() - 3, Math.round(f.x))), z = Math.max(-HZc() + 2.5, Math.min(HZc() - 2.5, Math.round(f.z)));
+    g.traps.on = true; const made = g.traps.mk_pit('c', { at: [x, z], tut: true }); t.pit = made && made[0]; t.fired = false;
+  },
   tutTick(dt) {
     const t = this.tut, m = this.match; if (!t || !m || !m.tutorial || this.mode !== 'play' || this.paused || !this.game || this.game.state !== 'play') return; const f = this.humanF(); if (!f) return;
-    t.t += dt; if (t.step === 0) { if (Math.hypot(f.vx, f.vz) > 1.5) t.moved += dt; if (t.moved > 1.2) this.tutAdv(); } else if (t.step === 4 && f.deflectT > 0) this.tutAdv();
-    if (t.step >= 1 && t.step <= 4 && f.ammo <= 0 && this.game.booms.length === 0) f.ammo = 1;
+    t.t += dt;
+    if (t.step === 0) { if (Math.hypot(f.vx, f.vz) > 1.5) t.moved += dt; if (t.moved > 0.8) this.tutAdv(); }
+    else if (t.step === 2 && f.ammo > 0 && t.t > 0.4) this.tutAdv();
+    else if (t.step === 3 && t.pit) { if (t.pit.up) { t.fired = true; if (!f.alive) t.fired = false; } else if (t.fired && f.alive) this.tutAdv(); if (!f.alive) t.fired = false; }
+    if (t.step >= 1 && t.step <= 3 && f.ammo <= 0 && this.game.booms.length === 0) f.ammo = 1;
+    if (t.step === 3 && !t.pit && t.t > 1) this.tutSpawnPit();
   },
 };
 
@@ -278,7 +292,7 @@ function boot() {
   Input.unproject = (x, y) => { const c = gfx.camera; c.updateMatrixWorld(); const rc = canvas.getBoundingClientRect(); const v = new THREE.Vector3(((x - rc.left) / rc.width) * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1, 0.5).unproject(c); const o = c.position; const dy = v.y - o.y; if (Math.abs(dy) < 1e-4) return null; const k = -o.y / dy; if (k <= 0) return null; return [o.x + (v.x - o.x) * k, o.z + (v.z - o.z) * k]; };
   Input.onPause = () => { if (app.mode === 'play') { app.paused ? (UI.cur === 'pause' && app.resume()) : app.pause(); } };
   // resize wiring
-  let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); app.applyTouch(); }); };
+  let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); app.applyTouch(); if (app.tut) UI.tutorialGhost(); }); };
   window.addEventListener('resize', rz); window.addEventListener('orientationchange', () => setTimeout(rz, 120)); document.addEventListener('fullscreenchange', () => setTimeout(rz, 80)); document.addEventListener('webkitfullscreenchange', () => setTimeout(rz, 80));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', rz); if (window.ResizeObserver) new ResizeObserver(rz).observe(document.documentElement);
   document.addEventListener('visibilitychange', () => { if (document.hidden && app.mode === 'play' && !app.paused && !app.net) app.pause(); });
@@ -314,6 +328,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { net: Net, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  window.__bg = { net: Net, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

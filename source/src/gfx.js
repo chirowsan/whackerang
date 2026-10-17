@@ -10,7 +10,7 @@ export { THREE };
 export const gfx = {
   renderer: null, scene: null, camera: null, composer: null, bloom: null, sun: null, hemi: null,
   trauma: 0, kx: 0, kz: 0, flashOn: true, w: 1, h: 1, dpr: 1, quality: 'high', qSetting: 'auto', ok: false, camBase: new THREE.Vector3(), camTarget: new THREE.Vector3(),
-  density: 1, dprMax: 1, dprCur: 1, outlinesAll: true, camMode: 'play', useBloom: true, lastRender: 0, fovPulse: 0, tilt: 56, reserveL: 0, reserveR: 0,
+  density: 1, dprMax: 1, dprCur: 1, outlinesAll: true, camMode: 'play', useBloom: true, lastRender: 0, fovPulse: 0, tilt: 56, reserveL: 0, reserveR: 0, fillRow: 0.3,
 };
 
 let GRAD = null;
@@ -19,7 +19,7 @@ export function gradMap() {
   GRAD = new THREE.DataTexture(new Uint8Array([80, 140, 205, 255]), 4, 1, THREE.RedFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.needsUpdate = true; return GRAD;
 }
 // Cheap rim light: fresnel term added to every toon material (shared uniforms, retinted per arena theme). No extra lights/passes.
-export const RIM = { c: { value: new THREE.Color(0x9ec0ff) }, k: { value: 0.42 } };
+export const RIM = { c: { value: new THREE.Color(0x9ec0ff) }, k: { value: 0.5 } };
 export function addRim(m) {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.rimC = RIM.c; sh.uniforms.rimK = RIM.k;
@@ -101,7 +101,7 @@ export function initGfx(canvas) {
   let renderer;
   try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', alpha: false, stencil: false }); } catch (e) { console.error('WebGL failed', e); return false; }
   gfx.renderer = renderer; gfx.ok = true;
-  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.NoToneMapping;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.NoToneMapping;
   const scene = gfx.scene = new THREE.Scene();
   const cam = gfx.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 260);
   gfx.hemi = new THREE.HemisphereLight(0xffffff, 0x445577, 1.0); scene.add(gfx.hemi);
@@ -189,7 +189,7 @@ export function fitCamera(mode = gfx.camMode || 'play') {
     gfx.viewShift = 0; gfx.viewShiftX = 0.34; gfx.camBase.copy(cam.position); gfx.camTarget.copy(tg); gfx.camDist = cam.position.distanceTo(tg); gfx.follow = null;
     cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, 0, gfx.w, gfx.h); return;
   }
-  const tdeg = ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
+  const tdeg = S().settings.camera !== 'wide' ? (ar > 1.9 ? 66 : 62) : ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
   const hudPx = Math.min(60, Math.max(34, gfx.h * 0.11));
   const topM = Math.max(0.02, hudPx / gfx.h), botM = 0.03, sideM = 0.015;
   const yMax = 1 - topM * 2, yMin = -1 + botM * 2, xLim = Math.min(1 - sideM * 2, Math.max(0.35, 1 - (gfx.reserveL + gfx.reserveR) / gfx.w));
@@ -207,6 +207,19 @@ export function fitCamera(mode = gfx.camMode || 'play') {
     const d = hi; const [a, b, c, e] = proj(d); const cy = (c + e) / 2, cxx = (a + b) / 2;
     return { d, tgt, vs: (yMax + yMin) / 2 - cy, vsx: (gfx.reserveL - gfx.reserveR) / gfx.w - cxx };
   };
+  const closeOn0 = S().settings.camera !== 'wide';
+  if (closeOn0) { // v4.2 fill camera: the floor fills the screen edge to edge (controls float on top), the camera follows the players
+    const tgt = new THREE.Vector3(0, 0, 0.2); const wantW = Math.min(HX * 2 + 1.0, 21.4); const row = gfx.fillRow;
+    const fl = new THREE.Vector3(), fr = new THREE.Vector3(); const ray = new THREE.Raycaster();
+    const hit = (nx, ny, out) => { ray.setFromCamera({ x: nx, y: ny }, cam); const o = ray.ray.origin, d = ray.ray.direction; const t = -o.y / d.y; out.copy(d).multiplyScalar(t).add(o); return out; };
+    const place = (d) => { cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); };
+    let lo = 4, hi = 120; for (let i = 0; i < 26; i++) { const d = (lo + hi) / 2; place(d); hit(-1, row, fl); hit(1, row, fr); if (fr.x - fl.x > wantW) hi = d; else lo = d; }
+    const d = (lo + hi) / 2; place(d); hit(-1, row, fl); hit(1, row, fr); const visW = fr.x - fl.x; const t0 = hit(0, 1, new THREE.Vector3()), b0 = hit(0, -1, new THREE.Vector3()); const visH = Math.abs(b0.z - t0.z);
+    gfx.viewShift = 0; gfx.viewShiftX = 0; gfx.tilt_ = tilt; gfx.heroZoom = gfx.h < 560 ? 1.15 : 1.06;
+    gfx.follow = { dMin: d, dFull: d * 1.45, cx: 0, cz: 0.2, d, init: false, k: 1, big: HX > 10.5 || HZ > 6.5, fill: true, visW, visH, tz0: 0.2 };
+    cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); gfx.camBase.copy(cam.position); gfx.camTarget.copy(tgt); gfx.camDist = d;
+    cam.setViewOffset(gfx.w, gfx.h, 0, 0, gfx.w, gfx.h); return;
+  }
   const full = solve(HX, HZ); const big = HX > 10.5 || HZ > 6.5; const small = big ? solve(10, 6) : full;
   // v3.3 close camera: fighters read bigger on a phone. kClose < 1 pulls the follow camera in (small maps now follow too)
   const closeOn = S().settings.camera !== 'wide'; const kClose = closeOn ? (gfx.h < 560 ? 0.88 : 0.94) : 1;
@@ -226,6 +239,15 @@ export function followCam(dt, points, humans) {
   for (const p of set) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   // include other points (foes/objectives) only if close to the human box so we never zoom out to fit far-away things
   for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < (f.big ? 7 : 6.5)) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
+  if (f.fill) { // fill camera: keep the humans centred, zoom out a little only when they spread apart; floor edges stay at the screen edges
+    for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < 6) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
+    const ratio = Math.min(1.35, Math.max((x1 - x0 + 5) / f.visW, (z1 - z0 + 3.5) / f.visH, 1)); const cfg0 = speedCfg();
+    let want = f.dMin * (1 + (ratio - 1) * (cfg0.camWide > 1 ? 1 : 0.9)); if (f.fixed) want = f.dMin * Math.max((2 * HX + 2) / f.visW, (2 * HZ + 2.5) / f.visH) * 1.08; const vis = want / f.dMin; let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2;
+    const hx = Math.max(0, HX - f.visW * vis / 2 + 0.2), hz = Math.max(0, HZ - f.visH * vis / 2 + 0.4); tx = Math.max(-hx, Math.min(hx, tx)); tz = Math.max(-hz + 0.2, Math.min(hz + 0.2, tz)); if (f.fixed) { tx = 0; tz = 0.2; }
+    const sm0 = Math.sqrt(cfg0.ts); const k0 = f.init ? 1 - Math.exp(-dt * 5 * sm0) : 1; f.init = true; f.cx += (tx - f.cx) * k0; f.cz += (tz - f.cz) * k0; f.d += (want - f.d) * (1 - Math.exp(-dt * 2.6 * sm0));
+    const tl = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tl) * f.d, Math.cos(tl) * f.d + f.cz); gfx.camDist = f.d;
+    const sn = gfx.sun; if (sn && sn.target) { sn.target.position.set(f.cx, 0, f.cz); sn.position.set(f.cx - 7, 15, f.cz + 8); } return;
+  }
   const kk = f.k || 1; const bw = x1 - x0 + (f.big ? 7 : 4), bh = z1 - z0 + (f.big ? 6 : 3.5); const ratio = Math.max(bw / (21.8 * kk), bh / (13.8 * kk), 1);
   const cap = Math.min(f.dFull, f.dMin * (f.big ? 1.5 : 1.7));
   const cfg = speedCfg(); let want = Math.min(f.dFull, Math.min(cap, f.dMin * ratio) * (f.big ? cfg.camWide : 1 + (cfg.camWide - 1) * 0.35)); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }

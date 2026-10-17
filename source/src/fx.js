@@ -53,7 +53,14 @@ export const fx = {
     this.ribbons = []; this.scorches = []; const sg = new THREE.PlaneGeometry(1, 1);
     for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: softTex(), color: 0x000000, transparent: true, opacity: 0, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.visible = false; m.userData = { t: 0, life: 1, a: 0.5 }; scene.add(m); this.scorches.push(m); }
     this.sIdx = 0;
+    { // v4.2 four-point star flashes for hits / catches / deflects (6 pooled additive sprites)
+      const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.18, 'rgba(255,255,255,.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = gr; x.beginPath(); x.moveTo(64, 0); x.quadraticCurveTo(70, 58, 128, 64); x.quadraticCurveTo(70, 70, 64, 128); x.quadraticCurveTo(58, 70, 0, 64); x.quadraticCurveTo(58, 58, 64, 0); x.fill();
+      const st = new THREE.CanvasTexture(c); st.colorSpace = THREE.SRGBColorSpace; this.stars = [];
+      for (let i = 0; i < 6; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: st, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); sp.visible = false; sp.userData = { t: 0, life: 0.3, size: 1 }; scene.add(sp); this.stars.push(sp); }
+    }
   },
+  star(x, y, z, color = 0xffffff, size = 2, life = 0.28) { const sp = this.stars && (this.stars.find((q) => !q.visible) || this.stars[0]); if (!sp) return; sp.visible = true; sp.position.set(x, y, z); sp.material.color.set(color); sp.material.rotation = Math.random() * 1.5; sp.userData.t = life; sp.userData.life = life; sp.userData.size = size; sp.scale.setScalar(size * 0.3); },
   ribbon(color, width, rainbow) { const r = new Ribbon(this.scene, color, width, rainbow); this.ribbons.push(r); return r; },
   flash(color = '#ffffff', a = 0.35, ms = 160) { const e = this.flashEl; if (!e || !gfx.flashOn) return; e.style.transition = 'none'; e.style.background = color; e.style.opacity = a; void e.offsetWidth; e.style.transition = `opacity ${ms}ms ease-out`; e.style.opacity = 0; },
   scorch(x, z, size = 2, color = 0x000000, a = 0.45, life = 7) { const m = this.scorches[this.sIdx++ % this.scorches.length]; m.visible = true; m.position.set(x, 0.012 + (this.sIdx % 3) * 0.001, z); m.scale.setScalar(size); m.material.color.setHex(color); m.userData = { t: life, life, a }; m.rotation.z = Math.random() * 6; },
@@ -74,13 +81,13 @@ export const fx = {
   impact(x, z, color, dx = 0, dz = 1, power = 1) {
     const y = 0.65; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
     this.glow.spawn(x, y, z, 0, 0, 0, 0.5 * power, 0.1, 0xffffff, 0, 0, 0, 2.4); this.glow.spawn(x, y, z, 0, 0, 0, 0.7 * power, 0.24, color, 0, 0, 0, 3.2);
-    this.ring(x, 0.22, z, 0xffffff, 2.6 * power, 0.26); this.ring(x, 0.18, z, color, 3.8 * power, 0.38);
+    this.ring(x, 0.22, z, 0xffffff, 2.6 * power, 0.26); this.ring(x, 0.18, z, color, 3.8 * power, 0.38); this.star(x, y + 0.2, z, 0xffffff, 3.4 * power, 0.3); this.star(x, y + 0.2, z, color, 5 * power, 0.42);
     const n = Math.ceil(16 * power * Math.max(0.6, gfx.density)); const base = Math.atan2(dx, dz);
     for (let i = 0; i < n; i++) { const a = base + (Math.random() - 0.5) * 1.5, sp = 5 + Math.random() * 8 * power; this.glow.spawn(x, y, z, Math.sin(a) * sp, (Math.random() - 0.3) * 3, Math.cos(a) * sp, 0.09 + Math.random() * 0.09, 0.3 + Math.random() * 0.3, i % 3 ? 0xffffff : color, 0, 3, 0, -0.4); }
     const m = Math.ceil(8 * power * Math.max(0.6, gfx.density)); for (let i = 0; i < m; i++) { const a = Math.random() * 6.28, sp = 2 + Math.random() * 4; this.glow.spawn(x, y, z, Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.07, 0.5, 0xffe066, 5, 1.5, 0, -0.3); }
   },
   catchBurst(x, z, color, combo = 1) {
-    this.ring(x, 0.12, z, color, 2.2, 0.32); this.ring(x, 0.3, z, 0xffffff, 1.4, 0.22); this.glow.spawn(x, 0.7, z, 0, 0.5, 0, 0.5, 0.2, 0xffffff, 0, 0, 0, 2.5);
+    this.ring(x, 0.12, z, color, 2.2, 0.32); this.ring(x, 0.3, z, 0xffffff, 1.4, 0.22); this.star(x, 0.8, z, 0xfff2b0, 1.9 + Math.min(1.2, combo * 0.3), 0.26); this.glow.spawn(x, 0.7, z, 0, 0.5, 0, 0.5, 0.2, 0xffffff, 0, 0, 0, 2.5);
     const n = Math.ceil((8 + Math.min(6, combo * 2)) * Math.max(0.6, gfx.density)); for (let i = 0; i < n; i++) { const a = i / n * 6.283; this.glow.spawn(x, 0.45, z, Math.cos(a) * 3.2, 1.6 + Math.random() * 1.4, Math.sin(a) * 3.2, 0.1, 0.5, i % 2 ? 0xffffff : color, 3, 2, 0, -0.4); }
   },
   firework(x, z, cols) {
@@ -114,6 +121,7 @@ export const fx = {
     this.time += dt; const t = this.time;
     this.debris.update(dt); this.glow.update(dt);
     for (let i = this.ribbons.length - 1; i >= 0; i--) { const r = this.ribbons[i]; r.tick(dt); if (r.done) this.ribbons.splice(i, 1); }
+    if (this.stars) for (const q of this.stars) { if (!q.visible) continue; const u = q.userData; u.t -= dt; if (u.t <= 0) { q.visible = false; continue; } const k = 1 - u.t / u.life; q.scale.setScalar(u.size * (0.3 + 0.9 * Math.sin(Math.min(1, k * 1.6) * 1.5708))); q.material.opacity = (1 - k) * (1 - k) * 1.1; q.material.rotation += dt * 2.5; }
     for (const m of this.scorches) { if (!m.visible) continue; const u = m.userData; u.t -= dt; if (u.t <= 0) { m.visible = false; continue; } m.material.opacity = u.a * Math.min(1, u.t / 2); }
     for (const r of this.rings) { const u = r.userData; if (!r.visible) continue; u.t -= dt; if (u.t <= 0) { r.visible = false; continue; } const k = 1 - u.t / u.life; r.scale.setScalar(0.3 + k * u.max); r.material.opacity = (1 - k) * 0.8; }
     if (this.amb) {

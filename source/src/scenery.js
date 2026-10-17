@@ -234,12 +234,12 @@ export function floorPattern(view, id, layout, rd) {
   });
   t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-export function patchFloor(mat, tex) {
-  const prev = mat.onBeforeCompile; const u = { value: tex };
+export function patchFloor(mat, tex, ao) {
+  const prev = mat.onBeforeCompile; const u = { value: tex }, ua = { value: ao };
   mat.onBeforeCompile = (sh, r) => {
-    prev && prev(sh, r); sh.uniforms.uPat = u;
+    prev && prev(sh, r); sh.uniforms.uPat = u; sh.uniforms.uAO = ua;
     sh.vertexShader = 'varying vec2 vPatUv;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n vec4 pw = modelMatrix * instanceMatrix * vec4(position, 1.0); vPatUv = vec2((pw.x + ${HX.toFixed(1)}) / ${AW.toFixed(1)}, 1.0 - (pw.z + ${HZ.toFixed(1)}) / ${AH.toFixed(1)});`);
-    sh.fragmentShader = 'uniform sampler2D uPat; varying vec2 vPatUv;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n { vec4 pt = texture2D(uPat, vPatUv); float lum = dot(pt.rgb, vec3(0.333)); diffuseColor.rgb = mix(diffuseColor.rgb, pt.rgb, pt.a * 0.55) ; diffuseColor.rgb *= 1.0; }');
+    sh.fragmentShader = 'uniform sampler2D uPat; uniform sampler2D uAO; varying vec2 vPatUv;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n { vec4 pt = texture2D(uPat, vPatUv); float lum = dot(pt.rgb, vec3(0.333)); diffuseColor.rgb = mix(diffuseColor.rgb, pt.rgb, pt.a * 0.55) ; diffuseColor.rgb *= 1.0 - texture2D(uAO, vPatUv).a * 0.46; }');
   };
   mat.customProgramCacheKey = () => 'rimtoon-floorpat'; mat.needsUpdate = true;
 }

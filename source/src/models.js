@@ -134,6 +134,7 @@ export function buildCrate(theme) {
   mesh(BOX(0.9, 0.9, 0.9), toon(col), g, { pos: [0, 0.45, 0], outline: 0.025, recv: true });
   for (const s of [-1, 1]) { mesh(BOX(0.95, 0.12, 0.95), toon(bar), g, { pos: [0, 0.45 + s * 0.3, 0], cast: false }); }
   mesh(BOX(0.12, 0.95, 0.95), toon(bar), g, { pos: [0, 0.45, 0], cast: false });
+  { const top = new THREE.Color(col).offsetHSL(0, 0, 0.09), gv = new THREE.Color(col).offsetHSL(0, 0, -0.1); mesh(BOX(0.84, 0.03, 0.84), toon(top), g, { pos: [0, 0.915, 0], cast: false }); for (const z of [-0.14, 0.14]) mesh(BOX(0.8, 0.034, 0.025), toon(gv), g, { pos: [0, 0.93, z], cast: false }); for (const [x, z] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) mesh(BOX(0.09, 0.1, 0.09), toon(bar), g, { pos: [x, 0.93, z], cast: false }); }
   return g;
 }
 const iconTex = {};

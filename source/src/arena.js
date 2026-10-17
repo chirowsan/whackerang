@@ -68,11 +68,11 @@ export class ArenaView {
   build() {
     const th = this.th, R = this.root, L = this.L;
     // floor tiles (instanced, animatable)
-    const fm = toon(0xffffff, { }); const floor = new THREE.InstancedMesh(new THREE.BoxGeometry(0.98, 0.5, 0.98), fm, AW * AH); floor.receiveShadow = true;
+    const fm = toon(0xffffff, { }); const floor = new THREE.InstancedMesh(new THREE.BoxGeometry(0.997, 0.5, 0.997), fm, AW * AH); floor.receiveShadow = true;
     floor.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(AW * AH * 3), 3); floor.instanceColor.setUsage(THREE.DynamicDrawUsage); floor.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.floor = floor; this.cA = new THREE.Color(th.a); this.cB = new THREE.Color(th.b); this.cWarn = new THREE.Color(0xff5a4f);
     const m4 = new THREE.Matrix4(); const col = new THREE.Color();
-    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { m4.makeTranslation(cx(i), -0.25, cz(j)); floor.setMatrixAt(idx(i, j), m4); col.copy((i + j) % 2 ? this.cA : this.cB); if (this.id === 'ice') col.offsetHSL(0, 0, ((i * 7 + j * 3) % 5) * 0.006); floor.setColorAt(idx(i, j), col); }
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { m4.makeTranslation(cx(i), -0.25, cz(j)); floor.setMatrixAt(idx(i, j), m4); col.copy((i + j) % 2 ? this.cA : this.cB); col.offsetHSL(0, 0, this.id === 'ice' ? ((i * 7 + j * 3) % 5) * 0.006 : (((i * 7 + j * 13) % 5) - 2) * 0.008); floor.setColorAt(idx(i, j), col); }
     R.add(floor);
     // void below
     const voidM = new THREE.Mesh(new THREE.PlaneGeometry(90 * arenaScale()[0] * 1.2, 70 * arenaScale()[1] * 1.2), new THREE.MeshBasicMaterial({ color: { ice: 0x2a6aa8, jungle: 0x0a1a10, rooftop: 0x040414, volcano: 0x120302, pirate: 0x1a6a9a, space: 0x010208, haunted: 0x0a0618 }[this.id] || 0x6a8a6a })); voidM.rotation.x = -Math.PI / 2; voidM.position.y = -2.2; R.add(voidM);
@@ -89,8 +89,21 @@ export class ArenaView {
       else if (v === T.LAVA) this.addLava(i, j);
       else if (v === T.CONV) this.addConv(i, j);
     }
-    const pat = buildScenery(this, this.id, L); patchFloor(fm, pat); RIM.c.value.set(this.rim || 0x9ec0ff); { const vg = document.getElementById('vig'); if (vg) vg.style.setProperty('--vt', { dojo: '40,16,10', rooftop: '10,0,40', jungle: '0,24,8', ice: '10,30,70', volcano: '60,10,0', pirate: '0,30,50', space: '0,0,40', haunted: '30,0,50' }[this.id]); }
+    const pat = buildScenery(this, this.id, L); this.initAO(); patchFloor(fm, pat, this.aoTex); RIM.c.value.set(this.rim || 0x9ec0ff); { const vg = document.getElementById('vig'); if (vg) vg.style.setProperty('--vt', { dojo: '40,16,10', rooftop: '10,0,40', jungle: '0,24,8', ice: '10,30,70', volcano: '60,10,0', pirate: '0,30,50', space: '0,0,40', haunted: '30,0,50' }[this.id]); }
     if (gfx.quality === 'low') this.mergeLow();
+  }
+  // v4.2 baked contact shadows: soft dark pools under every crate/pillar and along the inner walls, painted into one small texture the floor shader multiplies in (0 extra draw calls)
+  initAO() {
+    const W = AW * 16, H = AH * 16; const c = document.createElement('canvas'); c.width = W; c.height = H; this.aoCv = c;
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; this.aoTex = t; this.aoWait = 0; this.bakeAO();
+  }
+  bakeAO() {
+    const c = this.aoCv; if (!c) return; const g = c.getContext('2d'), W = c.width, H = c.height, kx = W / AW, kz = H / AH; g.clearRect(0, 0, W, H);
+    const pool = (x, z, r, a) => { const px = (x + HX) * kx, pz = (z + HZ) * kz, rr = r * kx; const gr = g.createRadialGradient(px, pz, rr * 0.25, px, pz, rr); gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(px - rr, pz - rr, rr * 2, rr * 2); };
+    this.crates.forEach((m) => pool(m.position.x + 0.1, m.position.z - 0.08, 0.95, 0.95)); this.pillars.forEach((m) => pool(m.position.x + 0.08, m.position.z - 0.06, 0.8, 0.9));
+    const edge = (x0, z0, x1, z1, gx, gz) => { const gr = g.createLinearGradient(gx[0], gz[0], gx[1], gz[1]); gr.addColorStop(0, 'rgba(0,0,0,.9)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x0, z0, x1 - x0, z1 - z0); };
+    const e = kx * 0.9; edge(0, 0, W, e, [0, 0], [0, e]); edge(0, H - e, W, H, [0, 0], [H, H - e]); edge(0, 0, e, H, [0, e], [0, 0]); edge(W - e, 0, W, H, [W, W - e], [0, 0]);
+    this.aoTex.needsUpdate = true;
   }
   mergeLow() {
     const ex = new Set([this.floor]); this.crates.forEach((g) => { ex.add(g); mergeToon(g); }); this.pillars.forEach((g) => { ex.add(g); mergeToon(g); });
@@ -129,8 +142,9 @@ export class ArenaView {
     // plane's texture "up" is +v -> rotate so chevrons point along (dx,dz)
     p.rotation.z = Math.atan2(-dx, -dz); this.convMats.push({ m, dx, dz });
   }
-  breakCrate(k) { const g = this.crates.get(k); if (g) { this.root.remove(g); this.crates.delete(k); } }
+  breakCrate(k) { const g = this.crates.get(k); if (g) { this.root.remove(g); this.crates.delete(k); this.aoWait = 0.05; } }
   update(dt, t, game) {
+    if (this.aoWait > 0) { this.aoWait -= dt; if (this.aoWait <= 0) this.bakeAO(); }
     updateScenery(this, t, dt);
     const f = this.floor; let dirty = false; const m4 = this._m || (this._m = new THREE.Matrix4()), col = this._c || (this._c = new THREE.Color());
     if (game && game.hole) {

@@ -14,6 +14,13 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.2 (full-screen play, 40-second tutorial, nicer arenas)
+- **The arena fills the screen:** on phone landscape the floor now covers ~87-100% of the viewport (was ~11-41%). The camera is tighter and follows you, the HUD is a thin strip, and the touch controls are smaller, semi-transparent (brighter when touched), tucked into the bottom corners. Off-screen rivals still get edge arrows. Settings > Camera > Wide restores the old zoomed-out view.
+- **Hands-on tutorial (first run, 30-45 s):** MOVE, THROW, CATCH, DODGE (a real spike pit with a red warning), done. 1-3 words per step, a ghost thumb shows the gesture, each step advances only when you really do it, Skip is always visible. Replay it from How to play.
+- **Graphics:** baked ambient occlusion on the floor (soft contact shadows around crates/walls, zero extra draw calls), tile variation on every arena, crates with lids/grooves/studs, stronger rim light, impact stars on hits and deflects, crisper HUD type. Sharp tier stays shadow-free; draw calls and render CPU are lower than v4.1.
+- Tests: tools/layout42.mjs (arena coverage >= 85% at 915x412, 740x340, 640x320), tools/tut42.mjs (18 tutorial checks).
+- Android versionCode 42 / versionName 4.2.0 (same signing key).
+
 ## What's new in v4.1 (easier online, clearer traps)
 - **Online in two taps:** Play online shows just *Create room* and *Join room*. Create goes straight to a lobby with a huge 4-letter code, **Share** (native share sheet, or copy link) and **Start**. Defaults: Classic, Chill, Medium bots fill empty slots, heroes auto-picked, guests auto-ready. Mode, arena, speed, hero and emotes live behind a small **Options** button. Join shows four big boxes, opens the keyboard, and joins by itself on the 4th letter (clear error if the room isn't found). `?room=CODE` links still auto-join; old 5-letter codes still work.
 - **Traps you can read at a glance:** every harmful trap now shares one look: red/orange stripes, a skull/spikes/flame badge, a ground decal, and a blinking warning before it fires. Teleporters are upright blue/violet swirling portals with a number (1/2) and are never red or striped. Jump pads are green/yellow with chevrons. A small legend is at the top of How to play.

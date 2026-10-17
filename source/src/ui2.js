@@ -74,9 +74,9 @@ Object.assign(UI, {
     left.appendChild(h('div', '', `<div class="title">WHACKERANG</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
     const md = MODES[s.setup.mode] && s.setup.mode !== 'campaign' ? s.setup.mode : 'classic'; const spd = { chill: 'Chill', normal: 'Normal', fast: 'Fast' }[s.settings.speed] || 'Chill';
     const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
-    left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? this.show('tutintro') : a.quickPlay()), { id: 'btn-play' }));
+    left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? a.startTutorial() : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.1';
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.2';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
     g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
@@ -84,7 +84,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
-    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.1'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.2'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -243,7 +243,7 @@ Object.assign(UI, {
     return el;
   },
   introTitle(m, g) { if (!m) return ''; if (m.tutorial) return 'TRAINING'; if (m.stage) return 'STAGE ' + m.stage.n; return { classic: 'ROUND ' + m.round, team: 'ROUND ' + m.round, survival: 'SURVIVAL', koth: 'KING OF THE HILL', bomb: 'BOMB TAG', ctf: 'CAPTURE THE FLAG', coins: 'COIN RUSH', ball: 'BOOMERANG BALL', crumble: 'ROUND ' + m.round, bossrush: 'BOSS RUSH' }[m.mode] || 'GET READY'; },
-  introSub(m, g) { if (!m) return ''; if (m.tutorial) return 'Follow the tips!'; if (m.stage) return m.stage.name; const an = ARENAS.find((a) => a.id === g.arenaId).name; return (m.mode === 'classic' || m.mode === 'team' || m.mode === 'crumble') ? an + ' · first to ' + m.need : m.mode === 'ctf' ? 'First to 3 captures' : m.mode === 'ball' ? 'First to 3 goals' : m.mode === 'coins' ? 'First to 40 coins' : m.mode === 'bossrush' ? 'Three bosses. Stay alive!' : an; },
+  introSub(m, g) { if (!m) return ''; if (m.tutorial) return ''; if (m.stage) return m.stage.name; const an = ARENAS.find((a) => a.id === g.arenaId).name; return (m.mode === 'classic' || m.mode === 'team' || m.mode === 'crumble') ? an + ' · first to ' + m.need : m.mode === 'ctf' ? 'First to 3 captures' : m.mode === 'ball' ? 'First to 3 goals' : m.mode === 'coins' ? 'First to 40 coins' : m.mode === 'bossrush' ? 'Three bosses. Stay alive!' : an; },
   // ================= HUD =================
   hudStart(game) {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; this.emoteClose(); this.tutorialHide(); if (!game || game.mode === 'attract') return; this.hudGame = game;
@@ -260,14 +260,14 @@ Object.assign(UI, {
     for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#7a8cff' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
     for (const q of game.fighters) { if (!q.alive) continue; c.fillStyle = hex(q.color); c.strokeStyle = '#fff'; c.lineWidth = q.isBot ? 1 : 2; c.beginPath(); c.arc((q.x + HX) * sx, (q.z + HZ) * sz, q.isBot ? 3.2 : 4.4, 0, 6.3); c.fill(); c.stroke(); }
     if (game.camPoints) for (const p of game.camPoints()) { c.fillStyle = p[2] || '#ffd23c'; c.fillRect((p[0] + HX) * sx - 3, (p[1] + HZ) * sz - 3, 6, 6); }
-    const f = gfx.follow; if (f) { const vw = 22 * (f.k || 1) * f.d / f.dMin, vh = 13 * (f.k || 1) * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
+    const f = gfx.follow; if (f) { const vw = (f.fill ? f.visW : 22 * (f.k || 1)) * f.d / f.dMin, vh = (f.fill ? f.visH : 13 * (f.k || 1)) * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
     c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, W - 1, H - 1);
   },
   // arrows at the screen edge pointing to off-screen rivals
   edgeUpdate(game) {
-    const box = this.edgeBox; if (!box || !game) return; const foes = game.fighters.filter((q) => q.alive && q.isBot); const me = game.fighters.find((q) => !q.isBot && q.alive);
+    const box = this.edgeBox; if (!box || !game) return; if (this.app.match && this.app.match.tutorial) { this.edgeEls.forEach((e) => { e.style.display = 'none'; }); return; } const foes = game.fighters.filter((q) => q.alive && q.isBot); const me = game.fighters.find((q) => !q.isBot && q.alive);
     while (this.edgeEls.length < foes.length) { const e = h('div', 'edge', '<i></i>'); box.appendChild(e); this.edgeEls.push(e); }
-    const W = gfx.w, H = gfx.h; const padX = 26, padT = 70, padB = 26;
+    const W = gfx.w, H = gfx.h; const padX = 22, padT = 34, padB = 22;
     this.edgeEls.forEach((e, n) => {
       const q = foes[n]; if (!q) { e.style.display = 'none'; return; }
       const [px, py, on0] = toScreen(q.x, 0.5, q.z); const sl = Math.max(padX, gfx.reserveL || 0) / W, sr = 1 - Math.max(padX, gfx.reserveR || 0) / W; const on = on0 && px >= sl && px <= sr && py >= padT / H && py <= 1 - padB / H; if (on) { e.style.display = 'none'; return; }
@@ -281,7 +281,7 @@ Object.assign(UI, {
     const shown = game.fighters.slice(0, game.nPlayers);
     this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const hearts = lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; const rdy = q.ult >= 100; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
     this.mapUpdate(game); let mid = ''; const rt = ms.type;
-    if (m && m.tutorial) mid = 'Training'; else if (m && m.stage) mid = `<b>${m.stage.n}</b> ${m.stage.name.replace('Boss: ', '')}`; else if (game.sudden) mid = '<span style="color:#ff5a5a">SUDDEN DEATH</span>'; else mid = (rt === 'elim' ? `Round ${game.round}` : '');
+    if (m && m.tutorial) mid = ''; else if (m && m.stage) mid = `<b>${m.stage.n}</b> ${m.stage.name.replace('Boss: ', '')}`; else if (game.sudden) mid = '<span style="color:#ff5a5a">SUDDEN DEATH</span>'; else mid = (rt === 'elim' ? `Round ${game.round}` : '');
     if (rt === 'koth') { const teams = [...new Set(game.fighters.slice(0, game.nPlayers).map((f) => f.team))]; mid = `<div class="koth">${teams.map((t) => `<div class="kb ${ms.owner === t ? 'own' : ''}" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${Math.floor(ms.scores[t] || 0)}</b></div>`).join('')}</div><div class="kz ${ms.contested ? 'c' : ''}">${ms.contested ? 'CONTESTED' : 'Hill moves in ' + Math.ceil(ms.zoneIn) + 's'}</div>`; }
     else if (rt === 'bomb') { const hd = ms.holder; mid = `<div class="bombbar"><span>💣 ${hd ? hd.name : '...'}</span><i style="width:${Math.round(ms.fuse / ms.fuseMax * 100)}%" class="${ms.fuse < 4 ? 'hot' : ''}"></i></div>`; }
     else if (rt === 'ctf' || rt === 'ball') { mid = `<div class="koth sc2">${[0, 1].map((t) => `<div class="kb" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${ms.scores[t] || 0}</b></div>`).join('')}</div><div class="kz">${rt === 'ctf' ? '🚩 ' : '⚽ '}${fmtTime(ms.left)}${rt === 'ctf' && ms.carry.some((c) => c) ? ' · FLAG CARRIED' : ''}</div>`; }
@@ -298,18 +298,25 @@ Object.assign(UI, {
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },
   // ================= tutorial =================
   tutorialShow(t) {
-    const touch = Input.touch.enabled; const steps = [
-      [touch ? 'Drag the <b>left stick</b> to move' : 'Move with <kbd>W A S D</kbd> or arrow keys', 'Walk around for a second'],
-      [touch ? 'Hold &amp; <b>drag the boomerang stick</b>, release to throw' : 'Aim with the <b>mouse</b>, hold <b>click</b> (or <kbd>F</kbd>) and release to throw', 'Hold longer = longer, faster throw. A quick tap auto-aims.'],
-      ['It comes back! <b>Walk into it</b> to catch it', 'No boomerang? You cannot throw. Catch to reload.'],
-      [touch ? 'Tap <b>DASH</b> to dodge' : 'Press <kbd>Space</kbd> to <b>dash</b>', 'Dashing makes you invulnerable for a moment'],
-      [touch ? 'Tap <b>DEFLECT</b>' : 'Press <kbd>E</kbd> to <b>deflect</b>', 'Time it right to bounce boomerangs back at the thrower'],
-      ['Now <b>KO the dummy!</b>', 'One hit knocks a rival out. Power-ups and your ultimate (<b>' + (touch ? '⚡ button' : 'R') + '</b>) help too.'],
-    ];
+    const touch = Input.touch.enabled; const ICO = {
+      move: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="none" stroke="#7fe8ff" stroke-width="3"/><circle cx="24" cy="24" r="8" fill="#7fe8ff"/><path d="M24 4l-5 7h10zM24 44l-5-7h10zM4 24l7-5v10zM44 24l-7-5v10z" fill="#fff"/></svg>',
+      throw: '<svg viewBox="0 0 48 48"><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#3a1600" stroke-width="11" stroke-linecap="round"/><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#ffcf3a" stroke-width="7" stroke-linecap="round"/></svg>',
+      catch: '<svg viewBox="0 0 48 48"><path d="M40 10C20 8 8 18 10 34" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 5" stroke-linecap="round"/><path d="M6 30l4 8 7-6z" fill="#fff"/><circle cx="24" cy="26" r="9" fill="none" stroke="#ffe066" stroke-width="3"/><path d="M17 28c1-6 4-9 7-9s6 3 7 9" fill="none" stroke="#ffcf3a" stroke-width="4" stroke-linecap="round"/></svg>',
+      dodge: '<svg viewBox="0 0 48 48"><path d="M24 4L3 42h42z" fill="#ff3b30" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M24 17v12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><circle cx="24" cy="35" r="2.8" fill="#fff"/></svg>',
+      done: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#3ddc6a" stroke="#fff" stroke-width="3"/><path d="M13 25l8 8 15-17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' };
+    const steps = [['move', 'MOVE'], ['throw', 'THROW'], ['catch', 'CATCH'], ['dodge', 'DODGE'], ['done', 'NICE!']];
+    const keys = ['<span class="kc">W</span><span class="kc">A</span><span class="kc">S</span><span class="kc">D</span>', '<span class="kc w">CLICK</span>', '', '<span class="kc w">SPACE</span>', ''];
     let c = $('#tut'); if (!c) { c = h('div', '', '', { id: 'tut' }); document.body.appendChild(c); }
-    const s = steps[Math.min(t.step, steps.length - 1)]; c.className = 'show'; c.innerHTML = `<div class="tt">${s[0]}</div><div class="ts">${s[1]}</div><div class="td">${steps.map((_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div><button class="tskip" id="tskip">Skip training ▶</button>`;
+    const st = steps[Math.min(t.step, steps.length - 1)]; c.className = 'show s' + t.step + (touch ? ' touch' : '');
+    c.innerHTML = `<div class="tt"><i class="ti">${ICO[st[0]]}</i><b>${st[1]}</b>${touch ? '' : `<span class="tk">${keys[t.step]}</span>`}</div><div class="td">${steps.slice(0, 4).map((_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div><button class="tskip" id="tskip" aria-label="Skip">SKIP <span>&#9654;</span></button><div class="ghost" id="ghost"><i></i><svg viewBox="0 0 40 48"><path d="M14 4c3 0 5 2 5 5v14l3-1c3-1 6 1 6 4l2-1c3-1 6 1 5 4 3-1 5 2 4 5l-2 12c-1 5-5 8-10 8H19c-4 0-7-2-9-5L3 31c-1-3 2-6 5-4l3 3V9c0-3 1-5 3-5z" fill="#fff" fill-opacity=".92" stroke="#7fe8ff" stroke-width="2" stroke-linejoin="round"/></svg></div>`;
     const sk = c.querySelector('#tskip'); if (sk) sk.addEventListener('click', (e) => { e.stopPropagation(); sfx('click'); this.app.skipTutorial(); });
-    for (const id of ['joybase', 'aimbase', 'btnDash', 'btnDef']) { const e = document.getElementById(id); if (e) e.classList.remove('hint'); } if (touch) { const hid = ['joybase', 'aimbase', 'aimbase', 'btnDash', 'btnDef', null][t.step]; const e = hid && document.getElementById(hid); if (e) e.classList.add('hint'); }
+    this.tutorialGhost();
+  },
+  tutorialGhost() { // park the ghost thumb on the control for this step (touch only)
+    const c = $('#tut'), g = $('#ghost'); if (!c || !g || !this.app.tut) return; const t = this.app.tut; const touch = Input.touch.enabled;
+    const target = [ 'joybase', 'aimbase', 'joybase', 'joybase', null ][Math.min(t.step, 4)]; const e = target && document.getElementById(target);
+    if (!touch || !e) { g.style.display = 'none'; return; } const r = e.getBoundingClientRect(); g.style.display = 'block'; g.style.left = (r.left + r.width / 2) + 'px'; g.style.top = (r.top + r.height / 2) + 'px'; g.style.setProperty('--gr', Math.round(r.width * 0.3) + 'px');
+    g.className = 'ghost g' + t.step;
   },
   tutorialHide() { const c = $('#tut'); if (c) { c.className = ''; c.innerHTML = ''; } },
   // ================= emotes =================
@@ -345,34 +352,12 @@ UI.howto = function (p) {
   const mm = Object.entries(MODES).filter(([k]) => k !== 'campaign').map(([, v]) => `<li><b>${v.icon} ${v.name}</b> <small>${v.blurb}</small></li>`).join('');
   const tt = Object.entries(TRAP_INFO).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
   const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
-  const wn33 = h('div', 'hw-new', `<h4>What's new in v3.3 <small>"Bigger, Louder, Cuter"</small></h4><ul>
-    <li><b>Closer camera:</b> fighters are about 30% bigger on a phone: the camera follows you on every map and fighters are drawn a little larger. Settings > Camera: <b>Close</b> (default) or <b>Wide</b> (the old full-arena view). Arrows at the edge of the play area point to rivals hidden behind the controls.</li>
-    <li><b>Two new fighters:</b> <b>Gus</b> the Hippo Wrestler (heavy thrower, ult: Belly Flop stuns and shoves rivals) and <b>Wisp</b> the Ghost Apprentice (floaty and quick, ult: Spirit Pull = Magnet + Time Bubble). Unlock them in Fighters or the Shop.</li>
-    <li><b>Characters come alive:</b> every fighter has its own victory dance (spin, backflip, robot dance, jig, levitate, flipper flap, belly-stomp, ghostly twirl), a body twist on throws and a stronger hit flinch.</li>
-    <li><b>Sound pass:</b> every effect was loudness-matched with a script (no clipping, even levels), layered hits, a soft background loop that ducks under big hits, Settings > <b>Background music</b> toggle plus <b>Master</b>, Music and Sound FX volumes.</li>
-    <li><b>Menu fit:</b> the main menu and daily-missions card now fit short phones (640x320).</li>
-  </ul>`);
-  const wn = h('div', 'hw-new', `<h4>What's new in v3.2 <small>"Polish & Play"</small></h4><ul>
-    <li><b>Game feel:</b> harder-hitting hits (impact flashes, sparks, hit-stop), camera shake with Off / Low / Full, <b>slow-mo + zoom on the last KO</b>, fireworks and a victory line for the winner, a red flash and buzz when <b>you</b> get hit, new throw / catch / hit / fanfare sounds, longer glowing boomerang trails.</li>
-    <li><b>Easier to read:</b> a floating <b>YOU</b> arrow over your fighter, colour pips over rivals, a ring on the floor under every boomerang in its owner's colour, bigger pop-ups, active power-ups with timers shown under your name.</li>
-    <li><b>New power-ups:</b> <b>Magnet</b> (pulls pickups, bigger catch circle, boomerang homes in) and <b>Time Bubble</b> (rivals and their boomerangs near you move slower).</li>
-    <li><b>Look:</b> 5 new hats (cat ears, propeller cap, cowboy, wizard, viking), 4 new trails (bubbles, pixels, stardust, hearts) + premium Prism, 4 new boomerang skins + premium Void. <b>Live 3D preview</b> in the Shop. Several are free level rewards. Fighters now flinch when hit and dance when you use an emote.</li>
-    <li><b>Progress:</b> Daily missions on the main menu, a Daily Chest when all 3 are done, animated results screen with XP bar and gold count-up, one-tap <b>Play again</b>.</li>
-    <li><b>Quick start:</b> Play now jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls.</li>
-    <li>Everything is still earnable by playing. The store stays in TEST MODE; nothing is charged.</li></ul></div>`);
-  const wn40 = h('div', 'hw-new', `<h4>What's new in v4.0 <small>"Play with friends"</small></h4><ul>
-    <li><b>Online multiplayer for 2-4 friends:</b> tap <b>Play online</b>, <b>Create room</b> and share the 4-letter code (or the link). Friends tap <b>Join room</b> and type it. The host taps Start; empty seats are filled by bots.</li>
-    <li><b>Modes online:</b> Classic, Team 2v2, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag and Crumbling Floor. The host picks the mode, arena, speed (Chill is the default) and bots.</li>
-    <li><b>Safe by design:</b> friends-only room codes, no chat, no voice, no public matchmaking, preset or filtered names, emoji and emote presets only.</li>
-    <li><b>If someone drops</b> a bot takes their seat and they can rejoin with the same code. If the host leaves the room closes. If your network blocks direct connections you get a clear message and the option to swap codes by hand.</li>
-    <li>Online wins still earn gold and XP (capped per match and per day). The store stays in TEST MODE.</li></ul>`);
   const LG = legendImages();
-  const wn41 = h('div', 'hw-new', `<h4>What's new in v4.1 <small>"Easier online, clearer floor"</small></h4><ul>
-    <li><b>Online in two taps:</b> <b>Create room</b> shows a huge 4-letter code, a <b>Share</b> button and <b>Start</b>. <b>Join room</b> opens a 4-box code entry and joins by itself on the 4th letter. Friends are ready automatically; the advanced stuff (mode, arena, speed, fighter, emotes) is under <b>Options</b>.</li>
-    <li><b>Clearer traps:</b> every harmful trap now shares one look (red, striped border, a skull / spikes / flame / bolt badge, pulsing red glow before it fires). Portals are blue or violet swirls with a number and never look like a trap. Jump pads are friendly green with yellow arrows.</li></ul>
-    <div class="hw-legend"><div><img src="${LG.hazard}" alt="danger"><b>DANGER</b><small>Red + stripes + skull. Stay off when it blinks.</small></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b><small>Blue or violet swirl with a number. Same number = twins. Step in to zip across.</small></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b><small>Green + yellow arrows. A friendly hop over danger.</small></div></div>`);
-  wn41.style.gridColumn = '1 / -1'; wn40.style.gridColumn = '1 / -1';
-  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); pn.insertBefore(wn40, pn.firstChild); pn.insertBefore(wn41, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
+  const wn41 = h('div', 'hw-new', `<div class="hw-top"><button class="btn primary" id="hw-replay">&#9654; Replay tutorial</button></div>
+    <div class="hw-legend"><div><img src="${LG.hazard}" alt="danger"><b>DANGER</b></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b></div></div>
+    <div class="hw-keys"><span><i>&#128073;</i> Left thumb: <b>MOVE</b></span><span><i>&#129667;</i> Right thumb: <b>THROW</b> (drag to aim)</span><span><i>&#10148;</i> <b>DASH</b> / <b>DEFLECT</b> buttons</span></div>`);
+  wn41.style.gridColumn = '1 / -1'; pn.insertBefore(wn41, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
+  { const rb = wn41.querySelector('#hw-replay'); rb.addEventListener('click', () => { sfx('click'); this.app.startTutorial(); }); }
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
     <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>
