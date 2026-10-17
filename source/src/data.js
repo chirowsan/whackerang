@@ -6,6 +6,8 @@ export const HEROES = [
   { id: 'kuma', name: 'Salty', title: 'Cat Pirate', color: 0x7d8fc4, accent: 0xe8b23a, trail: 0xffd060, shape: 'pirate', blurb: 'One eye, one hook, nine lives (give or take).', quip: '"Arr! Yer boomerang be mine now!"', perk: 'Big catch radius', mods: { catchR: 1.35 }, cost: 0, cam: [0.72, 3.9] },
   { id: 'pico', name: 'Pico', title: 'Lizard Monk', color: 0x5fd16b, accent: 0xff9a2e, trail: 0x9dff7a, shape: 'monk', blurb: 'Calm, green and suspiciously fast with a tongue.', quip: '"Inner peace. Outer boomerang."', perk: 'Power-ups last 40% longer', mods: { puDur: 1.4 }, cost: 300, cam: [0.7, 3.9] },
   { id: 'yuki', name: 'Yuki', title: 'Penguin Samurai', color: 0x2b3a67, accent: 0xb5342a, trail: 0x9ad8ff, shape: 'peng', blurb: 'A waddling ice-slider with a very sharp helmet.', quip: '"Honor first. Snacks second."', perk: 'Faster walking (+8%)', mods: { speed: 1.08 }, cost: 450, cam: [0.74, 3.8] },
+  { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: 'Heavy thrower (+25% charge speed, +10% catch radius)', mods: { charge: 1.25, catchR: 1.1 }, cost: 500, cam: [0.8, 4.1] },
+  { id: 'wisp', name: 'Wisp', title: 'Ghost Apprentice', color: 0xdff7ff, accent: 0x6ff0ff, trail: 0x8ffcff, shape: 'ghost', blurb: 'A shy little ghost who floats through the party. Light, quick and a bit spooky.', quip: '"Boo! ...sorry, was that too loud?"', perk: 'Floaty (+5% speed, -10% dash cooldown)', mods: { speed: 1.05, dashCd: 0.9 }, cost: 650, cam: [0.7, 4.0] },
 ];
 export const HATS = [
   { id: 'none', name: 'No hat', cost: 0 },
@@ -99,8 +101,10 @@ export const ULTS = {
   kuma: { name: 'Cannon Volley', desc: 'Three blast boomerangs in a fan.' },
   pico: { name: 'Zen Bubble', desc: 'Shield, +1 life (if any) and 6s speed.' },
   yuki: { name: 'Blizzard', desc: 'Freezes every rival nearby.' },
+  gus: { name: 'Belly Flop', desc: 'Slams the floor: stuns and shoves nearby rivals, plus a shield.' },
+  wisp: { name: 'Spirit Pull', desc: '6s Magnet + Time Bubble: pulls pick-ups, slows rivals.' },
 };
-export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'sniper', kuma: 'aggressor', pico: 'collector', yuki: 'duelist' };
+export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'sniper', kuma: 'aggressor', pico: 'collector', yuki: 'duelist', gus: 'defender', wisp: 'trickster' };
 export const PERSONA_INFO = { defender: 'Patient, deflects a lot', trickster: 'Dashes and weaves', sniper: 'Long range, fully charged', aggressor: 'Rushes you down', collector: 'Hunts power-ups', duelist: 'Precise one-on-one fighter', boss: 'Boss' };
 export const MODES = {
   classic: { name: 'Classic', icon: '🏆', color: '#ffd23c', blurb: 'Free-for-all rounds. Last fighter standing wins.' },

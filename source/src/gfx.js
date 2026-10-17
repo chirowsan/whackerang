@@ -207,10 +207,12 @@ export function fitCamera(mode = gfx.camMode || 'play') {
     const d = hi; const [a, b, c, e] = proj(d); const cy = (c + e) / 2, cxx = (a + b) / 2;
     return { d, tgt, vs: (yMax + yMin) / 2 - cy, vsx: (gfx.reserveL - gfx.reserveR) / gfx.w - cxx };
   };
-  const full = solve(HX, HZ); const small = (HX > 10.5 || HZ > 6.5) ? solve(10, 6) : full;
+  const full = solve(HX, HZ); const big = HX > 10.5 || HZ > 6.5; const small = big ? solve(10, 6) : full;
+  // v3.3 close camera: fighters read bigger on a phone. kClose < 1 pulls the follow camera in (small maps now follow too)
+  const closeOn = S().settings.camera !== 'wide'; const kClose = closeOn ? (gfx.h < 560 ? 0.88 : 0.94) : 1;
   const R = small; // view offsets are computed for the small-arena framing so HUD margins stay stable while following
   gfx.viewShift = R.vs; gfx.viewShiftX = R.vsx; gfx.tilt_ = tilt;
-  gfx.follow = (HX > 10.5 || HZ > 6.5) ? { dMin: small.d * 0.98, dFull: full.d, cx: 0, cz: 0.2, d: small.d, init: false } : null;
+  gfx.heroZoom = closeOn && gfx.h < 560 ? 1.15 : closeOn ? 1.06 : 1; gfx.follow = (big || kClose < 1) ? { dMin: small.d * 0.98 * kClose, dFull: full.d, cx: 0, cz: 0.2, d: small.d * kClose, init: false, k: kClose, big } : null;
   const cd = gfx.follow ? gfx.follow.d : full.d; cam.position.set(0, Math.sin(tilt) * cd, Math.cos(tilt) * cd).add(full.tgt); cam.lookAt(full.tgt);
   gfx.camBase.copy(cam.position); gfx.camTarget.copy(full.tgt); gfx.camDist = cd;
   cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, (gfx.viewShift / 2) * gfx.h, gfx.w, gfx.h);
@@ -223,11 +225,11 @@ export function followCam(dt, points, humans) {
   let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
   for (const p of set) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   // include other points (foes/objectives) only if close to the human box so we never zoom out to fit far-away things
-  for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < 7) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
-  const bw = x1 - x0 + 7, bh = z1 - z0 + 6; const ratio = Math.max(bw / 21.8, bh / 13.8, 1);
-  const cap = Math.min(f.dFull, f.dMin * 1.5);
-  const cfg = speedCfg(); let want = Math.min(f.dFull, Math.min(cap, f.dMin * ratio) * cfg.camWide); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
-  const lim = (v, h, vis) => Math.max(-h + vis * 0.35, Math.min(h - vis * 0.35, v)); const vis = want / f.dMin; tx = lim(tx, HX, 10 * vis); tz = lim(tz, HZ, 6 * vis);
+  for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < (f.big ? 7 : 6.5)) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
+  const kk = f.k || 1; const bw = x1 - x0 + (f.big ? 7 : 4), bh = z1 - z0 + (f.big ? 6 : 3.5); const ratio = Math.max(bw / (21.8 * kk), bh / (13.8 * kk), 1);
+  const cap = Math.min(f.dFull, f.dMin * (f.big ? 1.5 : 1.7));
+  const cfg = speedCfg(); let want = Math.min(f.dFull, Math.min(cap, f.dMin * ratio) * (f.big ? cfg.camWide : 1 + (cfg.camWide - 1) * 0.35)); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
+  const lim = (v, h, vis) => Math.max(-h + vis * 0.35, Math.min(h - vis * 0.35, v)); const vis = want / f.dMin; tx = lim(tx, HX, 10 * kk * vis); tz = lim(tz, HZ, 6 * kk * vis);
   const sm = Math.sqrt(cfg.ts); const k = f.init ? 1 - Math.exp(-dt * 5 * sm) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (1 - Math.exp(-dt * 2.6 * sm));
   const tilt = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tilt) * f.d, Math.cos(tilt) * f.d + f.cz); gfx.camDist = f.d;
   const sun = gfx.sun; if (sun && sun.target) { sun.target.position.set(f.cx, 0, f.cz); sun.position.set(f.cx - 7, 15, f.cz + 8); }

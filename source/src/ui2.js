@@ -9,7 +9,7 @@ import { TRAP_INFO } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
 import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS, chestState, claimChest, CHEST_GOLD, dailyReadyCount } from './progress.js';
 import { sfx, applyVolumes } from './audio.js';
-import { setQuality, gfx, toScreen } from './gfx.js';
+import { setQuality, gfx, toScreen, fitCamera } from './gfx.js';
 import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
@@ -76,7 +76,7 @@ Object.assign(UI, {
     const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
     left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? this.show('tutintro') : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '3.2';
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '3.3';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
     g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Hats' })));
@@ -84,7 +84,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
     g.appendChild(this.btn('How to play', '', () => this.show('howto')));
-    g.appendChild(this.btn("What's new" + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '3.2'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn("What's new" + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '3.3'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -250,7 +250,7 @@ Object.assign(UI, {
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'mid', '', { id: 'h-mid' }); const rr = h('div', 'grp');
     rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
     top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' })); r.appendChild(h('div', '', '', { id: 'h-pu' }));
-    if (gfx.follow) { const cv = h('canvas', '', '', { id: 'minimap' }); cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
+    if (gfx.follow) { const cv = gfx.follow.big ? h('canvas', '', '', { id: 'minimap' }) : null; if (cv) { cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); } this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
   },
   // minimap (Large/Huge): arena, solids, hazards, fighters, camera window
   mapUpdate(game) {
@@ -260,7 +260,7 @@ Object.assign(UI, {
     for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#ff5ad0' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
     for (const q of game.fighters) { if (!q.alive) continue; c.fillStyle = hex(q.color); c.strokeStyle = '#fff'; c.lineWidth = q.isBot ? 1 : 2; c.beginPath(); c.arc((q.x + HX) * sx, (q.z + HZ) * sz, q.isBot ? 3.2 : 4.4, 0, 6.3); c.fill(); c.stroke(); }
     if (game.camPoints) for (const p of game.camPoints()) { c.fillStyle = p[2] || '#ffd23c'; c.fillRect((p[0] + HX) * sx - 3, (p[1] + HZ) * sz - 3, 6, 6); }
-    const f = gfx.follow; if (f) { const vw = 22 * f.d / f.dMin, vh = 13 * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
+    const f = gfx.follow; if (f) { const vw = 22 * (f.k || 1) * f.d / f.dMin, vh = 13 * (f.k || 1) * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
     c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, W - 1, H - 1);
   },
   // arrows at the screen edge pointing to off-screen rivals
@@ -270,8 +270,8 @@ Object.assign(UI, {
     const W = gfx.w, H = gfx.h; const padX = 26, padT = 70, padB = 26;
     this.edgeEls.forEach((e, n) => {
       const q = foes[n]; if (!q) { e.style.display = 'none'; return; }
-      const [px, py, on] = toScreen(q.x, 0.5, q.z); if (on) { e.style.display = 'none'; return; }
-      const cx0 = 0.5, cy0 = 0.5; let dx = px - cx0, dy = py - cy0; const ax = (0.5 - padX / W), ay = (0.5 - padT / H); const k = Math.min(ax / Math.abs(dx || 1e-6), (0.5 - padB / H) / Math.abs(dy || 1e-6) * (dy > 0 ? 1 : 1), 1e6); let ex = cx0 + dx * Math.min(k, 1e6), ey = cy0 + dy * Math.min(k, 1e6);
+      const [px, py, on0] = toScreen(q.x, 0.5, q.z); const sl = Math.max(padX, gfx.reserveL || 0) / W, sr = 1 - Math.max(padX, gfx.reserveR || 0) / W; const on = on0 && px >= sl && px <= sr && py >= padT / H && py <= 1 - padB / H; if (on) { e.style.display = 'none'; return; }
+      const sr2 = sr - 0.045, sl2 = sl + 0.02; const cx0 = (sl2 + sr2) / 2, cy0 = 0.5; let dx = px - cx0, dy = py - cy0; const ax = (sr2 - sl2) / 2, ay = (0.5 - padT / H); const k = Math.min(ax / Math.abs(dx || 1e-6), (0.5 - padB / H) / Math.abs(dy || 1e-6) * (dy > 0 ? 1 : 1), 1e6); let ex = cx0 + dx * Math.min(k, 1e6), ey = cy0 + dy * Math.min(k, 1e6);
       const kx = Math.abs(dx) > 1e-6 ? ax / Math.abs(dx) : 1e9, ky = Math.abs(dy) > 1e-6 ? (dy > 0 ? (0.5 - padB / H) : ay) / Math.abs(dy) : 1e9; const kk = Math.min(kx, ky); ex = cx0 + dx * kk; ey = cy0 + dy * kk;
       const near = me ? Math.hypot(q.x - me.x, q.z - me.z) : 20; e.style.display = 'block'; e.style.left = (ex * 100) + '%'; e.style.top = (ey * 100) + '%'; e.style.setProperty('--pc', hex(q.color)); e.style.setProperty('--rot', Math.atan2(dy, dx) + 'rad'); e.style.opacity = String(Math.max(0.45, Math.min(1, 1.3 - near / 26)));
     });
@@ -328,7 +328,10 @@ const _settings = UI.settings;
 UI.settings = function (p) {
   const el = _settings.call(this, p); const grid = el.querySelector('.set-grid'); const s = S().settings;
   const tog = (label, key, fn) => { const r = h('div', 'row', `<span>${label}</span>`); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1 }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', !!s[key]); save(); fn && fn(); sfx('click'); }); r.appendChild(t); return r; };
-  const first = grid.firstChild; grid.insertBefore(tog('Mute all audio', 'mute', applyVolumes), first); grid.insertBefore(tog('Screen flashes', 'flash', () => { gfx.flashOn = !!s.flash; }), first);
+  const first = grid.firstChild; grid.insertBefore(tog('Mute all audio', 'mute', applyVolumes), first);
+  { const mr = h('div', 'row', '<span>Master volume</span>'); const mi = h('input', '', null, { type: 'range', min: 0, max: 1, step: 0.05, value: s.master }); mi.addEventListener('input', () => { s.master = +mi.value; applyVolumes(); }); mi.addEventListener('change', () => { save(); sfx('click'); }); mr.appendChild(mi); grid.insertBefore(mr, first); }
+  grid.insertBefore(tog('Background music', 'musicOn', applyVolumes), first);
+  grid.insertBefore(this.seg('Camera', s, 'camera', [['close', 'Close'], ['wide', 'Wide']], () => { save(); fitCamera(); }), first); grid.insertBefore(tog('Screen flashes', 'flash', () => { gfx.flashOn = !!s.flash; }), first);
   grid.insertBefore(this.seg('Arena events', s, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]), first);
   { const row = [...grid.children].find((r) => r.firstChild && r.firstChild.textContent === 'Screen shake'); const sg = this.seg('Screen shake', s, 'shakeLvl', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']], () => { s.shake = s.shakeLvl !== 'off'; save(); }); if (row) row.replaceWith(sg); else grid.appendChild(sg); }
   const tr = h('div', 'row', '<span>Training</span>'); tr.appendChild(this.btn('Replay tutorial', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); })); grid.appendChild(tr);
@@ -342,6 +345,13 @@ UI.howto = function (p) {
   const mm = Object.entries(MODES).filter(([k]) => k !== 'campaign').map(([, v]) => `<li><b>${v.icon} ${v.name}</b> <small>${v.blurb}</small></li>`).join('');
   const tt = Object.entries(TRAP_INFO).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
   const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
+  const wn33 = h('div', 'hw-new', `<h4>What's new in v3.3 <small>"Bigger, Louder, Cuter"</small></h4><ul>
+    <li><b>Closer camera:</b> fighters are about 30% bigger on a phone: the camera follows you on every map and fighters are drawn a little larger. Settings > Camera: <b>Close</b> (default) or <b>Wide</b> (the old full-arena view). Arrows at the edge of the play area point to rivals hidden behind the controls.</li>
+    <li><b>Two new fighters:</b> <b>Gus</b> the Hippo Wrestler (heavy thrower, ult: Belly Flop stuns and shoves rivals) and <b>Wisp</b> the Ghost Apprentice (floaty and quick, ult: Spirit Pull = Magnet + Time Bubble). Unlock them in Fighters or the Shop.</li>
+    <li><b>Characters come alive:</b> every fighter has its own victory dance (spin, backflip, robot dance, jig, levitate, flipper flap, belly-stomp, ghostly twirl), a body twist on throws and a stronger hit flinch.</li>
+    <li><b>Sound pass:</b> every effect was loudness-matched with a script (no clipping, even levels), layered hits, a soft background loop that ducks under big hits, Settings > <b>Background music</b> toggle plus <b>Master</b>, Music and Sound FX volumes.</li>
+    <li><b>Menu fit:</b> the main menu and daily-missions card now fit short phones (640x320).</li>
+  </ul>`);
   const wn = h('div', 'hw-new', `<h4>What's new in v3.2 <small>"Polish & Play"</small></h4><ul>
     <li><b>Game feel:</b> harder-hitting hits (impact flashes, sparks, hit-stop), camera shake with Off / Low / Full, <b>slow-mo + zoom on the last KO</b>, fireworks and a victory line for the winner, a red flash and buzz when <b>you</b> get hit, new throw / catch / hit / fanfare sounds, longer glowing boomerang trails.</li>
     <li><b>Easier to read:</b> a floating <b>YOU</b> arrow over your fighter, colour pips over rivals, a ring on the floor under every boomerang in its owner's colour, bigger pop-ups, active power-ups with timers shown under your name.</li>
@@ -350,7 +360,7 @@ UI.howto = function (p) {
     <li><b>Progress:</b> Daily missions on the main menu, a Daily Chest when all 3 are done, animated results screen with XP bar and gold count-up, one-tap <b>Play again</b>.</li>
     <li><b>Quick start:</b> Play now jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls.</li>
     <li>Everything is still earnable by playing. The store stays in TEST MODE; nothing is charged.</li></ul></div>`);
-  wn.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
+  wn.style.gridColumn = '1 / -1'; wn33.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); pn.insertBefore(wn33, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
     <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>

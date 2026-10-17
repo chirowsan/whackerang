@@ -1,5 +1,5 @@
-/* Whackerang service worker - build v3.2-20261017-0052. Whole game is one HTML file, so precache is tiny. */
-const VERSION = 'v3.2-20261017-0052';
+/* Whackerang service worker - build v3.3-20261017-0140. Whole game is one HTML file, so precache is tiny. */
+const VERSION = 'v3.3-20261017-0140';
 const CACHE = 'whk-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png', './screenshots/play.png', './screenshots/menu.png'];
 self.addEventListener('install', (e) => {

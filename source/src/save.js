@@ -1,7 +1,7 @@
 const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
   coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
-  settings: { speed: 'chill', speedMig: 31, sfx: 0.85, music: 0.5, shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false },
+  settings: { speed: 'chill', speedMig: 31, sfx: 0.85, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false },
   setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'small', traps: 'some', mutator: 'off' },
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
@@ -23,6 +23,7 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   // v3.1: one-time migration -> everyone starts on the calmer Chill speed with the wider aim assist (can be changed afterwards in Settings)
   if (!SPEEDS[r.settings.speed] || (o && o.settings ? o.settings.speedMig !== 31 : false)) { r.settings.speed = 'chill'; r.settings.aimAssist = true; }
   if (!['off', 'low', 'full'].includes(r.settings.shakeLvl)) r.settings.shakeLvl = r.settings.shake === false ? 'off' : 'full'; r.settings.shake = r.settings.shakeLvl !== 'off';
+  if (typeof r.settings.musicOn !== 'boolean') r.settings.musicOn = true; if (typeof r.settings.master !== 'number') r.settings.master = 1; if (!['close', 'wide'].includes(r.settings.camera)) r.settings.camera = 'close';
   r.settings.speedMig = 31; if (typeof r.settings.touchSmooth !== 'boolean') r.settings.touchSmooth = true;
   r.settings.quality = migQ((o && o.settings || {}).quality); if (!Array.isArray(r.eq.emotes)) r.eq.emotes = d.eq.emotes;
   for (const k of Object.keys(d.own)) if (!Array.isArray(r.own[k])) r.own[k] = d.own[k];

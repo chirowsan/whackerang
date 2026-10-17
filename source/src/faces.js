@@ -113,6 +113,10 @@ const STY = {
     base(x, n, cx) { x.fillStyle = '#ffd23c'; for (const dx of [-14, 0, 14]) { x.beginPath(); x.arc(cx + dx, 22 + (dx === 0 ? -2 : 3), 4.2, 0, 7); x.fill(); } x.fillStyle = '#2f7a3a'; for (const s of [-1, 1]) { x.beginPath(); x.arc(cx + s * 6, 82, 2.4, 0, 7); x.fill(); } } },
   peng: { eye: 'round', ex: 27, ey: 58, er: 12.5, lid: 0xffffff, brow: 0x1a1530, alwaysBrow: true, mouth: 'none', my: 100, mw: 10, cheek: '255,130,140',
     base(x, n, cx) { x.fillStyle = '#f4faff'; x.beginPath(); x.moveTo(cx, 44); x.bezierCurveTo(cx - 20, 16, cx - 68, 30, cx - 62, 64); x.bezierCurveTo(cx - 58, 100, cx - 20, 112, cx, 104); x.bezierCurveTo(cx + 20, 112, cx + 58, 100, cx + 62, 64); x.bezierCurveTo(cx + 68, 30, cx + 20, 16, cx, 44); x.fill(); } },
+  hippo: { eye: 'round', ex: 38, ey: 52, er: 11.5, lid: 0xb9a4ea, brow: 0x5a3f9a, alwaysBrow: false, mouth: 'smile', my: 104, mw: 26, cheek: null,
+    base(x, n, cx) { x.fillStyle = '#f5a6c8'; x.beginPath(); x.ellipse(cx, 92, 62, 30, 0, 0, 7); x.fill(); x.fillStyle = '#e07aa6'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(cx + s * 17, 78, 7.5, 5.5, s * 0.3, 0, 7); x.fill(); } } },
+  ghost: { eye: 'round', ex: 27, ey: 62, er: 15, lid: 0xeaf8ff, brow: null, mouth: 'smile', my: 98, mw: 8, cheek: '255,140,190', sclera: 0x241a48, iris: 0x6ff0ff,
+    base(x, n, cx) {} },
 };
 
 export function faceTexture(id) {

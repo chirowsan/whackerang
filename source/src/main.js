@@ -3,7 +3,7 @@ import { S, save, loadSave } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier, dailySnapshot, ensureDaily } from './progress.js';
-import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo } from './audio.js';
+import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES } from './audio.js';
 import { Input, initInput, initTouch } from './input.js';
 import { Bot } from './ai.js';
 import { fx } from './fx.js';
@@ -45,7 +45,7 @@ const app = {
   // ---------- game lifecycle ----------
   camFollow(dt) {
     const g = app.game; if (!g || g.mode === 'attract') return; const pts = [], hum = [];
-    for (const f of g.fighters) { if (!f.alive) continue; const p = [f.x, f.z]; pts.push(p); if (!f.isBot) hum.push(p); }
+    for (const f of g.fighters) { if (!f.alive) continue; const p = [f.x, f.z]; pts.push(p); if (!f.isBot || f.autoHuman) hum.push(p); }
     if (g.camPoints) for (const p of g.camPoints()) pts.push(p); if (g.camFocus) for (const p of g.camFocus()) { pts.push(p); if (hum.length) hum.push(p); }
     followCam(dt, pts, hum); UI.edgeUpdate(g);
   },
@@ -283,6 +283,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  window.__bg = { overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

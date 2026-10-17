@@ -48,6 +48,8 @@ export function installRules(Game, { Boom, Fighter }) {
     else if (id === 'kuma') { const t = this.nearestEnemy(f, f.x, f.z, 99); const base = t ? Math.atan2(t.x - f.x, t.z - f.z) : f.face; for (const d of [-0.28, 0, 0.28]) shoot(base + d, { fire: true }); f.ultT = 0.01; }
     else if (id === 'pico') { f.shield = true; if (f.lives > 1) f.lives++; f.pu.speed = 6; f.ultT = 0.01; fx.sparks(f.x, 0.8, f.z, 20, [0x6fffb0, 0xffffff], { speed: 4 }); }
     else if (id === 'yuki') { for (const o of this.fighters) if (o.alive && o.team !== f.team && Math.hypot(o.x - f.x, o.z - f.z) < 8) { o.freezeFor(o.boss ? 1.0 : 2.4); } f.ultT = 0.01; fx.ring(f.x, 0.3, f.z, 0x9ff0ff, 9, 0.7); for (let i = 0; i < 30; i++) fx.glow.spawn(f.x, 0.3, f.z, Math.cos(i) * 8, 1, Math.sin(i) * 8, 0.12, 0.7, 0xcff4ff, 0, 1.5); }
+    else if (id === 'gus') { f.shield = true; f.ultT = 0.01; fx.ring(f.x, 0.2, f.z, 0xffc23a, 10, 0.55); fx.sparks(f.x, 0.4, f.z, 28, [0xffd870, 0xffffff], { speed: 7 }); for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const dx = o.x - f.x, dz = o.z - f.z, d = Math.hypot(dx, dz); if (d < 5.5) { o.stunT = o.boss ? 0.5 : 1.3; o.charging = false; o.chargeT = 0; const l = d || 1; o.vx = dx / l * 9; o.vz = dz / l * 9; fx.sparks(o.x, 0.7, o.z, 8, [0xffd870, 0xffffff], { speed: 4 }); } } }
+    else if (id === 'wisp') { f.pu.magnet = 6; f.pu.slow = 6; f.ultT = 0.01; fx.ring(f.x, 0.3, f.z, 0x6ff0ff, 7, 0.6); fx.sparks(f.x, 0.8, f.z, 24, [0x6ff0ff, 0xffffff], { speed: 4 }); }
     this.onEvent('ult', { f });
   };
   P.endUlt = function (f) { if (f.ultKind === 'tako' && f._mx) { f.maxAmmo = f._mx; f.ammo = Math.min(f.ammo, f.maxAmmo); f._mx = 0; } f.ultKind = ''; f.ultT = 0; };

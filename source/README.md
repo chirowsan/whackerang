@@ -14,6 +14,15 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v3.3 (bigger, louder, cuter)
+Chill stays the default speed, payments stay TEST MODE, nothing was removed.
+- **Closer camera:** fighters read about 30% bigger on a phone. The camera now follows you on every map size (small maps included) and fighters are drawn slightly larger. Settings > **Camera**: Close (default) or Wide (the v3.2 full-arena view). Edge arrows now also point to rivals hidden behind the touch controls.
+- **Two new fighters** (earn the gold, no pay-to-win): **Gus** the Hippo Wrestler (500 gold, heavy thrower, ult *Belly Flop*) and **Wisp** the Ghost Apprentice (650 gold, floaty and quick, ult *Spirit Pull*). Distinct silhouettes (a big-bellied hippo in trunks with a champion belt and a floating sheet-ghost with a flame wisp), their own faces and expressions.
+- **Animation:** per-character victory dances for all 8 fighters (spin, backflip, robot dance, jig, levitate, flipper flap, belly stomp, ghost twirl), a body twist on throws, a stronger hit flinch.
+- **Sound pass:** all 57 effects and 13 music tracks are loudness-matched by a script (`tools/v33audio.mjs`: offline render, short-term RMS per class, peak limit, soft limiter on the effects bus), softer background loop that ducks under big hits, Settings > **Background music** toggle + **Master** / Music / Sound FX volumes.
+- **Menu fit:** the main menu and the daily-missions card fit short phones (640x320).
+- Android versionCode 33 / versionName 3.3.0 (same signing key, updates v3.2 in place).
+
 ## What's new in v3.2 (polish & play)
 A "game feel" release. Chill stays the default speed, payments stay TEST MODE, nothing was removed.
 - **Juice:** harder-hitting impacts (flash, sparks, rings, hit-stop), camera shake with a Settings control (Off / Low / Full), slow-mo plus a zoom-in on the last KO, fireworks and a victory line for the winner, a red screen flash and buzz when *you* get hit, new throw / catch / hit / hurt / KO / fanfare sounds (WebAudio synth, mute still works), catch combos, longer glowing boomerang trails.
