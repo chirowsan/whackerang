@@ -152,7 +152,7 @@ export function installRules(Game, { Boom, Fighter }) {
 
   // ---------------- end conditions
   P.finish = function (winTeam, winner) {
-    if (this.state !== 'play') return; this.state = 'roundEnd'; this.endT = 0; this.winTeam = winTeam; this.winner = winner || this.fighters.find((f) => f.team === winTeam && f.alive) || null; this.slowT = 1.0;
+    if (this.state !== 'play') return; this.state = 'roundEnd'; this.endT = 0; this.winTeam = winTeam; this.winner = winner || this.fighters.find((f) => f.team === winTeam && f.alive) || null; this.slowT = this.mode === 'attract' ? 0 : 1.5;
     this.onEvent('lastKO', { winner: this.winner, winTeam, draw: winTeam < 0 });
   };
   P.checkEnd = function () {

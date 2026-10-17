@@ -1,7 +1,7 @@
 // Boomerang ribbon trail: a flat triangle strip following the last N positions, additive + vertex-faded. One tiny mesh per boomerang.
 import { THREE } from './gfx.js';
-const N = 18;
-const _c = new THREE.Color();
+const N = 24;
+const _c = new THREE.Color(), _W = new THREE.Color(1, 1, 1);
 export class Ribbon {
   constructor(scene, color, width = 0.3, rainbow = false) {
     this.scene = scene; this.w = width; this.rainbow = rainbow; this.col = new THREE.Color(color); this.pts = []; this.live = true; this.fadeT = 0.4; this.done = false;
@@ -19,9 +19,9 @@ export class Ribbon {
     for (let i = 0; i < N; i++) {
       const k = Math.min(n - 1, Math.max(0, i - (N - n))); const pt = p[k]; const a = p[Math.max(0, k - 1)], b = p[Math.min(n - 1, k + 1)];
       let dx = b[0] - a[0], dz = b[2] - a[2]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; const u = i / (N - 1); // 0 tail .. 1 head
-      const w = this.w * (0.12 + 0.88 * Math.pow(u, 0.7)) * (this.live ? 1 : Math.max(0, this.fadeT / 0.4));
+      const w = this.w * (0.08 + 0.92 * Math.pow(u, 0.6)) * (this.live ? 1 : Math.max(0, this.fadeT / 0.4));
       P.set([pt[0] - dz * w, pt[1], pt[2] + dx * w, pt[0] + dz * w, pt[1], pt[2] - dx * w], i * 6);
-      const al = Math.pow(u, 1.6) * 0.95; if (this.rainbow) _c.setHSL((u * 0.9 + this.t * 0.0 + (performance.now() / 900)) % 1, 0.9, 0.62); else _c.copy(this.col);
+      const al = Math.pow(u, 1.4) * 1.05; if (this.rainbow) _c.setHSL((u * 0.9 + (performance.now() / 900)) % 1, 0.9, 0.62); else _c.copy(this.col); _c.lerp(_W, Math.pow(u, 7) * 0.6);
       C.set([_c.r * al, _c.g * al, _c.b * al, _c.r * al, _c.g * al, _c.b * al], i * 6);
     }
     const g = this.mesh.geometry; g.attributes.position.needsUpdate = true; g.attributes.color.needsUpdate = true;

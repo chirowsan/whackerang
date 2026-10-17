@@ -14,6 +14,16 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v3.2 (polish & play)
+A "game feel" release. Chill stays the default speed, payments stay TEST MODE, nothing was removed.
+- **Juice:** harder-hitting impacts (flash, sparks, rings, hit-stop), camera shake with a Settings control (Off / Low / Full), slow-mo plus a zoom-in on the last KO, fireworks and a victory line for the winner, a red screen flash and buzz when *you* get hit, new throw / catch / hit / hurt / KO / fanfare sounds (WebAudio synth, mute still works), catch combos, longer glowing boomerang trails.
+- **Readability:** a floating YOU / P1 / P2 arrow over your fighter, a ring on the floor under every boomerang in its owner's colour, bigger and clamped score pops, active power-up chips with timers under your name, no overlap with the touch controls on small landscape phones.
+- **Power-ups:** new **Magnet** (pulls pick-ups, bigger catch circle, boomerang homes in) and **Time Bubble** (rivals and their boomerangs near you move slower). Both are tuned for Chill.
+- **Cosmetics:** 5 new hats (cat ears, propeller cap, cowboy, wizard, viking), 4 new trails (bubbles, pixels, stardust, hearts) + premium Prism, 4 new boomerang skins + premium Void. The Shop has a live 3D preview and several items are free level rewards. Fighters flinch when hit and dance when you use an emote.
+- **Progression:** Daily Missions (3 a day with gold + XP) on the main menu and in Profile, a Daily Chest when all 3 are done, an animated results screen (XP bar, gold count-up, mission progress) and a one-tap Play Again.
+- **Quick start:** Play jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls. About 9 s from tap to playing on a first launch.
+- Android versionCode 32 / versionName 3.2.0 (same signing key, updates v3.1 in place).
+
 ## What's new in v3.1 (calmer, easier to play)
 Feedback from a phone player: "fun, but the controls are too hard and it is way too fast." v3.1 is a comfort release:
 - **Game Speed setting: Chill / Normal / Fast** (Settings, match setup, campaign stage screen). **Default = Chill** for everyone, including existing saves (migrated once). Chill runs the whole simulation at 62% speed (about 38% slower): walking, dash, boomerang flight and return, bots, trap cycles and warnings, power-up timers and the round clock. Normal = 80%. Fast = the exact v3.0 pace. It is one global time scale, so every mode, arena, trap and campaign stage follows it.

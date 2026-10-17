@@ -15,6 +15,11 @@ export const HATS = [
   { id: 'halo', name: 'Halo', cost: 120 },
   { id: 'flower', name: 'Flower', cost: 80 },
   { id: 'shades', name: 'Shades', cost: 100 },
+  { id: 'cat', name: 'Cat ears', cost: 100 },
+  { id: 'propeller', name: 'Propeller cap', cost: 110 },
+  { id: 'cowboy', name: 'Cowboy hat', cost: 130 },
+  { id: 'wizard', name: 'Wizard hat', cost: 150 },
+  { id: 'viking', name: 'Viking helm', cost: 160 },
   { id: 'crown', name: 'Crown', cost: 900, premium: true },
 ];
 export const ARENAS = [
@@ -35,6 +40,8 @@ export const POWERUPS = {
   homing: { name: 'Homing', color: 0xb26bff, short: 'HM' },
   shield: { name: 'Shield', color: 0x6fffb0, short: 'SH' },
   speed: { name: 'Speed', color: 0xfff04a, short: 'SP' },
+  magnet: { name: 'Magnet', color: 0xff4a5a, short: 'MG' },
+  slow: { name: 'Time Bubble', color: 0x3a8aff, short: 'TB' },
   rune: { name: 'Boomerang Rune', color: 0xff9a4f, short: 'BR' },
 };
 export const PLAYER_COLORS = [0xffd23c, 0xff5a8a, 0x4fd1ff, 0x7dff6a];
@@ -50,14 +57,19 @@ export const BOOM_TYPES = {
 };
 export const TRAILS = {
   none: { name: 'Team color', color: 0xffffff, cost: 0 },
-  spark: { name: 'Sparkle', color: 0xffe680, cost: 100 },
-  flame: { name: 'Flame', color: 0xff6a2a, cost: 150 },
-  frost: { name: 'Frostbite', color: 0x9ad8ff, cost: 150 },
-  leaf: { name: 'Leafy', color: 0x7dff6a, cost: 120 },
-  rose: { name: 'Rosy', color: 0xff7ac8, cost: 200 },
+  spark: { name: 'Sparkle', color: 0xffe680, cost: 100, fx: 'star' },
+  flame: { name: 'Flame', color: 0xff6a2a, cost: 150, fx: 'ember' },
+  frost: { name: 'Frostbite', color: 0x9ad8ff, cost: 150, fx: 'snow' },
+  leaf: { name: 'Leafy', color: 0x7dff6a, cost: 120, fx: 'leaf' },
+  rose: { name: 'Rosy', color: 0xff7ac8, cost: 200, fx: 'petal' },
   neon: { name: 'Rainbow', color: 0xffffff, cost: 300, rainbow: true },
-  cosmic: { name: 'Cosmic', color: 0xffffff, cost: 1200, rainbow: true, premium: true },
-  comet: { name: 'Comet', color: 0xbfe8ff, cost: 800, premium: true },
+  bubble: { name: 'Bubbles', color: 0x8fe8ff, cost: 140, fx: 'bubble' },
+  pixel: { name: 'Pixel', color: 0x7dff6a, cost: 180, fx: 'pixel' },
+  star: { name: 'Stardust', color: 0xffe066, cost: 220, fx: 'star' },
+  heart: { name: 'Hearts', color: 0xff6aa8, cost: 260, fx: 'heart' },
+  cosmic: { name: 'Cosmic', color: 0xffffff, cost: 1200, rainbow: true, premium: true, fx: 'star' },
+  comet: { name: 'Comet', color: 0xbfe8ff, cost: 800, premium: true, fx: 'comet' },
+  prism: { name: 'Prism', color: 0xffffff, cost: 1000, rainbow: true, premium: true, fx: 'pixel' },
 };
 export const SKINS = {
   default: { name: 'Hero style', cost: 0 },
@@ -67,6 +79,11 @@ export const SKINS = {
   shadow: { name: 'Shadow', cost: 260, arm: 0x2a2540, tip: 0xb26bff, trim: 0x120a1e, glow: 0xb26bff },
   candy: { name: 'Candy', cost: 260, arm: 0xff8ad8, tip: 0xffffff, trim: 0x6ad8ff, glow: 0xff9ae6 },
   mint: { name: 'Minty', cost: 160, arm: 0x5ff0b8, tip: 0xeafff6, trim: 0x1a8a62, glow: 0x7dffd0 },
+  sunset: { name: 'Sunset', cost: 220, arm: 0xff8a4a, tip: 0xffd23c, trim: 0x8a2a4a, glow: 0xff9a6a },
+  berry: { name: 'Berry', cost: 240, arm: 0x9a3aff, tip: 0xff7ad9, trim: 0x3a0a6a, glow: 0xc07aff },
+  sakura: { name: 'Sakura', cost: 260, arm: 0xffb0cc, tip: 0xffffff, trim: 0xc84a7a, glow: 0xffc0dc },
+  neon: { name: 'Neon', cost: 300, arm: 0x16f0ff, tip: 0xff2bd6, trim: 0x0a2a4a, glow: 0x5af8ff },
+  void: { name: 'Void', cost: 1600, premium: true, arm: 0x1a1030, tip: 0x8a5aff, trim: 0x000000, glow: 0xa070ff },
   aurora: { name: 'Aurora', cost: 1400, premium: true, arm: 0x4affc8, tip: 0xc8a0ff, trim: 0x14527a, glow: 0x7affd8 },
   galaxy: { name: 'Galaxy', cost: 1800, premium: true, arm: 0x3a2a8a, tip: 0xff9ae6, trim: 0x140a3a, glow: 0xb78cff },
   inferno: { name: 'Inferno', cost: 1800, premium: true, arm: 0xff5a1a, tip: 0xffe066, trim: 0x6a1204, glow: 0xff8a3a },

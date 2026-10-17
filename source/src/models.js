@@ -44,8 +44,29 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   { let first = true; root.traverse((o) => { if (o.userData && o.userData.ol === 'hero') { if (first) first = false; else { o.userData.ol = 'hero2'; o.visible = gfx.outlinesAll; } } }); }
   m.setHat = (id) => { while (hatG.children.length) hatG.remove(hatG.children[0]); if (m.shades) { body.remove(m.shades); m.shades = null; } if (m.band) { body.remove(m.band); m.band = null; } addHat(m, id, sp.shades); };
   // per-frame animation: st = {move, t, dash, charge, throwT, dead, deflect, air, win, scared, happy, catchPop, expr}
-  m.update = (dt, st) => animateFighter(m, dt, st);
+  m.update = (dt, st) => { animateFighter(m, dt, st); if (m.spinners) for (const q of m.spinners) q.rotation.y += dt * 22; };
+  // v3.2 readability: floating arrow above the head (big + label for humans, small pip for rivals), time-bubble field
+  m.setMarker = (color, label, big) => makeMarker(m, color, label, big);
+  const tb = new THREE.Mesh(geo('tbub', () => new THREE.RingGeometry(0.93, 1, 48)), new THREE.MeshBasicMaterial({ color: 0x5aa8ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  tb.rotation.x = -Math.PI / 2; tb.position.y = 0.04; tb.scale.setScalar(4.6); tb.visible = false; root.add(tb); m.tbub = tb;
   return m;
+}
+const lblTex = {};
+function labelTex(text, color) {
+  const k = text + color; if (lblTex[k]) return lblTex[k];
+  const c = document.createElement('canvas'); c.width = 128; c.height = 56; const x = c.getContext('2d'); x.font = '900 40px system-ui,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.lineJoin = 'round'; x.lineWidth = 9; x.strokeStyle = '#140a30'; x.strokeText(text, 64, 30); x.fillStyle = '#' + new THREE.Color(color).getHexString(); x.fillText(text, 64, 30);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; lblTex[k] = t; return t;
+}
+function makeMarker(m, color, label, big) {
+  if (m.mark) { m.root.remove(m.mark); }
+  const g = new THREE.Group(); const y0 = m.headY + (big ? 1.15 : 0.78); g.position.y = y0; g.userData.y0 = y0;
+  const col = new THREE.Color(color);
+  const cone = new THREE.Mesh(geo(big ? 'mkB' : 'mkS', () => new THREE.ConeGeometry(big ? 0.34 : 0.17, big ? 0.58 : 0.3, 4)), new THREE.MeshBasicMaterial({ color: col, depthTest: !big, transparent: true, opacity: big ? 1 : 0.85 }));
+  cone.rotation.x = Math.PI; cone.rotation.y = Math.PI / 4; cone.renderOrder = 9; g.add(cone);
+  if (big) { const ol = new THREE.Mesh(cone.geometry, new THREE.MeshBasicMaterial({ color: 0x140a30, side: THREE.BackSide, depthTest: false })); ol.scale.setScalar(1.25); ol.rotation.copy(cone.rotation); ol.renderOrder = 8; g.add(ol); }
+  if (label) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(label, color), transparent: true, depthTest: false })); sp.scale.set(1.35, 0.59, 1); sp.position.y = 0.66; sp.renderOrder = 10; g.add(sp); }
+  m.root.add(g); m.mark = g;
 }
 
 function addHat(m, id, sh0) {
@@ -59,6 +80,11 @@ function addHat(m, id, sh0) {
     case 'crown': { mesh(CYL(0.2, 0.22, 0.12, 8), glowMat(0xffd23c, 0.5), hg, { pos: [0, 0.04, 0], outline: 0.02, grp: 'hero' }); for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; mesh(CONE(0.06, 0.16, 6), glowMat(0xffd23c, 0.5), hg, { pos: [Math.cos(a) * 0.17, 0.17, Math.sin(a) * 0.17], cast: false }); mesh(SPH(0.035, 6, 5), glowMat(0xff3b6b, 0.8), hg, { pos: [Math.cos(a) * 0.17, 0.27, Math.sin(a) * 0.17], cast: false }); } break; }
     case 'halo': { mesh(TOR(0.22, 0.035, 8, 24), glowMat(0xffe066, 1.2), hg, { pos: [0, 0.3, 0], rot: [Math.PI / 2, 0, 0], cast: false }); break; }
     case 'flower': { for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; mesh(SPH(0.07, 8, 6), mat(0xff7ac8), hg, { pos: [0.12 + Math.cos(a) * 0.09, 0.02, Math.sin(a) * 0.09], cast: false }); } mesh(SPH(0.06, 8, 6), mat(0xffe066), hg, { pos: [0.12, 0.02, 0], cast: false }); break; }
+    case 'cat': { for (const sx of [-1, 1]) { mesh(CONE(0.1, 0.22, 4), mat(0x2a2540), hg, { pos: [sx * 0.15, 0.1, 0], rot: [0, 0.78, sx * -0.28], outline: 0.02, grp: 'hero' }); mesh(CONE(0.055, 0.14, 4), mat(0xff8ac0), hg, { pos: [sx * 0.15, 0.08, 0.05], rot: [0.15, 0.78, sx * -0.28], cast: false }); } break; }
+    case 'propeller': { mesh(SPH(0.2, 14, 8), mat(0xff4a4a), hg, { pos: [0, -0.02, 0], scale: [1, 0.62, 1], outline: 0.02, grp: 'hero' }); mesh(SPH(0.2, 14, 8), mat(0x3a8aff), hg, { pos: [0, -0.02, 0], scale: [1.01, 0.5, 1.01], rot: [0, 0.8, 0], cast: false }); mesh(CYL(0.025, 0.025, 0.12, 6), mat(0xffee66), hg, { pos: [0, 0.14, 0], cast: false }); const sp = new THREE.Group(); sp.position.y = 0.22; hg.add(sp); for (const a of [0, Math.PI]) mesh(BOX(0.34, 0.015, 0.075), mat(a ? 0xffee66 : 0xff4a4a), sp, { pos: [Math.cos(a) * 0.17, 0, 0], rot: [0, 0, 0.0], cast: false }); (m.spinners = m.spinners || []).push(sp); break; }
+    case 'cowboy': { mesh(CYL(0.36, 0.38, 0.035, 22), mat(0x9a6a3a), hg, { pos: [0, -0.04, 0], outline: 0.02, grp: 'hero' }); mesh(CYL(0.17, 0.21, 0.24, 16), mat(0xb88050), hg, { pos: [0, 0.1, 0], outline: 0.02, grp: 'hero' }); mesh(CYL(0.215, 0.215, 0.05, 16), mat(0x5a2a14), hg, { pos: [0, 0.03, 0], cast: false }); mesh(SPH(0.04, 6, 5), glowMat(0xffd23c, 0.6), hg, { pos: [0, 0.03, 0.21], cast: false }); break; }
+    case 'wizard': { mesh(CYL(0.3, 0.3, 0.03, 20), mat(0x4a2a9a), hg, { pos: [0, -0.04, 0], outline: 0.02, grp: 'hero' }); mesh(CONE(0.2, 0.52, 14), mat(0x5a34c8), hg, { pos: [0, 0.24, 0], rot: [0, 0, -0.12], outline: 0.02, grp: 'hero' }); mesh(TOR(0.2, 0.025, 6, 16), mat(0xffd23c), hg, { pos: [0, 0.0, 0], rot: [Math.PI / 2, 0, 0], cast: false }); for (const [x, y, z] of [[0.1, 0.12, 0.15], [-0.12, 0.26, 0.1], [0.05, 0.4, 0.04]]) mesh(SPH(0.032, 6, 5), glowMat(0xffee66, 1.2), hg, { pos: [x, y, z], cast: false }); break; }
+    case 'viking': { mesh(SPH(0.24, 14, 9), mat(0x9aa4b8), hg, { pos: [0, -0.04, 0], scale: [1, 0.78, 1], outline: 0.02, grp: 'hero' }); mesh(CYL(0.245, 0.245, 0.05, 16), mat(0x6a5a3a), hg, { pos: [0, -0.07, 0], cast: false }); for (const sx of [-1, 1]) { mesh(CONE(0.07, 0.3, 8), mat(0xf4ecd0), hg, { pos: [sx * 0.27, 0.07, 0], rot: [0, 0, sx * -0.95], outline: 0.02, grp: 'hero' }); } break; }
     case 'shades': { const sh = new THREE.Group(); sh.position.set(0, eyeY, eyeZ); body.add(sh); mesh(BOX(0.12, 0.09, 0.04), mat(0x111122), sh, { pos: [-eyeX, 0, 0.02], cast: false }); mesh(BOX(0.12, 0.09, 0.04), mat(0x111122), sh, { pos: [eyeX, 0, 0.02], cast: false }); mesh(BOX(0.2, 0.025, 0.03), mat(0x111122), sh, { pos: [0, 0.02, 0.02], cast: false }); m.shades = sh; break; }
   }
 }
@@ -97,7 +123,9 @@ export function buildBoomerang(color, hero, skin, type) {
   if (type === 'razor') for (const a of [0, 1.57, 3.14, 4.71]) mesh(CONE(0.045, 0.2, 4), toon(0xe8f8ff), inner, { pos: [Math.sin(a) * 0.17, 0.02, Math.cos(a) * 0.17], rot: [Math.PI / 2 * Math.cos(a), 0, -Math.PI / 2 * Math.sin(a)], cast: false });
   if (type === 'frost') for (const a of [0.5, 2.6, 4.7]) mesh(CONE(0.05, 0.22, 5), toon(0xbff0ff), inner, { pos: [Math.sin(a) * 0.15, 0.1, Math.cos(a) * 0.15], rot: [0, 0, 0], cast: false });
   const glow = glowSprite(sk.glow, tyd ? 1.5 : 1.1, tyd ? 0.65 : 0.5); glow.position.y = 0.15; g.add(glow);
-  g.userData = { inner, glow }; return g;
+  // v3.2 ownership: owner-coloured ring on the floor under the boomerang (survives custom trails/skins)
+  const ow = new THREE.Mesh(geo('bring', () => new THREE.RingGeometry(0.34, 0.5, 20)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })); ow.rotation.x = -Math.PI / 2; ow.position.y = -0.47; g.add(ow);
+  g.userData = { inner, glow, ring: ow }; return g;
 }
 const faceKeyOf = (h) => ({ bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng' }[h.id] || 'panda');
 export function buildCrate(theme) {
@@ -123,6 +151,8 @@ function powerIcon(kind) {
     case 'homing': x.beginPath(); x.arc(64, 64, 26, 0, 7); x.stroke(); x.beginPath(); x.moveTo(64, 26); x.lineTo(64, 102); x.moveTo(26, 64); x.lineTo(102, 64); x.stroke(); break;
     case 'rune': P([[30, 84], [64, 36], [98, 84], [80, 84], [64, 60], [48, 84]]); break;
     case 'shield': P([[64, 24], [96, 36], [92, 72], [64, 102], [36, 72], [32, 36]]); break;
+    case 'magnet': x.lineWidth = 16; x.strokeStyle = '#fff'; x.beginPath(); x.arc(64, 64, 22, Math.PI, 0); x.lineTo(86, 92); x.moveTo(42, 64); x.lineTo(42, 92); x.stroke(); x.lineWidth = 6; x.strokeStyle = '#1a1530'; x.beginPath(); x.arc(64, 64, 22, Math.PI, 0); x.lineTo(86, 92); x.moveTo(42, 64); x.lineTo(42, 92); x.stroke(); x.fillStyle = '#ff4a5a'; x.fillRect(35, 86, 14, 12); x.fillRect(79, 86, 14, 12); break;
+    case 'slow': x.beginPath(); x.arc(64, 64, 30, 0, 7); x.stroke(); x.beginPath(); x.moveTo(64, 64); x.lineTo(64, 44); x.moveTo(64, 64); x.lineTo(78, 72); x.stroke(); break;
     case 'speed': P([[34, 36], [64, 64], [34, 92], [50, 92], [80, 64], [50, 36]]); P([[62, 36], [92, 64], [62, 92], [78, 92], [108, 64], [78, 36]]); break;
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; iconTex[kind] = t; return t;

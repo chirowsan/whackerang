@@ -7,7 +7,7 @@ import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, 
 import { todayMutator, MUTATORS } from './mutators.js';
 import { TRAP_INFO } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
-import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS } from './progress.js';
+import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS, chestState, claimChest, CHEST_GOLD, dailyReadyCount } from './progress.js';
 import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx, toScreen } from './gfx.js';
 import { AW, AH, HX, HZ } from './util.js';
@@ -24,6 +24,7 @@ const boomSvg = (c) => `<svg viewBox="0 0 48 48" class="bsv"><path d="M8 33C10 1
 const star = (on) => `<i class="star${on ? ' on' : ''}"></i>`;
 const stars = (n, big) => `<span class="stars${big ? ' big' : ''}">${[0, 1, 2].map((i) => star(i < n)).join('')}</span>`;
 const lvlChip = () => { const l = levelInfo(); return `<div class="lvchip"><b>LV ${l.level}</b><span class="xpbar"><i style="width:${Math.round(l.cur / l.need * 100)}%"></i></span></div>`; };
+const fx_levelFlash = () => { const f = document.getElementById('flash'); if (f) { f.style.transition = 'none'; f.style.background = '#ffe680'; f.style.opacity = 0.3; void f.offsetWidth; f.style.transition = 'opacity 500ms ease-out'; f.style.opacity = 0; } };
 const campStars = () => (S().camp.stars || []).reduce((a, b) => a + (b || 0), 0);
 
 Object.assign(UI, {
@@ -71,25 +72,35 @@ Object.assign(UI, {
   menu() {
     const a = this.app, s = S(), hero = this.heroById(s.hero); const el = h('div', 'screen', null, { id: 'menu' }); const left = h('div', 'left');
     left.appendChild(h('div', '', `<div class="title">WHACKERANG</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
-    left.appendChild(this.btn('▶ Play', 'primary big', () => (!s.tutorialDone ? this.show('tutintro') : this.show('modes'))));
+    const md = MODES[s.setup.mode] && s.setup.mode !== 'campaign' ? s.setup.mode : 'classic'; const spd = { chill: 'Chill', normal: 'Normal', fast: 'Fast' }[s.settings.speed] || 'Chill';
+    const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
+    left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? this.show('tutintro') : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = ensureDaily().list.some((c, i) => !ensureDaily().claimed[c.id] && dailyProgress(c) >= c.n);
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '3.2';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
-    g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Boomerangs' })));
+    g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
+    g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Hats' })));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
-    const pb = this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')); g.appendChild(pb);
-    g.appendChild(this.btn('How to play', '', () => this.show('howto')));
+    g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
+    g.appendChild(this.btn('How to play', '', () => this.show('howto')));
+    g.appendChild(this.btn("What's new" + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '3.2'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
-    if (canInstall()) { const br = h('div', 'corner br'); br.appendChild(this.btn(IS_IOS ? '\u2B07 Add to Home Screen' : '\u2B07 Install app', 'gold small', () => promptInstall(this))); el.appendChild(br); }
+    if (canInstall()) { const br = h('div', 'corner tl'); br.appendChild(this.btn(IS_IOS ? '\u2B07 Add to Home Screen' : '\u2B07 Install app', 'gold small', () => promptInstall(this))); el.appendChild(br); }
+    // daily missions card
+    const d = ensureDaily(); const card = h('div', 'mcard'); card.appendChild(h('div', 'mh', `<b>Daily missions</b><span>${d.list.filter((c) => d.claimed[c.id]).length}/3</span>`));
+    d.list.forEach((c, i) => { const pr = dailyProgress(c), done = pr >= c.n, cl = d.claimed[c.id]; const row = h('button', 'mrow' + (cl ? ' claimed' : done ? ' done' : ''), `<span class="mt">${c.text}</span><span class="mbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><span class="mg">${cl ? '✓' : done ? 'CLAIM' : '+' + c.coins}</span>`, { 'data-nav': 1 });
+      row.addEventListener('click', () => { if (done && !cl && claimDaily(i)) { sfx('missionDone'); this.toast(`Mission complete! +${c.coins} gold, +${c.xp} XP`, 1600); this.show('menu'); } else { sfx('click'); this.show('profile'); } }); card.appendChild(row); });
+    const cs = chestState(); if (cs !== 'locked') { const cr = h('button', 'mrow chest' + (cs === 'ready' ? ' done' : ' claimed'), `<span class="mt">Daily chest</span><span class="mg">${cs === 'ready' ? 'OPEN +' + CHEST_GOLD : '✓'}</span>`, { 'data-nav': 1 }); cr.addEventListener('click', () => { if (claimChest()) { sfx('missionDone'); this.toast(`Daily chest! +${CHEST_GOLD} gold`, 1600); this.show('menu'); } }); card.appendChild(cr); }
+    el.appendChild(card);
     const bl = h('div', 'corner bl'); bl.appendChild(h('div', 'chip', `<span>${hero.name}</span><span class="dimc">${hero.title}</span>`)); el.appendChild(bl);
     return el;
   },
   tutintro() {
-    const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Welcome!')); d.appendChild(h('p', 'lead', 'First time here? A 1-minute training match teaches you to throw, catch, dash and deflect.'));
-    const b = h('div', 'btns'); b.appendChild(this.btn('▶ Start training', 'primary', () => this.app.startTutorial())); b.appendChild(this.btn('Skip', '', () => { S().tutorialDone = true; save(); this.show('modes'); })); d.appendChild(b); el.appendChild(d); return el;
+    const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Welcome to Whackerang!')); d.appendChild(h('p', 'lead', 'New here? A quick 45-second training teaches you to <b>throw</b>, <b>catch</b> and <b>dash</b>. Or jump straight in. The game starts on <b>Chill</b> speed with <b>Medium</b> bots.'));
+    const b = h('div', 'btns'); b.appendChild(this.btn('▶ Quick training', 'primary', () => this.app.startTutorial())); b.appendChild(this.btn('Skip, just play', '', () => { S().tutorialDone = true; save(); this.app.quickPlay(); })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ================= modes =================
   modes() {
@@ -155,21 +166,23 @@ Object.assign(UI, {
   },
   // ================= shop =================
   shop(p) {
-    const s = S(); const tab = p.tab || 'Boomerangs'; const el = h('div', 'screen page'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Shop')); hd.appendChild(this.coinChip()); el.appendChild(hd);
-    const tabs = h('div', 'tabs'); Object.keys(SHOP).forEach((t) => { const b = h('button', 'tab' + (t === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.show('shop', { tab: t }); }); tabs.appendChild(b); }); el.appendChild(tabs);
-    const grid = h('div', 'shop-grid scroll');
+    const s = S(); const tab = p.tab || 'Hats'; const el = h('div', 'screen page shop-split'); const hd = h('header'); hd.appendChild(this.backBtn(() => { this.app.previewCosmetic(null); this.show('menu'); })); hd.appendChild(h('h2', '', 'Shop')); hd.appendChild(this.coinChip()); el.appendChild(hd);
+    const tabs = h('div', 'tabs'); Object.keys(SHOP).forEach((t) => { const b = h('button', 'tab' + (t === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.app.previewCosmetic(null); this.show('shop', { tab: t }); }); tabs.appendChild(b); }); el.appendChild(tabs);
+    const grid = h('div', 'shop-grid scroll'); const hero = this.heroById(s.hero); const cap = h('div', 'pv-cap', '<small>Tap an item to preview it on your fighter</small>');
+    const setCap = (it) => { const own = owns(it.cat, it.id); cap.innerHTML = `<b>${it.cat === 'emotes' ? 'Emote ' + it.name : it.name}</b><small>${it.desc || (own ? 'Owned' : 'Preview')}</small>${own ? '' : `<span class="pvp"><span class="coin"></span> ${it.cost}</span>`}`; };
     SHOP[tab].forEach((it) => {
       const own = owns(it.cat, it.id); const eqd = (it.cat === 'types' && s.eq.type === it.id) || (it.cat === 'skins' && s.eq.skin === it.id) || (it.cat === 'trails' && s.eq.trail === it.id) || (it.cat === 'emotes' && s.eq.emotes.includes(it.id)) || (it.cat === 'hats' && s.hats[s.hero] === it.id);
       let prev = ''; const col = it.color || 0xffffff;
-      if (it.cat === 'types' || it.cat === 'skins') prev = `<div class="prev">${boomSvg(hex(col))}</div>`; else if (it.cat === 'trails') prev = `<div class="prev trailp" style="${it.rainbow ? 'background:linear-gradient(90deg,#f55,#fd5,#5f5,#5df,#a5f)' : `background:linear-gradient(90deg,transparent,${hex(col)})`}"></div>`; else if (it.cat === 'emotes') prev = `<div class="prev emo" style="color:${hex(col)}">${it.name}</div>`; else if (it.cat === 'heroes') prev = `<div class="prev"><img src="${portrait(it.hero, 'none')}"></div>`; else { const HE = { band: '🥋', party: '🥳', top: '🎩', halo: '😇', flower: '🌸', shades: '😎' }; prev = `<div class="prev hatp" style="font-size:calc(var(--u)*3.4)">${HE[it.id] || '🎩'}</div>`; }
-      const c = h('div', 'card' + (eqd ? ' eq' : ''), `${prev}<h4>${it.cat === 'emotes' ? 'Emote' : it.name}</h4><p>${it.desc || ''}</p>`);
+      if (it.cat === 'types' || it.cat === 'skins') prev = `<div class="prev">${boomSvg(hex(col))}</div>`; else if (it.cat === 'trails') prev = `<div class="prev trailp" style="${it.rainbow ? 'background:linear-gradient(90deg,#f55,#fd5,#5f5,#5df,#a5f)' : `background:linear-gradient(90deg,transparent,${hex(col)})`}"></div>`; else if (it.cat === 'emotes') prev = `<div class="prev emo" style="color:${hex(col)}">${it.name}</div>`; else if (it.cat === 'heroes') prev = `<div class="prev"><img src="${portrait(it.hero, 'none')}"></div>`; else prev = `<div class="prev hatp"><img src="${portrait(hero, it.id)}"></div>`;
+      const c = h('div', 'card' + (eqd ? ' eq' : ''), `${prev}<h4>${it.cat === 'emotes' ? 'Emote' : it.name}</h4><p>${it.desc || ''}</p>`, { 'data-nav': 1 });
+      c.addEventListener('click', (e) => { if (e.target.closest('button')) return; sfx('click'); [...grid.children].forEach((q) => q.classList.remove('pv')); c.classList.add('pv'); this.app.previewCosmetic(it.cat === 'hats' || it.cat === 'skins' || it.cat === 'trails' || it.cat === 'types' ? { cat: it.cat, id: it.id } : null); setCap(it); });
       let act;
-      if (own) { if (it.cat === 'heroes') act = h('div', 'owned', '✓ Owned'); else act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { if (it.cat === 'emotes') toggleEmote(it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else equip(it.cat, it.id); sfx('click'); this.show('shop', { tab }); }); }
-      else act = this.btn(`<span class="coin"></span> ${it.cost}`, 'small ' + (s.coins >= it.cost ? 'primary' : 'locked'), () => { if (buy(it)) { sfx('buy'); if (it.cat !== 'hats' && it.cat !== 'heroes') equip(it.cat, it.id); this.show('shop', { tab }); } else { sfx('deny'); this.toast('Not enough gold! Tap the gold counter to see free ways to earn more.'); } });
+      if (own) { if (it.cat === 'heroes') act = h('div', 'owned', '✓ Owned'); else act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { if (it.cat === 'emotes') toggleEmote(it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else equip(it.cat, it.id); sfx('click'); this.app.previewCosmetic(null); this.show('shop', { tab }); }); }
+      else act = this.btn(`<span class="coin"></span> ${it.cost}`, 'small ' + (s.coins >= it.cost ? 'primary' : 'locked'), () => { if (buy(it)) { sfx('buy'); if (it.cat !== 'hats' && it.cat !== 'heroes') equip(it.cat, it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } this.app.previewCosmetic(null); this.show('shop', { tab }); } else { sfx('deny'); this.toast('Not enough gold! Tap the gold counter to see free ways to earn more.'); } });
       c.appendChild(act); grid.appendChild(c);
     });
     if (tab === 'Emotes') grid.appendChild(h('div', 'note-line', 'Equip up to 4 emotes. In a match press 1-4 or tap the chat button.', { style: 'grid-column:1/-1' }));
-    el.appendChild(grid); return el;
+    const body = h('div', 'shop-body'); body.appendChild(grid); body.appendChild(cap); el.appendChild(body); return el;
   },
   // ================= profile =================
   profile() {
@@ -178,8 +191,9 @@ Object.assign(UI, {
     const hero = this.heroById(s.hero);
     left.appendChild(h('div', 'lvbig', `<img src="${this.pic(hero)}"><div><b>Level ${l.level}</b><div class="xpbar big"><i style="width:${Math.round(l.cur / l.need * 100)}%"></i></div><small>${l.cur} / ${l.need} XP</small></div>`));
     const nx = Object.keys(LEVEL_REWARDS).map(Number).find((x) => x > l.level); if (nx) { const k = Object.keys(LEVEL_REWARDS[nx])[0]; left.appendChild(h('div', 'note-line', `Next reward at level ${nx}: ${LEVEL_REWARDS[nx][k]} (${k.slice(0, -1)})`)); }
-    left.appendChild(h('h4', '', 'Daily challenges')); const d = ensureDaily();
+    left.appendChild(h('h4', '', 'Daily missions')); const d = ensureDaily();
     d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} gold · +${c.xp} XP</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); this.show('profile'); } else sfx('deny'); })); left.appendChild(row); });
+    { const cs = chestState(); const cr = h('div', 'daily' + (cs === 'ready' ? ' done' : ''), `<div><b>Daily chest</b><small>${cs === 'locked' ? 'Claim all 3 missions to unlock' : cs === 'ready' ? 'Unlocked!' : 'Opened today'} · +${CHEST_GOLD} gold + 50 XP</small></div>`); cr.appendChild(cs === 'claimed' ? h('span', 'owned', '✓') : this.btn('Open', 'small ' + (cs === 'ready' ? 'gold' : 'locked'), () => { if (claimChest()) { sfx('missionDone'); this.show('profile'); } else sfx('deny'); })); left.appendChild(cr); }
     left.appendChild(h('h4', '', 'Stats')); left.appendChild(h('div', 'stat-grid', [['KOs', s.stats.ko], ['Catches', s.stats.catch], ['Parries', s.stats.deflect], ['Wins', s.stats.win], ['Matches', s.played], ['Best wave', s.best.survival || 0], ['Stars', `${campStars()}/${MAX_STARS}`], ['Gold earned', s.totalCoins || 0]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')));
     right.appendChild(h('h4', '', `Achievements ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`));
     ACHIEVEMENTS.forEach((a) => { const got = !!s.ach[a.id]; const pr = Math.min(a.n, s.stats[a.stat] || 0); right.appendChild(h('div', 'ach' + (got ? ' got' : ''), `<div class="ai">${got ? '🏆' : '🔒'}</div><div><b>${a.name}</b><small>${a.desc}</small>${got ? '' : `<span class="xpbar"><i style="width:${Math.round(pr / a.n * 100)}%"></i></span>`}</div><span class="ar">${got ? '✓' : '+' + a.coins}</span>`)); });
@@ -195,21 +209,38 @@ Object.assign(UI, {
     const b = h('div', 'btns'); b.appendChild(this.btn('Next round ▶', 'primary', () => this.app.nextRound())); b.appendChild(this.btn('Menu', '', () => this.app.quitToMenu())); d.appendChild(b); el.appendChild(d); return el;
   },
   matchEnd(p) {
-    const s = S(); const el = h('div', 'screen center'); const d = h('div', 'panel dialog results' + (p.won ? '' : ' lose'));
+    const s = S(); const el = h('div', 'screen center'); const d = h('div', 'panel dialog results r2' + (p.won ? ' won' : ' lose'));
     const title = p.tutorial ? 'Training complete!' : p.stage ? (p.won ? 'Stage clear!' : 'Stage failed') : p.mode === 'survival' ? 'Game over' : (p.won ? 'Victory!' : 'Defeat');
-    d.appendChild(h('h2', '', title));
-    if (p.stage) { d.appendChild(h('div', 'sub', `Stage ${p.stage.n} · ${p.stage.name}`)); d.appendChild(h('div', 'rstars', stars(p.stars, true))); if (p.won && p.stars > p.prevStars) d.appendChild(h('div', 'newbest', p.firstClear ? 'FIRST CLEAR!' : 'NEW BEST!')); }
-    else if (p.winnerName && p.mode !== 'survival') d.appendChild(h('div', 'sub', `${p.winnerName} ${p.winnerName === 'Your team' ? 'win' : p.winnerName === 'Rival team' ? 'win' : 'wins'} the match`));
-    if (p.rows.length) d.appendChild(h('div', 'stat-line', p.rows.map(([k, v]) => `<div><span>${k}</span>${v}</div>`).join('')));
-    // rewards + xp bar
+    const left = h('div', 'rl'), right = h('div', 'rr');
+    d.appendChild(h('h2', 'rtitle', title));
+    if (p.stage) { left.appendChild(h('div', 'sub', `Stage ${p.stage.n} · ${p.stage.name}`)); left.appendChild(h('div', 'rstars', stars(p.stars, true))); if (p.won && p.stars > p.prevStars) left.appendChild(h('div', 'newbest', p.firstClear ? 'FIRST CLEAR!' : 'NEW BEST!')); }
+    else if (p.winnerName && p.mode !== 'survival') left.appendChild(h('div', 'sub', `${p.winnerName} ${p.winnerName === 'Your team' ? 'win' : p.winnerName === 'Rival team' ? 'win' : 'wins'} the match`));
+    if (p.rows.length) left.appendChild(h('div', 'stat-line rv', p.rows.map(([k, v]) => `<div><span>${k}</span>${v}</div>`).join('')));
     const l0 = p.lvBefore, l1 = p.lv; const lv0 = l0.level; const pct0 = Math.round(l0.cur / l0.need * 100), pct1 = l1.level > lv0 ? 100 : Math.round(l1.cur / l1.need * 100);
-    const xr = h('div', 'xprow', `<b>LV ${lv0}</b><span class="xpbar big"><i style="width:${pct0}%"></i></span><span class="gain">+${p.xp} XP</span><span class="gain gold"><span class="coin"></span> +${p.coins}</span>`); d.appendChild(xr);
-    requestAnimationFrame(() => requestAnimationFrame(() => { const i = xr.querySelector('.xpbar i'); if (i) i.style.width = pct1 + '%'; }));
-    (p.ups || []).forEach((u) => d.appendChild(h('div', 'levelup', `LEVEL ${u.level}! +${u.coins} gold${u.unlock ? ' · unlocked ' + u.unlock : ''}`)));
-    const b = h('div', 'btns');
-    if (p.tutorial) { b.appendChild(this.btn('Play ▶', 'primary', () => this.app.quitToMenu(true))); }
-    else { if (p.stage && p.won && p.stage.n < STAGES.length) b.appendChild(this.btn('Next stage ▶', 'primary', () => this.app.startStage(p.stage.n + 1))); b.appendChild(this.btn(p.stage ? (p.won ? '↻ Replay' : '↻ Retry') : 'Rematch ▶', p.stage && p.won ? '' : 'primary', () => this.app.rematch())); if (p.stage) b.appendChild(this.btn('Campaign', '', () => { this.app.quitToMenu(); this.show('campaign'); })); b.appendChild(this.btn('Menu', '', () => this.app.quitToMenu())); }
-    d.appendChild(b); el.appendChild(d); return el;
+    const xr = h('div', 'xprow rv', `<b>LV ${lv0}</b><span class="xpbar big"><i style="width:${pct0}%"></i></span><span class="gain">+${p.xp} XP</span>`); left.appendChild(xr);
+    const gr = h('div', 'goldrow rv', `<span class="coin big"></span><b class="cnt">0</b><span class="gl">gold earned</span>`); left.appendChild(gr);
+    const lvlBox = h('div', 'lvbox'); left.appendChild(lvlBox);
+    // missions panel
+    const dly = ensureDaily(); const before = this.app.dailyBefore || {}; right.appendChild(h('h4', '', 'Daily missions'));
+    const mrows = dly.list.map((c, i) => { const pr = dailyProgress(c), gain = pr - Math.min(c.n, before[c.id] || 0), done = pr >= c.n; const row = h('div', 'mres' + (done ? ' done' : '') + (dly.claimed[c.id] ? ' claimed' : ''), `<div class="mt">${c.text}${gain > 0 ? ` <em>+${gain}</em>` : ''}</div><span class="xpbar"><i style="width:${Math.round(Math.max(0, pr - gain) / c.n * 100)}%" data-to="${Math.round(pr / c.n * 100)}"></i></span><small>${pr}/${c.n} · +${c.coins} gold</small>`);
+      const act = dly.claimed[c.id] ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('missionDone'); this.show('matchEnd', { ...p, lv: levelInfo(), lvBefore: levelInfo(), ups: [], xp: 0, coins: 0, noAnim: 1 }); } else sfx('deny'); }); row.appendChild(act); right.appendChild(row); return row; });
+    const cs = chestState(); if (cs === 'ready') { const cr = h('div', 'mres done chestrow', `<div class="mt">Daily chest unlocked!</div><small>+${CHEST_GOLD} gold & bonus XP</small>`); cr.appendChild(this.btn('Open', 'small gold', () => { if (claimChest()) { sfx('missionDone'); this.show('matchEnd', { ...p, lv: levelInfo(), lvBefore: levelInfo(), ups: [], xp: 0, coins: 0, noAnim: 1 }); } })); right.appendChild(cr); }
+    d.appendChild(left); d.appendChild(right);
+    const b = h('div', 'btns rb');
+    if (p.tutorial) { b.appendChild(this.btn('Play ▶', 'primary', () => this.app.quickPlay())); b.appendChild(this.btn('Menu', '', () => this.app.quitToMenu())); }
+    else { if (p.stage && p.won && p.stage.n < STAGES.length) b.appendChild(this.btn('Next stage ▶', 'primary', () => this.app.startStage(p.stage.n + 1))); b.appendChild(this.btn(p.stage ? (p.won ? '↻ Replay' : '↻ Retry') : '↻ Play again', p.stage && p.won ? '' : 'primary', () => this.app.rematch())); if (p.stage) b.appendChild(this.btn('Campaign', '', () => { this.app.quitToMenu(); this.show('campaign'); })); else b.appendChild(this.btn('Change mode', '', () => { this.app.quitToMenu(true); })); b.appendChild(this.btn('Menu', '', () => this.app.quitToMenu())); }
+    d.appendChild(b); el.appendChild(d);
+    // ---- reward reveal animation (skipped when re-rendered after a claim)
+    const cnt = gr.querySelector('.cnt'); const ok = () => el.isConnected;
+    if (p.noAnim) { cnt.textContent = '—'; gr.style.display = 'none'; xr.style.display = 'none'; el.querySelectorAll('.mres .xpbar i').forEach((i) => (i.style.width = i.dataset.to + '%')); }
+    else {
+      d.classList.add('reveal'); if (p.won) for (let i = 0; i < 26; i++) { const c = h('i', 'cf'); c.style.cssText = `left:${Math.random() * 100}%;animation-delay:${Math.random() * 1.2}s;background:${['#ffd23c', '#ff5a8a', '#4fd1ff', '#7dff6a', '#b78cff'][i % 5]};--dr:${(Math.random() - 0.5) * 120}px`; d.appendChild(c); }
+      setTimeout(() => { if (!ok()) return; const i = xr.querySelector('.xpbar i'); if (i) i.style.width = pct1 + '%'; sfx('whoosh2'); }, 450);
+      setTimeout(() => { if (!ok()) return; const T = p.coins, t0 = performance.now(); let last = 0; const step = (now) => { if (!ok()) return; const k = Math.min(1, (now - t0) / 900); const v = Math.round(T * (1 - Math.pow(1 - k, 3))); cnt.textContent = '+' + v; if (v !== last && (now - (step.ls || 0) > 55)) { step.ls = now; sfx('tickup', Math.round(k * 12)); } last = v; if (k < 1) requestAnimationFrame(step); else { gr.classList.add('pop'); sfx('coin', 6); } }; requestAnimationFrame(step); }, 700);
+      (p.ups || []).forEach((u, n) => setTimeout(() => { if (!ok()) return; lvlBox.appendChild(h('div', 'levelup big', `<b>LEVEL ${u.level}!</b><span>+${u.coins} gold${u.unlock ? ' · unlocked ' + u.unlock : ''}</span>`)); sfx('levelup'); fx_levelFlash(); }, 1300 + n * 700));
+      setTimeout(() => { if (!ok()) return; el.querySelectorAll('.mres .xpbar i').forEach((i) => (i.style.width = i.dataset.to + '%')); if (mrows.some((r) => r.classList.contains('done') && !r.classList.contains('claimed'))) sfx('missionDone'); }, 1100);
+    }
+    return el;
   },
   introTitle(m, g) { if (!m) return ''; if (m.tutorial) return 'TRAINING'; if (m.stage) return 'STAGE ' + m.stage.n; return { classic: 'ROUND ' + m.round, team: 'ROUND ' + m.round, survival: 'SURVIVAL', koth: 'KING OF THE HILL', bomb: 'BOMB TAG', ctf: 'CAPTURE THE FLAG', coins: 'COIN RUSH', ball: 'BOOMERANG BALL', crumble: 'ROUND ' + m.round, bossrush: 'BOSS RUSH' }[m.mode] || 'GET READY'; },
   introSub(m, g) { if (!m) return ''; if (m.tutorial) return 'Follow the tips!'; if (m.stage) return m.stage.name; const an = ARENAS.find((a) => a.id === g.arenaId).name; return (m.mode === 'classic' || m.mode === 'team' || m.mode === 'crumble') ? an + ' · first to ' + m.need : m.mode === 'ctf' ? 'First to 3 captures' : m.mode === 'ball' ? 'First to 3 goals' : m.mode === 'coins' ? 'First to 40 coins' : m.mode === 'bossrush' ? 'Three bosses. Stay alive!' : an; },
@@ -218,7 +249,7 @@ Object.assign(UI, {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; this.emoteClose(); this.tutorialHide(); if (!game || game.mode === 'attract') return; this.hudGame = game;
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'mid', '', { id: 'h-mid' }); const rr = h('div', 'grp');
     rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
-    top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' }));
+    top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' })); r.appendChild(h('div', '', '', { id: 'h-pu' }));
     if (gfx.follow) { const cv = h('canvas', '', '', { id: 'minimap' }); cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
   },
   // minimap (Large/Huge): arena, solids, hazards, fighters, camera window
@@ -259,6 +290,7 @@ Object.assign(UI, {
     else if (game.rules.crumble && ms.floor !== undefined) mid = `Round ${game.round} · <b>FLOOR ${ms.floor}%</b>`;
     else if (rt === 'survival') mid = `<b>WAVE ${ms.wave}</b> · ${ms.left} left${game.rules.waves ? ' / ' + game.rules.waves : ''}`;
     this.hudSet('h-mid', mid);
+    { const me = game.fighters.find((q) => !q.isBot && q.def.slot === 0); let pu = ''; if (me && me.alive) { const ts = game.cfg ? game.cfg.ts : 1; for (const k in me.pu) { if (me.pu[k] > 0 && POWERUPS[k]) pu += `<span class="pui" style="--pc:${hex(POWERUPS[k].color)}"><i>${POWERUPS[k].short}</i><b>${Math.ceil(me.pu[k] / ts)}</b></span>`; } if (me.shield) pu += `<span class="pui" style="--pc:${hex(POWERUPS.shield.color)}"><i>SH</i></span>`; if (me.typeT > 0) pu += `<span class="pui" style="--pc:${hex(BOOM_TYPES[me.type].color)}"><i>${BOOM_TYPES[me.type].name.slice(0, 2).toUpperCase()}</i><b>${Math.ceil(me.typeT / ts)}</b></span>`; if (me.maxAmmo > 1) pu += `<span class="pui" style="--pc:${hex(POWERUPS.extra.color)}"><i>x${me.maxAmmo}</i></span>`; } this.hudSet('h-pu', pu); }
     const tl = rt === 'koth' ? '' : (game.sudden ? '☠' : (game.rules.sudden ? fmtTime(Math.max(0, 48 - game.playTime)) : fmtTime(game.playTime)));
     this.hudSet('h-time', tl);
     const bb = $('#bossbar'); if (bb) { const b = ms.boss; this.hudSet('bossbar', b ? `<div class="bn">${b.name}</div><div class="bhp">${Array.from({ length: b.max }, (_, i) => `<i class="${i < b.hp ? 'on' : ''}"></i>`).join('')}</div>` : ''); }
@@ -275,7 +307,9 @@ Object.assign(UI, {
       ['Now <b>KO the dummy!</b>', 'One hit knocks a rival out. Power-ups and your ultimate (<b>' + (touch ? '⚡ button' : 'R') + '</b>) help too.'],
     ];
     let c = $('#tut'); if (!c) { c = h('div', '', '', { id: 'tut' }); document.body.appendChild(c); }
-    const s = steps[Math.min(t.step, steps.length - 1)]; c.className = 'show'; c.innerHTML = `<div class="tt">${s[0]}</div><div class="ts">${s[1]}</div><div class="td">${steps.map((_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div>`;
+    const s = steps[Math.min(t.step, steps.length - 1)]; c.className = 'show'; c.innerHTML = `<div class="tt">${s[0]}</div><div class="ts">${s[1]}</div><div class="td">${steps.map((_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div><button class="tskip" id="tskip">Skip training ▶</button>`;
+    const sk = c.querySelector('#tskip'); if (sk) sk.addEventListener('click', (e) => { e.stopPropagation(); sfx('click'); this.app.skipTutorial(); });
+    for (const id of ['joybase', 'aimbase', 'btnDash', 'btnDef']) { const e = document.getElementById(id); if (e) e.classList.remove('hint'); } if (touch) { const hid = ['joybase', 'aimbase', 'aimbase', 'btnDash', 'btnDef', null][t.step]; const e = hid && document.getElementById(hid); if (e) e.classList.add('hint'); }
   },
   tutorialHide() { const c = $('#tut'); if (c) { c.className = ''; c.innerHTML = ''; } },
   // ================= emotes =================
@@ -296,6 +330,7 @@ UI.settings = function (p) {
   const tog = (label, key, fn) => { const r = h('div', 'row', `<span>${label}</span>`); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1 }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', !!s[key]); save(); fn && fn(); sfx('click'); }); r.appendChild(t); return r; };
   const first = grid.firstChild; grid.insertBefore(tog('Mute all audio', 'mute', applyVolumes), first); grid.insertBefore(tog('Screen flashes', 'flash', () => { gfx.flashOn = !!s.flash; }), first);
   grid.insertBefore(this.seg('Arena events', s, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]), first);
+  { const row = [...grid.children].find((r) => r.firstChild && r.firstChild.textContent === 'Screen shake'); const sg = this.seg('Screen shake', s, 'shakeLvl', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']], () => { s.shake = s.shakeLvl !== 'off'; save(); }); if (row) row.replaceWith(sg); else grid.appendChild(sg); }
   const tr = h('div', 'row', '<span>Training</span>'); tr.appendChild(this.btn('Replay tutorial', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); })); grid.appendChild(tr);
   return el;
 };
@@ -307,6 +342,15 @@ UI.howto = function (p) {
   const mm = Object.entries(MODES).filter(([k]) => k !== 'campaign').map(([, v]) => `<li><b>${v.icon} ${v.name}</b> <small>${v.blurb}</small></li>`).join('');
   const tt = Object.entries(TRAP_INFO).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
   const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
+  const wn = h('div', 'hw-new', `<h4>What's new in v3.2 <small>"Polish & Play"</small></h4><ul>
+    <li><b>Game feel:</b> harder-hitting hits (impact flashes, sparks, hit-stop), camera shake with Off / Low / Full, <b>slow-mo + zoom on the last KO</b>, fireworks and a victory line for the winner, a red flash and buzz when <b>you</b> get hit, new throw / catch / hit / fanfare sounds, longer glowing boomerang trails.</li>
+    <li><b>Easier to read:</b> a floating <b>YOU</b> arrow over your fighter, colour pips over rivals, a ring on the floor under every boomerang in its owner's colour, bigger pop-ups, active power-ups with timers shown under your name.</li>
+    <li><b>New power-ups:</b> <b>Magnet</b> (pulls pickups, bigger catch circle, boomerang homes in) and <b>Time Bubble</b> (rivals and their boomerangs near you move slower).</li>
+    <li><b>Look:</b> 5 new hats (cat ears, propeller cap, cowboy, wizard, viking), 4 new trails (bubbles, pixels, stardust, hearts) + premium Prism, 4 new boomerang skins + premium Void. <b>Live 3D preview</b> in the Shop. Several are free level rewards. Fighters now flinch when hit and dance when you use an emote.</li>
+    <li><b>Progress:</b> Daily missions on the main menu, a Daily Chest when all 3 are done, animated results screen with XP bar and gold count-up, one-tap <b>Play again</b>.</li>
+    <li><b>Quick start:</b> Play now jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls.</li>
+    <li>Everything is still earnable by playing. The store stays in TEST MODE; nothing is charged.</li></ul></div>`);
+  wn.style.gridColumn = '1 / -1'; pn.insertBefore(wn, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
     <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>

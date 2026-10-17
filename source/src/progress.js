@@ -6,8 +6,8 @@ import { HATS, BOOM_TYPES, TRAILS, SKINS, EMOTES, HEROES, ACHIEVEMENTS } from '.
 export const xpNeed = (lv) => 70 + lv * 40;
 export const levelInfo = () => { let xp = S().xp, lv = 1; while (xp >= xpNeed(lv)) { xp -= xpNeed(lv); lv++; } return { level: lv, cur: xp, need: xpNeed(lv) }; };
 // free unlocks on level-up (items can also be bought in the shop)
-export const LEVEL_REWARDS = { 2: { trails: 'spark' }, 3: { types: 'razor' }, 4: { emotes: 'haha' }, 5: { types: 'frost' }, 6: { skins: 'mint' }, 7: { trails: 'leaf' }, 8: { types: 'chain' }, 10: { types: 'boom' }, 12: { skins: 'candy' }, 14: { types: 'phantom' }, 16: { trails: 'neon' } };
-const NAMES = { types: (id) => BOOM_TYPES[id].name + ' boomerang', trails: (id) => TRAILS[id].name + ' trail', skins: (id) => SKINS[id].name + ' skin', emotes: (id) => EMOTES[id].text + ' emote' };
+export const LEVEL_REWARDS = { 2: { trails: 'spark' }, 3: { types: 'razor' }, 4: { emotes: 'haha' }, 5: { types: 'frost' }, 6: { skins: 'mint' }, 7: { trails: 'leaf' }, 8: { types: 'chain' }, 10: { types: 'boom' }, 12: { skins: 'candy' }, 14: { types: 'phantom' }, 16: { trails: 'neon' }, 9: { hats: 'cat' }, 11: { trails: 'bubble' }, 13: { hats: 'propeller' }, 15: { skins: 'sunset' }, 18: { hats: 'cowboy' }, 20: { trails: 'star' } };
+const NAMES = { types: (id) => BOOM_TYPES[id].name + ' boomerang', trails: (id) => TRAILS[id].name + ' trail', skins: (id) => SKINS[id].name + ' skin', emotes: (id) => EMOTES[id].text + ' emote', hats: (id) => HATS.find((h) => h.id === id).name };
 let notify = (msg, kind) => {}; export const setNotifier = (fn) => { notify = fn; };
 
 export function addCoins(n, reason = 'play') { const s = S(); s.coins += n; if (n > 0) { s.totalCoins = (s.totalCoins || 0) + n; ledgerAdd(n, reason, 'earn'); } }
@@ -15,7 +15,7 @@ export function addXp(n) {
   const s = S(), before = levelInfo().level; s.xp += Math.round(n); const after = levelInfo().level; const ups = [];
   for (let lv = before + 1; lv <= after; lv++) {
     const coins = 40 + lv * 10; addCoins(coins, 'level'); const up = { level: lv, coins, unlock: null };
-    const r = LEVEL_REWARDS[lv]; if (r) { const k = Object.keys(r)[0], id = r[k]; if (!s.own[k].includes(id)) { s.own[k].push(id); up.unlock = NAMES[k](id); } }
+    const r = LEVEL_REWARDS[lv]; if (r) { const k = Object.keys(r)[0], id = r[k]; if (k === 'hats') { if (!s.unlockedHats.includes(id)) { s.unlockedHats.push(id); up.unlock = NAMES[k](id); } } else if (!s.own[k].includes(id)) { s.own[k].push(id); up.unlock = NAMES[k](id); } }
     ups.push(up); notify(`LEVEL ${lv}!  +${coins} gold` + (up.unlock ? ' · unlocked ' + up.unlock : ''), 'level');
   }
   s.stats.level = Math.max(s.stats.level || 1, after); checkAch(); save(); return ups;
@@ -36,6 +36,7 @@ const POOL = [
   { id: 'dash', text: 'Dash {n} times', stat: 'dash', n: [15, 30], xp: 40, coins: 25 },
   { id: 'ult', text: 'Use {n} ultimates', stat: 'ult', n: [2, 4], xp: 70, coins: 40 },
   { id: 'wave', text: 'Reach wave {n} in Survival', stat: 'wavebest', n: [3, 6], xp: 80, coins: 55 },
+  { id: 'pickup', text: 'Grab {n} power-ups', stat: 'pickup', n: [3, 6], xp: 50, coins: 35 },
   { id: 'shatter', text: 'Shatter {n} frozen rivals', stat: 'shatter', n: [1, 3], xp: 80, coins: 50 },
 ];
 const dayKey = () => { const d = new Date(); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
@@ -46,6 +47,11 @@ export function ensureDaily() {
   for (let i = 0; i < 3; i++) { const p = pool.splice(Math.floor(r() * pool.length), 1)[0]; const hard = i === 2; const n = Math.round(p.n[0] + (p.n[1] - p.n[0]) * (hard ? 1 : r() * 0.6)); list.push({ id: p.id, text: p.text.replace('{n}', n), stat: p.stat, n, xp: Math.round(p.xp * (hard ? 1.6 : 1)), coins: Math.round(p.coins * (hard ? 1.6 : 1)) }); }
   s.daily = { date: key, list, prog: {}, claimed: {} }; save(); return s.daily;
 }
+export const CHEST_GOLD = 60;
+export function chestState() { const d = ensureDaily(); const all = d.list.length > 0 && d.list.every((c) => d.claimed[c.id]); return all ? (d.chest ? 'claimed' : 'ready') : 'locked'; }
+export function claimChest() { const d = ensureDaily(); if (chestState() !== 'ready') return false; d.chest = true; addCoins(CHEST_GOLD, 'daily-chest'); addXp(50); save(); return true; }
+export function dailySnapshot() { const d = ensureDaily(); const o = {}; for (const c of d.list) o[c.id] = d.prog[c.id] || 0; return o; }
+export function dailyReadyCount() { const d = ensureDaily(); return d.list.filter((c) => !d.claimed[c.id] && Math.min(c.n, d.prog[c.id] || 0) >= c.n).length + (chestState() === 'ready' ? 1 : 0); }
 export function dailyProgress(c) { const d = ensureDaily(); return Math.min(c.n, d.prog[c.id] || 0); }
 export function claimDaily(i) { const d = ensureDaily(), c = d.list[i]; if (!c || d.claimed[c.id] || dailyProgress(c) < c.n) return false; d.claimed[c.id] = true; addCoins(c.coins, 'daily'); addXp(c.xp); save(); return true; }
 // ---------- stat tracking ----------

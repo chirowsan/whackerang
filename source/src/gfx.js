@@ -235,7 +235,7 @@ export function followCam(dt, points, humans) {
 // project a world point to screen fractions (0..1), returns [sx, sy, onScreen]
 const _pv = new THREE.Vector3();
 export function toScreen(x, y, z) { _pv.set(x, y, z).project(gfx.camera); return [(_pv.x + 1) / 2, (1 - _pv.y) / 2, _pv.z < 1 && _pv.x > -1 && _pv.x < 1 && _pv.y > -1 && _pv.y < 1]; }
-export function shake(amount) { if (!S().settings.shake) amount *= 0.15; gfx.trauma = Math.min(1, gfx.trauma + amount); }
+export function shake(amount) { const l = S().settings.shakeLvl; amount *= l === 'off' ? 0 : l === 'low' ? 0.45 : 1; if (amount > 0) gfx.trauma = Math.min(1, gfx.trauma + amount); }
 export function punch(dx, dz, a = 0.3) { const l = Math.hypot(dx, dz) || 1; gfx.kx += dx / l * a; gfx.kz += dz / l * a; }
 export function pulseFov(a) { gfx.fovPulse = Math.max(gfx.fovPulse, a); }
 export function updateGfx(dt, t) {
@@ -246,7 +246,7 @@ export function updateGfx(dt, t) {
   cam.position.copy(gfx.camBase); cam.position.x += gfx.kx; cam.position.z += gfx.kz; cam.lookAt(gfx.camTarget);
   if (tr > 0.0005) { const s = t * 40; cam.position.x += (Math.sin(s * 1.1) + Math.sin(s * 2.3)) * 0.4 * tr; cam.position.y += Math.sin(s * 1.7 + 1) * 0.25 * tr; cam.position.z += (Math.sin(s * 1.3 + 2) + Math.sin(s * 3.1)) * 0.3 * tr; cam.rotation.z += Math.sin(s * 0.9) * 0.012 * tr; }
   gfx.fovPulse = Math.max(0, gfx.fovPulse - dt * 2.2);
-  const fov = 30 - gfx.fovPulse * 1.5; if (Math.abs(cam.fov - fov) > 0.001) { cam.fov = fov; cam.updateProjectionMatrix(); }
+  gfx.fovHoldCur = (gfx.fovHoldCur || 0) + ((gfx.fovHold || 0) - (gfx.fovHoldCur || 0)) * Math.min(1, dt * 5); const fov = 30 - gfx.fovPulse * 1.5 - gfx.fovHoldCur * 2.6; if (Math.abs(cam.fov - fov) > 0.001) { cam.fov = fov; cam.updateProjectionMatrix(); }
 }
 export function render() {
   if (!gfx.ok) return; const t0 = performance.now();

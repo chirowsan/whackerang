@@ -165,7 +165,7 @@ export function animateFighter(m, dt, st) {
   const { body } = m, sp = m.spec, t = st.t, mv = st.move;
   // ---- expression
   let ex = 'neutral';
-  if (st.expr) ex = st.expr; else if (st.dead) ex = 'ko'; else if (st.win) ex = 'happy'; else if (st.dash > 0 || st.deflect > 0 || st.throwT > 0.55) ex = 'shout'; else if (st.charge > 0.2) ex = 'angry'; else if (st.scared > 0) ex = 'scared'; else if (st.happy > 0) ex = 'happy';
+  if (st.expr) ex = st.expr; else if (st.dead) ex = 'ko'; else if (st.win) ex = 'happy'; else if (st.hurt > 0) ex = 'scared'; else if (st.emote > 0) ex = 'happy'; else if (st.dash > 0 || st.deflect > 0 || st.throwT > 0.55) ex = 'shout'; else if (st.charge > 0.2) ex = 'angry'; else if (st.scared > 0) ex = 'scared'; else if (st.happy > 0) ex = 'happy';
   m.blinkT -= dt; if (m.blinkT < -0.13) m.blinkT = 2 + Math.random() * 3.5;
   if (ex === 'neutral') { if (m.blinkT < 0) ex = 'blink'; else if (m.qT > 0 && mv < 0.1) ex = 'smug'; }
   if (ex !== m.expr) { m.expr = ex; setFrame(m.faceTex, ex); }
@@ -181,7 +181,10 @@ export function animateFighter(m, dt, st) {
   const th = st.throwT > 0 ? st.throwT : 0; if (th > 0 && !st.dead) { const k = Math.sin(Math.min(1, th) * Math.PI); sy += k * 0.16; sx -= k * 0.08; sz -= k * 0.08; rx += k * 0.2; }
   if (st.catchPop > 0) { const k = st.catchPop / 0.2; sy -= k * 0.14; sx += k * 0.12; sz += k * 0.12; }
   if (st.dash > 0) { sx = 0.86; sy = 0.78; sz = 1.32; rx = 0.9 * st.dash; py += 0.1; }
-  const armsUp = st.win;
+  // v3.2: hurt flinch (lean back, jitter) and emote dance (hop + sway)
+  if (st.hurt > 0 && !st.dead) { const k = Math.min(1, st.hurt); rx -= k * 0.5; sy -= k * 0.14; sx += k * 0.1; sz += k * 0.1; rz += Math.sin(t * 55) * 0.14 * k; }
+  if (st.emote > 0 && !st.dead && !st.win) { const hop = Math.abs(Math.sin(t * 8)); py += hop * 0.18; ry = Math.sin(t * 5) * 0.5; rz += Math.sin(t * 8) * 0.1; sy += (hop - 0.5) * 0.1; }
+  const armsUp = st.win || (st.emote > 0 && !st.dead);
   if (st.win) { const hop = Math.abs(Math.sin(t * 6.5)); py += hop * 0.22; const land = 1 - hop; sy += (hop - 0.5) * 0.12 + 0.0; sx -= (hop - 0.5) * 0.08; sz = sx; ry = Math.sin(t * 3.2) * 0.45; rz = Math.sin(t * 6.5) * 0.08; rx = -0.05; }
   body.position.y = py;
   if (st.dead) { // funny spin-out: wobble squash, game drives the spin
@@ -193,7 +196,7 @@ export function animateFighter(m, dt, st) {
   // ---- arms
   m.armR.rotation.set(-ch * 1.6 - th * 3.2, 0, -0.35 - ch * 0.5); m.armL.rotation.set(run * 0.5 * mv, 0, 0.35);
   if (st.deflect > 0) { m.armL.rotation.set(-1.4, 0, 0.1); m.armR.rotation.set(-1.4, 0, -0.1); }
-  if (armsUp) { const w = Math.sin(t * 13) * 0.25; m.armL.rotation.set(-2.7 + w, 0, 0.5); m.armR.rotation.set(-2.7 - w, 0, -0.5); }
+  if (armsUp) { const w = Math.sin(t * (st.win ? 13 : 16)) * 0.25; m.armL.rotation.set(-2.7 + w, 0, 0.5); m.armR.rotation.set(-2.7 - w, 0, -0.5); }
   if (st.dead) { m.armL.rotation.set(Math.sin(t * 25) * 1.3 - 1.5, 0, 1.0); m.armR.rotation.set(Math.cos(t * 25) * 1.3 - 1.5, 0, -1.0); }
   // ---- ears: wiggle
   m.ears.forEach((e, i) => { const s = i ? 1 : -1; e.rotation.set(-0.3 * mv + Math.sin(t * 3 + i * 1.7) * 0.03 + (st.dead ? Math.sin(t * 20) * 0.4 : 0) + (ex === 'happy' ? Math.sin(t * 16 + i) * 0.18 : 0) + (ex === 'angry' ? -0.2 : 0) + (ex === 'scared' ? 0.35 : 0), 0, Math.sin(t * 2.2 + i * 2.3) * 0.05 + s * (ex === 'scared' ? -0.3 : 0)); });

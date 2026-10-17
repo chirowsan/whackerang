@@ -49,7 +49,7 @@ export const fx = {
     this.glow = new Particles(scene, new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }), 700);
     this.rings = []; const rg = new THREE.RingGeometry(0.82, 1, 36);
     for (let i = 0; i < 12; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); m.rotation.x = -Math.PI / 2; m.visible = false; m.userData = { t: 0, life: 1, max: 1 }; scene.add(m); this.rings.push(m); }
-    this.popRoot = document.getElementById('popups'); this.flashEl = document.getElementById('flash');
+    this.popRoot = document.getElementById('popups'); this.flashEl = document.getElementById('flash'); this.hurtEl = document.getElementById('hurt');
     this.ribbons = []; this.scorches = []; const sg = new THREE.PlaneGeometry(1, 1);
     for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: softTex(), color: 0x000000, transparent: true, opacity: 0, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.visible = false; m.userData = { t: 0, life: 1, a: 0.5 }; scene.add(m); this.scorches.push(m); }
     this.sIdx = 0;
@@ -69,13 +69,46 @@ export const fx = {
     for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, u = Math.random() * 2 - 1, r = Math.sqrt(1 - u * u) * sp * (0.4 + Math.random() * 0.8); this.glow.spawn(x, y, z, Math.cos(a) * r, u * sp * 0.8 + (o.up || 0), Math.sin(a) * r, (o.size || 0.1) * (0.5 + Math.random()), (o.life || 0.6) * (0.5 + Math.random() * 0.8), Array.isArray(color) ? color[Math.floor(Math.random() * color.length)] : color, 0, 2.5, 0, -0.5); }
   },
   puff(x, y, z, n, color, size = 0.3) { n = Math.ceil(n * gfx.density); color = _c.set(color).multiplyScalar(0.42).getHex(); size *= 0.8; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; this.glow.spawn(x + Math.cos(a) * 0.2, y, z + Math.sin(a) * 0.2, Math.cos(a) * 1.3, 0.6 + Math.random(), Math.sin(a) * 1.3, size * (0.7 + Math.random() * 0.6), 0.5 + Math.random() * 0.3, color, 0, 3, 0, 0.8); } },
+  // ---- v3.2 juice ----
+  hurt(a = 1) { const e = this.hurtEl; if (!e || !gfx.flashOn) return; e.style.transition = 'none'; e.style.opacity = Math.min(1, a); void e.offsetWidth; e.style.transition = 'opacity 560ms ease-out'; e.style.opacity = 0; },
+  impact(x, z, color, dx = 0, dz = 1, power = 1) {
+    const y = 0.65; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
+    this.glow.spawn(x, y, z, 0, 0, 0, 0.5 * power, 0.1, 0xffffff, 0, 0, 0, 2.4); this.glow.spawn(x, y, z, 0, 0, 0, 0.7 * power, 0.24, color, 0, 0, 0, 3.2);
+    this.ring(x, 0.22, z, 0xffffff, 2.6 * power, 0.26); this.ring(x, 0.18, z, color, 3.8 * power, 0.38);
+    const n = Math.ceil(16 * power * Math.max(0.6, gfx.density)); const base = Math.atan2(dx, dz);
+    for (let i = 0; i < n; i++) { const a = base + (Math.random() - 0.5) * 1.5, sp = 5 + Math.random() * 8 * power; this.glow.spawn(x, y, z, Math.sin(a) * sp, (Math.random() - 0.3) * 3, Math.cos(a) * sp, 0.09 + Math.random() * 0.09, 0.3 + Math.random() * 0.3, i % 3 ? 0xffffff : color, 0, 3, 0, -0.4); }
+    const m = Math.ceil(8 * power * Math.max(0.6, gfx.density)); for (let i = 0; i < m; i++) { const a = Math.random() * 6.28, sp = 2 + Math.random() * 4; this.glow.spawn(x, y, z, Math.cos(a) * sp, 1 + Math.random() * 3, Math.sin(a) * sp, 0.07, 0.5, 0xffe066, 5, 1.5, 0, -0.3); }
+  },
+  catchBurst(x, z, color, combo = 1) {
+    this.ring(x, 0.12, z, color, 2.2, 0.32); this.ring(x, 0.3, z, 0xffffff, 1.4, 0.22); this.glow.spawn(x, 0.7, z, 0, 0.5, 0, 0.5, 0.2, 0xffffff, 0, 0, 0, 2.5);
+    const n = Math.ceil((8 + Math.min(6, combo * 2)) * Math.max(0.6, gfx.density)); for (let i = 0; i < n; i++) { const a = i / n * 6.283; this.glow.spawn(x, 0.45, z, Math.cos(a) * 3.2, 1.6 + Math.random() * 1.4, Math.sin(a) * 3.2, 0.1, 0.5, i % 2 ? 0xffffff : color, 3, 2, 0, -0.4); }
+  },
+  firework(x, z, cols) {
+    const cx = x + (Math.random() - 0.5) * 6, cz = z + (Math.random() - 0.5) * 3, cy = 3.2 + Math.random() * 2.2; const n = Math.ceil(30 * Math.max(0.6, gfx.density)); const c = cols[Math.floor(Math.random() * cols.length)];
+    this.glow.spawn(cx, cy, cz, 0, 0, 0, 0.5, 0.12, 0xffffff, 0, 0, 0, 2);
+    for (let i = 0; i < n; i++) { const u = Math.random() * 2 - 1, a = Math.random() * 6.28, r = Math.sqrt(1 - u * u) * (4.5 + Math.random() * 2); this.glow.spawn(cx, cy, cz, Math.cos(a) * r, u * 5.5, Math.sin(a) * r, 0.14, 0.9 + Math.random() * 0.5, i % 4 ? c : 0xffffff, 3.2, 1.7, 0, -0.5); }
+  },
+  trailFx(style, x, y, z, color) {
+    const R = Math.random; const g = this.glow;
+    switch (style) {
+      case 'star': if (R() < 0.7) g.spawn(x + (R() - 0.5) * 0.4, y + (R() - 0.3) * 0.3, z + (R() - 0.5) * 0.4, (R() - 0.5), R() * 0.8, (R() - 0.5), 0.1 + R() * 0.08, 0.55, R() < 0.5 ? 0xffffff : color, 0, 1.2, 0, -0.5); break;
+      case 'ember': if (R() < 0.8) g.spawn(x + (R() - 0.5) * 0.3, y, z + (R() - 0.5) * 0.3, (R() - 0.5) * 0.8, 1 + R() * 1.4, (R() - 0.5) * 0.8, 0.1 + R() * 0.08, 0.6, R() < 0.5 ? 0xff7a1a : 0xffd060, 0, 0.8, 0, -0.4); break;
+      case 'snow': if (R() < 0.6) g.spawn(x + (R() - 0.5) * 0.5, y, z + (R() - 0.5) * 0.5, (R() - 0.5), -0.3, (R() - 0.5), 0.07 + R() * 0.05, 0.8, 0xe8fbff, 0, 0.5, 0, -0.2); break;
+      case 'bubble': if (R() < 0.5) g.spawn(x + (R() - 0.5) * 0.3, y, z + (R() - 0.5) * 0.3, (R() - 0.5) * 0.4, 0.7, (R() - 0.5) * 0.4, 0.15 + R() * 0.1, 0.9, R() < 0.5 ? 0x8fe8ff : 0xffffff, 0, 0.6, 0, 0.5); break;
+      case 'heart': if (R() < 0.5) g.spawn(x + (R() - 0.5) * 0.3, y + 0.05, z + (R() - 0.5) * 0.3, (R() - 0.5) * 0.5, 0.9, (R() - 0.5) * 0.5, 0.17, 0.8, R() < 0.5 ? 0xff6aa8 : 0xffd0e4, 0, 0.5, 0, -0.35); break;
+      case 'comet': g.spawn(x, y, z, 0, 0.05, 0, 0.3, 0.35, 0xbfe8ff, 0, 0, 0, -0.5); if (R() < 0.4) g.spawn(x, y, z, (R() - 0.5), 0.2, (R() - 0.5), 0.1, 0.5, 0xffffff, 0, 1, 0, -0.5); break;
+      case 'leaf': if (R() < 0.45) this.debris.spawn(x, y, z, (R() - 0.5) * 1.2, 0.8, (R() - 0.5) * 1.2, 0.09, 0.8, R() < 0.5 ? 0x7dff6a : 0x3fc04a, 2.5, 0.8, 9); break;
+      case 'petal': if (R() < 0.45) this.debris.spawn(x, y, z, (R() - 0.5) * 1.2, 0.8, (R() - 0.5) * 1.2, 0.09, 0.8, R() < 0.5 ? 0xff7ac8 : 0xffd0e4, 2.5, 0.8, 9); break;
+      case 'pixel': if (R() < 0.6) this.debris.spawn(x, y, z, (R() - 0.5) * 0.6, (R() - 0.5) * 0.6, (R() - 0.5) * 0.6, 0.11, 0.5, [0x7dff6a, 0x4fd1ff, 0xffffff, 0xff5ad8][Math.floor(R() * 4)], 0, 1, 0); break;
+    }
+  },
   trail(x, y, z, color, size) { this.glow.spawn(x, y, z, 0, 0.1, 0, size, 0.28, color, 0, 0, 0, -0.3); },
   ring(x, y, z, color, size = 3, life = 0.4) { const r = this.rings.find((q) => !q.visible) || this.rings[0]; r.visible = true; r.position.set(x, y, z); r.material.color.set(color); r.userData = { t: life, life, max: size }; },
   popup(text, x, z, cls = '', y = 1.3) {
     if (!this.popRoot) return;
-    const v = new THREE.Vector3(x, y, z).project(gfx.camera); const px = (v.x * 0.5 + 0.5) * gfx.w, py = (-v.y * 0.5 + 0.5) * gfx.h;
+    const v = new THREE.Vector3(x, y, z).project(gfx.camera); const px = Math.max(48, Math.min(gfx.w - 48, (v.x * 0.5 + 0.5) * gfx.w)), py = Math.max(gfx.h * 0.2, Math.min(gfx.h - 70, (-v.y * 0.5 + 0.5) * gfx.h));
     const d = document.createElement('div'); d.className = 'popup ' + cls; d.textContent = text; d.style.left = px + 'px'; d.style.top = py + 'px';
-    this.popRoot.appendChild(d); if (!this.popKeep) setTimeout(() => d.remove(), 1200);
+    this.popRoot.appendChild(d); while (this.popRoot.childElementCount > 14) this.popRoot.firstChild.remove(); if (!this.popKeep) setTimeout(() => d.remove(), 1300);
   },
   update(dt) {
     this.time += dt; const t = this.time;

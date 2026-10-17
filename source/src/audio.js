@@ -66,12 +66,23 @@ export function sfx(name, p = 1) {
   if (lastPlay[name] && t - lastPlay[name] < 0.03) return; lastPlay[name] = t;
   const r = 0.92 + Math.random() * 0.16;
   switch (name) {
-    case 'throw': noise(t, 0.28, 0.35, { type: 'bandpass', f: 500 * r, fTo: 2600, q: 2.5 }); tone(260 * r, t, 0.22, 'sine', 0.22, { to: 720 }); break;
+    case 'throw': { const c = Math.min(1, Math.max(0, p)); noise(t, 0.3 + c * 0.15, 0.34 + c * 0.14, { type: 'bandpass', f: (420 + c * 260) * r, fTo: 2800 + c * 1400, q: 2.6 }); tone((230 + c * 120) * r, t, 0.24, 'sine', 0.24, { to: 760 + c * 340 }); tone(1500 * r, t + 0.02, 0.07, 'triangle', 0.07, { to: 2600 }); break; }
     case 'charge': tone(200 + p * 500, t, 0.06, 'sine', 0.05); break;
     case 'whoosh': noise(t, 0.2, 0.12, { type: 'bandpass', f: 900, fTo: 1800, q: 3 }); break;
-    case 'catch': tone(mtof(79), t, 0.06, 'square', 0.16); tone(mtof(86), t + 0.05, 0.12, 'square', 0.14, { lp: 4000 }); noise(t, 0.05, 0.2, { type: 'highpass', f: 3000 }); break;
+    case 'catch': { const k = Math.min(4, Math.max(0, Math.round(p) - 1)); tone(mtof(79 + k * 2), t, 0.07, 'square', 0.15, { lp: 5000 }); tone(mtof(86 + k * 2), t + 0.05, 0.16, 'square', 0.14, { lp: 4200, send: 0.25 }); tone(mtof(98 + k * 2), t + 0.09, 0.14, 'sine', 0.07, { send: 0.4 }); tone(180, t, 0.09, 'sine', 0.35, { to: 70 }); noise(t, 0.05, 0.22, { type: 'highpass', f: 3500 }); break; }
     case 'bounce': tone(520 * r, t, 0.1, 'triangle', 0.22, { to: 300 }); noise(t, 0.04, 0.15, { type: 'bandpass', f: 1800, q: 2 }); break;
-    case 'hit': noise(t, 0.3, 0.7, { f: 3000, fTo: 150, q: 0.9 }); tone(160 * r, t, 0.3, 'sine', 0.8, { to: 40 }); tone(900, t, 0.1, 'square', 0.18, { to: 200 }); break;
+    case 'hit': noise(t, 0.34, 0.75, { f: 3400, fTo: 140, q: 0.9 }); tone(170 * r, t, 0.34, 'sine', 0.9, { to: 38 }); tone(950, t, 0.09, 'square', 0.2, { to: 180 }); noise(t, 0.05, 0.5, { type: 'highpass', f: 5000 }); tone(mtof(64) * r, t + 0.02, 0.18, 'triangle', 0.18, { to: 90 }); break;
+    case 'hurt': tone(330, t, 0.4, 'sawtooth', 0.2, { to: 70, lp: 1400, lpTo: 180 }); tone(110, t, 0.35, 'sine', 0.55, { to: 40 }); noise(t, 0.18, 0.35, { f: 900, fTo: 120 }); break;
+    case 'koStinger': tone(mtof(55), t, 0.9, 'sawtooth', 0.18, { to: mtof(43), lp: 1800, lpTo: 200 }); [0, 7, 12].forEach((x, i) => tone(mtof(79 + x), t + 0.12 + i * 0.07, 0.3, 'square', 0.12, { lp: 3500, send: 0.5 })); noise(t, 0.5, 0.35, { f: 5000, fTo: 200 }); break;
+    case 'slowmo': tone(900, t, 0.9, 'sine', 0.14, { to: 120, send: 0.5 }); noise(t, 0.8, 0.18, { type: 'bandpass', f: 2400, fTo: 160, q: 1.4 }); break;
+    case 'fanfare': { const seq = [[0, 0], [0, 0.12], [0, 0.24], [4, 0.4], [7, 0.62], [12, 0.8]]; seq.forEach(([x, d], i) => { tone(mtof(72 + x), t + d, i === 5 ? 0.7 : 0.16, 'square', 0.15, { lp: 4200, send: 0.35 }); tone(mtof(60 + x), t + d, i === 5 ? 0.7 : 0.16, 'triangle', 0.14); }); noise(t + 0.8, 0.5, 0.18, { type: 'highpass', f: 6000 }); break; }
+    case 'coin': { const k = Math.min(8, Math.max(0, Math.round(p))); tone(mtof(88 + k), t, 0.05, 'square', 0.09, { lp: 6000 }); tone(mtof(95 + k), t + 0.04, 0.09, 'square', 0.08, { lp: 6000 }); break; }
+    case 'missionDone': [0, 4, 7, 12, 16].forEach((x, i) => tone(mtof(76 + x), t + i * 0.06, 0.2, 'triangle', 0.17, { send: 0.45 })); tone(mtof(52), t, 0.5, 'sine', 0.2); break;
+    case 'magnet': tone(300, t, 0.3, 'sine', 0.14, { to: 900, send: 0.3 }); tone(600, t + 0.05, 0.2, 'triangle', 0.1, { to: 1500 }); break;
+    case 'bubble': tone(500, t, 0.35, 'sine', 0.14, { to: 150, send: 0.5 }); tone(1000, t, 0.25, 'triangle', 0.08, { to: 300 }); break;
+    case 'combo': { const k = Math.min(5, Math.max(1, Math.round(p))); [0, 4, 7, 12].slice(0, 2 + Math.min(2, k)).forEach((x, i) => tone(mtof(72 + x + k * 2), t + i * 0.05, 0.18, 'square', 0.13, { lp: 4500, send: 0.4 })); break; }
+    case 'tickup': tone(mtof(84 + Math.min(12, Math.round(p))), t, 0.03, 'square', 0.05, { lp: 5000 }); break;
+    case 'whoosh2': noise(t, 0.35, 0.22, { type: 'bandpass', f: 400, fTo: 3200, q: 2 }); break;
     case 'ko': tone(700, t, 0.6, 'sawtooth', 0.22, { to: 90, lp: 2200, lpTo: 200 }); tone(1400, t + 0.02, 0.35, 'triangle', 0.14, { to: 220 }); break;
     case 'dash': noise(t, 0.16, 0.3, { type: 'bandpass', f: 1500, fTo: 500, q: 1.5 }); tone(400, t, 0.12, 'sine', 0.12, { to: 160 }); break;
     case 'deflect': tone(1400, t, 0.25, 'triangle', 0.3, { to: 2400, send: 0.3 }); noise(t, 0.08, 0.3, { type: 'highpass', f: 4000 }); break;

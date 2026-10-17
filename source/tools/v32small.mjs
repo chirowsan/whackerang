@@ -1,0 +1,15 @@
+import { launch, sleep } from './lib.mjs';
+const [file, out, W, H] = [process.argv[2], process.argv[3], +process.argv[4], +process.argv[5]];
+const { browser, page, errors } = await launch({ w: W, h: H, dpr: 1.5, mobile: true });
+await page.goto('file://' + file); await sleep(2500);
+await page.screenshot({ path: `${out}-menu.png` });
+await page.evaluate(() => { const s = __bg.S(); s.tutorialDone = true; s.settings.quality = 'sharp'; s.setup.arena = 'dojo'; s.setup.bots = 3; s.setup.diff = 1; s.setup.rounds = 1; __bg.app.quickPlay(); });
+await sleep(4800);
+await page.evaluate(() => { const g = __bg.app.game; g.spawnPowerupAt(g.fighters[0].x, g.fighters[0].z, 'magnet'); g.spawnPowerupAt(g.fighters[0].x, g.fighters[0].z, 'slow'); g.spawnPowerupAt(g.fighters[0].x, g.fighters[0].z, 'shield'); }); await sleep(900);
+await page.screenshot({ path: `${out}-play.png` });
+await page.evaluate(() => { const g = __bg.app.game; const me = g.fighters.find((f) => !f.isBot); for (const f of g.fighters) if (f !== me) f.die(me, 'boom', 1, 0); });
+await sleep(9000); await page.screenshot({ path: `${out}-results.png` });
+await page.evaluate(() => { __bg.app.quitToMenu(false); __bg.UI.show('shop', { tab: 'Trails' }); }); await sleep(900); await page.screenshot({ path: `${out}-shop.png` });
+await page.evaluate(() => { __bg.UI.show('profile', {}); }); await sleep(700); await page.screenshot({ path: `${out}-profile.png` });
+await page.evaluate(() => { __bg.UI.show('howto', {}); }); await sleep(700); await page.screenshot({ path: `${out}-howto.png` });
+console.log('errors', errors.slice(0, 5)); await browser.close();

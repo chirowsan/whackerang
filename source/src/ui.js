@@ -19,7 +19,7 @@ const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 
-const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster", "rune": "Gives a random special boomerang (Razor, Frost, Chain, Blast or Phantom) for 16 s"};
+const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster", "rune": "Gives a random special boomerang (Razor, Frost, Chain, Blast or Phantom) for 16 s", "magnet": "Pulls power-ups to you, bigger catch circle, boomerang curves back faster", "slow": "Rivals and their boomerangs within a few steps of you move slower"};
 export const UI = {
   app: null, root: null, cur: null, focusEl: null, hudCache: null,
   init(app) {
