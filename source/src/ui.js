@@ -127,7 +127,7 @@ export const UI = {
     const segr = (label, key, opts, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([v, t]) => { const b = h('button', s[key] === v ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { s[key] = v; [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); save(); sfx('click'); apply && apply(); }); sg.appendChild(b); }); r.appendChild(sg); grid.appendChild(r); };
     slider('Music', 'music', applyVolumes); slider('Sound FX', 'sfx', applyVolumes);
     toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Aim assist', 'aimAssist');
-    segr('Graphics', 'quality', [['auto', 'Auto'], ['high', 'High'], ['medium', 'Med'], ['low', 'Low']], () => setQuality(s.quality));
+    segr('Graphics', 'quality', [['sharp', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']], () => setQuality(s.quality));
     toggle('Bloom glow', 'bloom', () => setQuality(s.quality));
     segr('Touch controls', 'touch', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => this.app.applyTouch());
     toggle('Left-handed layout', 'leftHanded', () => this.app.applyTouch());
@@ -137,7 +137,7 @@ export const UI = {
     if (!IS_APP && !IS_IOS && this.app.isTouchDevice()) toggle('Fullscreen on first tap', 'autoFs');
     if (canInstall()) { const ir = h('div', 'row', '<span>App</span>'); ir.appendChild(this.btn(IS_IOS ? 'How to install' : 'Install app', 'small', () => promptInstall(this))); grid.appendChild(ir); }
     const hr = h('div', 'row', '<span>Install</span>'); hr.appendChild(h('span', '', 'Chrome ⋮ → <b>Add to Home screen</b> for a full-screen app', { style: 'font-size:calc(var(--u)*.9);opacity:.8;text-align:right' })); grid.appendChild(hr);
-    const br = h('div', 'row', '<span>Build</span>'); br.appendChild(h('span', '', this.app.BUILD + ' · ' + gfx.quality + ' ' + gfx.dpr + 'x', { style: 'font-size:calc(var(--u)*.9);opacity:.8' })); grid.appendChild(br);
+    const br = h('div', 'row', '<span>Build</span>'); br.appendChild(h('span', '', this.app.BUILD + ' · ' + gfx.tier + ' ' + gfx.dpr + 'x', { style: 'font-size:calc(var(--u)*.9);opacity:.8' })); grid.appendChild(br);
     el.appendChild(grid); return el;
   },
   howto() {

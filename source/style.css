@@ -132,15 +132,13 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: calc(
 .stick.aim.charging { opacity: 1; }
 .stick.aim.full #chg { stroke: #ff5030; animation: chgfull .28s ease-in-out infinite alternate; } .stick.aim.full .nub { border-color: #fff3b0; }
 @keyframes chgfull { from { stroke-opacity: .55; stroke-width: 5.5; } to { stroke-opacity: 1; stroke-width: 8; } }
-#tbtns { position: absolute; right: calc(max(var(--sair), 0px) + max(12px, 1.5vw) - 4px); bottom: calc(max(var(--saib), 0px) + 12px); width: calc(var(--bd) + var(--bf) + 10px); height: calc(var(--bd) + var(--bf)*.5); pointer-events: none; }
-#touch.left #tbtns { right: auto; left: calc(max(var(--sail), 0px) + max(12px, 1.5vw) - 4px); }
+#tbtns { position: absolute; inset: 0; pointer-events: none; }
 .tbtn { --c1: #8ff0ff; --c2: #1496ff; --c3: #0a4aa8; --glow: 80,200,255; position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; padding: 0; border: 0; color: #5a2cff; outline: 0;
   background: radial-gradient(circle at 50% 22%, var(--c1) 0, var(--c2) 52%, var(--c3) 100%);
   box-shadow: 0 0 0 calc(var(--bd)*.028) rgba(255,255,255,.85), 0 0 0 calc(var(--bd)*.05) rgba(20,10,50,.75), 0 calc(var(--bd)*.075) 0 calc(var(--bd)*.04) var(--c3), 0 calc(var(--bd)*.12) calc(var(--bd)*.14) rgba(0,0,0,.5), inset 0 calc(var(--bd)*.05) calc(var(--bd)*.03) rgba(255,255,255,.65), inset 0 calc(var(--bd)*-.09) calc(var(--bd)*.1) rgba(0,0,40,.35);
   transition: transform .07s ease-out, box-shadow .09s; display: flex; align-items: center; justify-content: center; }
-.tbtn.big { width: var(--bd); height: var(--bd); right: 0; bottom: calc(var(--bd)*.08); }
-.tbtn.small { --c1: #d9c6ff; --c2: #8a55ff; --c3: #4a1fb8; --glow: 160,110,255; width: var(--bf); height: var(--bf); right: calc(var(--bd) + 10px); bottom: calc(var(--bd)*.42); }
-#touch.left .tbtn.big { right: auto; left: 0; } #touch.left .tbtn.small { right: auto; left: calc(var(--bd) + 10px); }
+.tbtn.big { width: var(--bd); height: var(--bd); left: var(--dx, 0px); top: var(--dy, 0px); margin: calc(var(--bd)/-2) 0 0 calc(var(--bd)/-2); }
+.tbtn.small { --c1: #d9c6ff; --c2: #8a55ff; --c3: #4a1fb8; --glow: 160,110,255; width: var(--bf); height: var(--bf); left: var(--fx, 0px); top: var(--fy, 0px); margin: calc(var(--bf)/-2) 0 0 calc(var(--bf)/-2); }
 .tbtn .face { position: absolute; left: 14%; top: 5%; width: 72%; height: 38%; border-radius: 50%; background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(255,255,255,.02)); pointer-events: none; }
 .tbtn .ico { position: relative; width: 60%; height: 60%; pointer-events: none; z-index: 1; margin-top: -2%; }
 .tbtn .sw { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 0; opacity: 0; background: conic-gradient(rgba(16,8,44,.62) calc(var(--r,0)*360deg), rgba(0,0,0,0) 0); }

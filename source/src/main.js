@@ -111,6 +111,7 @@ function boot() {
   ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); }); window.addEventListener('pageshow', () => resumeAudio()); window.addEventListener('focus', () => resumeAudio());
   window.addEventListener('contextmenu', (e) => e.preventDefault());
+  let slowToast = false; window.addEventListener('bb-slow', () => { if (!slowToast && app.mode === 'play') { slowToast = true; UI.toast('Running slow? Settings > Graphics > Fast', 4200); } });
   resize(); app.startAttract(); UI.show('menu'); app.applyTouch();
   initHead(); initHardening(); initWakeLock(); initFullscreenFirstTap(app); initInstall(UI); initSW(app, UI); pwa.onChange = () => { if (UI.cur === 'menu') UI.show('menu'); };
   $('#loading').remove(); app.ready = true;

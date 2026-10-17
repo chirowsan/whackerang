@@ -107,7 +107,7 @@ export function buildCrate(theme) {
 const iconTex = {};
 function powerIcon(kind) {
   if (iconTex[kind]) return iconTex[kind];
-  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const col = '#' + POWERUPS[kind].color.toString(16).padStart(6, '0');
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.scale(2, 2); const col = '#' + POWERUPS[kind].color.toString(16).padStart(6, '0');
   x.fillStyle = '#fff'; x.beginPath(); x.arc(64, 64, 58, 0, 7); x.fill(); x.fillStyle = col; x.beginPath(); x.arc(64, 64, 48, 0, 7); x.fill();
   x.fillStyle = '#fff'; x.strokeStyle = '#1a1530'; x.lineWidth = 6; x.lineJoin = 'round'; x.lineCap = 'round';
   const P = (pts, close = true) => { x.beginPath(); pts.forEach((p, i) => (i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]))); if (close) x.closePath(); x.stroke(); x.fill(); };
@@ -120,7 +120,7 @@ function powerIcon(kind) {
     case 'shield': P([[64, 24], [96, 36], [92, 72], [64, 102], [36, 72], [32, 36]]); break;
     case 'speed': P([[34, 36], [64, 64], [34, 92], [50, 92], [80, 64], [50, 36]]); P([[62, 36], [92, 64], [62, 92], [78, 92], [108, 64], [78, 36]]); break;
   }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; iconTex[kind] = t; return t;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; iconTex[kind] = t; return t;
 }
 export function buildPowerup(kind) {
   const g = new THREE.Group(); const col = POWERUPS[kind].color;

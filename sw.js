@@ -1,5 +1,5 @@
-/* Boomerang Brawl service worker - build v1.2-20261016-1135. Whole game is one HTML file, so precache is tiny. */
-const VERSION = 'v1.2-20261016-1135';
+/* Boomerang Brawl service worker - build v1.3-20261016-1859. Whole game is one HTML file, so precache is tiny. */
+const VERSION = 'v1.3-20261016-1859';
 const CACHE = 'bb-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png', './screenshots/play.png', './screenshots/menu.png'];
 self.addEventListener('install', (e) => {

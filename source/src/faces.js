@@ -120,7 +120,7 @@ export function faceTexture(id) {
   const st = STY[id]; const c = document.createElement('canvas'); c.width = CW * 4; c.height = CH * 2; const x = c.getContext('2d');
   const names = ['neutral', 'blink', 'happy', 'angry', 'scared', 'ko', 'shout', 'smug'];
   names.forEach((n, i) => drawFrame(x, (i % 4) * CW, Math.floor(i / 4) * CH, st, n));
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = false; t.minFilter = THREE.LinearFilter;
   cache[id] = { canvas: c, tex: t }; return cache[id];
 }
 export function faceInstanceTexture(id) {

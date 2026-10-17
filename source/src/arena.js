@@ -36,10 +36,10 @@ export function genLayout(id, seed) {
 
 const BOXG = new THREE.BoxGeometry(1, 1, 1);
 function chevronTex() {
-  const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.scale(2, 2);
   x.fillStyle = '#10143a'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#00e5ff'; x.lineWidth = 12; x.lineCap = 'round'; x.lineJoin = 'round';
   for (const y of [18, 74]) { x.beginPath(); x.moveTo(28, y + 30); x.lineTo(64, y); x.lineTo(100, y + 30); x.stroke(); }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 
 export class ArenaView {

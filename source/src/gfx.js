@@ -71,7 +71,7 @@ export function mergeToon(root, exclude, opt = {}) {
 }
 export function glowTexture() {
   if (glowTexture.t) return glowTexture.t;
-  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.scale(2, 2);
   const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
@@ -104,35 +104,44 @@ export function initGfx(canvas) {
   return true;
 }
 export const isCoarse = () => matchMedia('(pointer:coarse)').matches;
-export function setQuality(q) {
-  const coarse = isCoarse();
-  const eff = q === 'auto' ? (coarse ? 'low' : 'high') : q;
+// Graphics tiers. sharp = crisp native-resolution, no shadows/post-fx (default); balanced = shadows + bloom; fast = reduced resolution for weak GPUs.
+export const TIERS = {
+  sharp: { eff: 'low', dprCap: 2.5, floor: 0.85, shadow: 0, bloom: false, density: 0.6, outlines: true, msaa: 0 },
+  balanced: { eff: 'medium', dprCap: 2, floor: 0.85, shadow: 1024, bloom: true, density: 0.8, outlines: true, msaa: 4 },
+  fast: { eff: 'low', dprCap: 1.25, floor: 0.6, shadow: 0, bloom: false, density: 0.5, outlines: false, msaa: 0 },
+};
+export const normQuality = (q) => (TIERS[q] ? q : q === 'low' ? 'fast' : q === 'medium' || q === 'high' ? 'balanced' : 'sharp');
+export function setQuality(q0) {
+  const q = normQuality(q0), T = TIERS[q];
   const prevShadow = gfx.quality ? gfx.quality !== 'low' : true;
-  gfx.quality = eff; gfx.qSetting = q;
+  gfx.tier = q; gfx.quality = T.eff; gfx.qSetting = q; gfx.floor = T.floor;
   const r = gfx.renderer; if (!r) return;
   const dev = window.devicePixelRatio || 1;
-  gfx.dprMax = Math.min(dev, coarse ? (eff === 'high' ? 1.5 : eff === 'medium' ? 1.25 : 1) : (eff === 'high' ? 2 : eff === 'medium' ? 1.5 : 1));
-  gfx.dprCur = gfx.dprMax; gfx.dpr = gfx.dprCur;
-  const low = eff === 'low';
-  const smap = low ? 512 : eff === 'medium' ? 1024 : 2048;
-  if (gfx.sun.shadow.mapSize.x !== smap) { gfx.sun.shadow.mapSize.set(smap, smap); if (gfx.sun.shadow.map) { gfx.sun.shadow.map.dispose(); gfx.sun.shadow.map = null; } }
+  gfx.dprMax = Math.max(1, Math.min(dev, T.dprCap));
+  gfx.dprCur = gfx.dprMax; gfx.dpr = gfx.dprCur; adaptAcc = 0; adaptN = 0; slowWin = 0;
+  const low = !T.shadow;
+  if (T.shadow && gfx.sun.shadow.mapSize.x !== T.shadow) { gfx.sun.shadow.mapSize.set(T.shadow, T.shadow); if (gfx.sun.shadow.map) { gfx.sun.shadow.map.dispose(); gfx.sun.shadow.map = null; } }
   r.shadowMap.enabled = !low; gfx.sun.castShadow = !low;
-  gfx.useBloom = !low && S().settings.bloom !== false;
-  gfx.composer.renderTarget1.samples = eff === 'high' ? 4 : 0; gfx.composer.renderTarget2.samples = eff === 'high' ? 4 : 0;
-  gfx.density = low ? 0.5 : eff === 'medium' ? 0.75 : 1;
-  gfx.outlinesAll = !low; document.body.classList.toggle('q-low', low);
+  gfx.useBloom = T.bloom && S().settings.bloom !== false;
+  gfx.composer.renderTarget1.samples = T.msaa; gfx.composer.renderTarget2.samples = T.msaa;
+  gfx.density = T.density;
+  gfx.outlinesAll = T.outlines; document.body.classList.toggle('q-low', low);
   gfx.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.ol !== undefined) o.visible = gfx.outlinesAll || o.userData.ol === 'hero'; });
   if (prevShadow === low) gfx.scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true)); });
   resize();
 }
-let adaptAcc = 0, adaptN = 0, adaptCool = 0;
+export const maxAniso = () => Math.min(8, gfx.renderer ? gfx.renderer.capabilities.getMaxAnisotropy() : 4);
+// Adaptive resolution = last resort only: needs ~2.5 s of sustained slow frames twice in a row, never below floor x native cap.
+let adaptAcc = 0, adaptN = 0, adaptCool = 0, slowWin = 0, slowHint = 0;
 export function adaptRes(ms) {
-  if (gfx.qSetting !== 'auto' || !gfx.renderer) return;
+  if (gfx.noAdapt || !gfx.renderer) return;
   adaptAcc += ms; adaptN++; adaptCool -= ms;
-  if (adaptN < 24) return;
+  if (adaptN < 90) return;
   const avg = adaptAcc / adaptN; adaptAcc = 0; adaptN = 0; let next = gfx.dprCur;
-  if (avg > 20) { next = Math.max(0.65, gfx.dprCur - (avg > 28 ? 0.2 : 0.1)); adaptCool = 4000; }
-  else if (avg < 14.5 && adaptCool <= 0 && gfx.dprCur < gfx.dprMax) { next = Math.min(gfx.dprMax, gfx.dprCur + 0.1); adaptCool = 4000; }
+  const lo = Math.max(0.5, gfx.dprMax * gfx.floor);
+  if (avg > 24) { slowWin++; if (slowWin >= 2) { next = Math.max(lo, gfx.dprCur - (avg > 34 ? 0.3 : 0.15)); adaptCool = 8000; slowWin = 0; } }
+  else { slowWin = 0; if (avg < 15.5 && adaptCool <= 0 && gfx.dprCur < gfx.dprMax) { next = Math.min(gfx.dprMax, gfx.dprCur + 0.15); adaptCool = 8000; } }
+  if (avg > 24 && next === gfx.dprCur && gfx.dprCur <= lo + 0.01 && gfx.tier !== 'fast') { slowHint++; if (slowHint === 4) window.dispatchEvent(new CustomEvent('bb-slow')); }
   if (next !== gfx.dprCur) { gfx.dprCur = +next.toFixed(2); resize(); }
 }
 // canvas is position:fixed;inset:0 so its CSS box is what is really visible (never 100vh)
@@ -148,7 +157,7 @@ export function resize() {
   const [w, h] = viewSize(); gfx.w = w; gfx.h = h; gfx.dpr = gfx.dprCur;
   const root = document.documentElement.style;
   root.setProperty('--u', Math.min(22, Math.max(9, h * 0.0215)).toFixed(2) + 'px'); root.setProperty('--vh', h + 'px'); root.setProperty('--vw', w + 'px');
-  gfx.renderer.setPixelRatio(gfx.dpr); gfx.renderer.setSize(w, h, false);
+  gfx.renderer.setPixelRatio(gfx.dpr); gfx.renderer.setSize(w, h, false); // canvas CSS size comes from CSS (fixed, inset 0); buffer = css x dpr, 1:1 with device pixels
   gfx.composer.setPixelRatio(gfx.dpr); gfx.composer.setSize(w, h);
   const bs = gfx.quality === 'high' ? 0.5 : 0.35; gfx.bloom.resolution.set(w * gfx.dpr * bs, h * gfx.dpr * bs);
   gfx.camera.aspect = w / h; gfx.camera.updateProjectionMatrix();
