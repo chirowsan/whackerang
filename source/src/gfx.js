@@ -4,7 +4,7 @@ import { RenderPass } from '../vendor/three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from '../vendor/three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../vendor/three/addons/postprocessing/OutputPass.js';
 import { HX, HZ } from './util.js';
-import { S } from './save.js';
+import { S, speedCfg } from './save.js';
 
 export { THREE };
 export const gfx = {
@@ -226,9 +226,9 @@ export function followCam(dt, points, humans) {
   for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < 7) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
   const bw = x1 - x0 + 7, bh = z1 - z0 + 6; const ratio = Math.max(bw / 21.8, bh / 13.8, 1);
   const cap = Math.min(f.dFull, f.dMin * 1.5);
-  let want = Math.min(cap, f.dMin * ratio); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
+  const cfg = speedCfg(); let want = Math.min(f.dFull, Math.min(cap, f.dMin * ratio) * cfg.camWide); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
   const lim = (v, h, vis) => Math.max(-h + vis * 0.35, Math.min(h - vis * 0.35, v)); const vis = want / f.dMin; tx = lim(tx, HX, 10 * vis); tz = lim(tz, HZ, 6 * vis);
-  const k = f.init ? 1 - Math.exp(-dt * 5) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (f.init ? 1 - Math.exp(-dt * 3) : 1);
+  const sm = Math.sqrt(cfg.ts); const k = f.init ? 1 - Math.exp(-dt * 5 * sm) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (1 - Math.exp(-dt * 2.6 * sm));
   const tilt = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tilt) * f.d, Math.cos(tilt) * f.d + f.cz); gfx.camDist = f.d;
   const sun = gfx.sun; if (sun && sun.target) { sun.target.position.set(f.cx, 0, f.cz); sun.position.set(f.cx - 7, 15, f.cz + 8); }
 }

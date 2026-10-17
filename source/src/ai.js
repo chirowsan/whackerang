@@ -3,9 +3,9 @@ import { AW, AH, HX, HZ, clamp, ci, cj, idx, inb, angDiff, rr } from './util.js'
 import { T } from './arena.js';
 
 const CURVE = 0.95;
-const P = [ // easy, normal, hard
+const P = [ // easy, medium, hard
   { react: 0.34, err: 0.38, dodge: 0.4, deflect: 0.08, cd: 1.6, think: 0.22, range: 8.5, lead: 0 },
-  { react: 0.17, err: 0.15, dodge: 0.78, deflect: 0.3, cd: 0.8, think: 0.14, range: 10.5, lead: 0.5 },
+  { react: 0.24, err: 0.2, dodge: 0.66, deflect: 0.2, cd: 1.0, think: 0.17, range: 10, lead: 0.3 }, // Medium (default) - softened in v3.1
   { react: 0.07, err: 0.055, dodge: 0.96, deflect: 0.6, cd: 0.45, think: 0.09, range: 12.5, lead: 1 },
 ];
 const OUT = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false };

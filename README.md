@@ -14,6 +14,17 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v3.1 (calmer, easier to play)
+Feedback from a phone player: "fun, but the controls are too hard and it is way too fast." v3.1 is a comfort release:
+- **Game Speed setting: Chill / Normal / Fast** (Settings, match setup, campaign stage screen). **Default = Chill** for everyone, including existing saves (migrated once). Chill runs the whole simulation at 62% speed (about 38% slower): walking, dash, boomerang flight and return, bots, trap cycles and warnings, power-up timers and the round clock. Normal = 80%. Fast = the exact v3.0 pace. It is one global time scale, so every mode, arena, trap and campaign stage follows it.
+- **Gentler touch stick:** small dead zone, soft response curve (a light push walks slowly, full speed only near the rim) and smoothing (about 0.1 s to reach full speed instead of snapping). Toggle "Smooth touch stick" in Settings.
+- **Bigger, more forgiving throw pad:** larger boomerang pad and dash button; a quick tap is auto-aim at the nearest rival (more tolerant of finger wobble). **Aim assist** now snaps drags within about +/-34 degrees to a rival on touch (was +/-13) and can be turned off in Settings.
+- **Easier catches:** larger catch radius and a gentle glide-in/stronger homing on the return (Chill +35%, Normal +18%).
+- **Dash cooldown clarity:** the dash and deflect buttons show the remaining seconds.
+- **Bots:** skill is Easy / Medium / Hard (Medium is the default and is softer than v3.0's "Normal": slower reactions, less accurate, throws less often).
+- **Camera:** on Large/Huge maps the follow camera zooms out a little on Chill/Normal and eases more slowly, so scrolling feels slower too.
+- Updated How-to-play. Android versionCode 31 / versionName 3.1.0.
+
 ## What's new in v3.0 (renamed from "Boomerang Brawl")
 - **New name and icon:** Whackerang. The Android/iOS app id is now `com.chirow.whackerang`. Note: installs of the old `com.chirow.boomerangbrawl` app are a *separate app* with their own saves; the web version migrates the old browser save automatically.
 - **Bigger maps:** Small 20x12, Large 26x16, Huge 32x20, chosen in match setup. A follow camera (zoom is clamped so phones stay readable), a minimap and edge arrows for off-screen rivals/objectives.

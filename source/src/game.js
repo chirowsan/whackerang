@@ -2,7 +2,7 @@
 import { THREE, gfx, shake, pulseFov, punch } from './gfx.js';
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
-import { S } from './save.js';
+import { S, speedCfg } from './save.js';
 import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle } from './util.js';
 import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS } from './data.js';
 import { ArenaEvents } from './events.js';
@@ -11,6 +11,7 @@ import { installRules2 } from './rules2.js';
 import { buildFighter, buildBoomerang, buildPowerup } from './models.js';
 import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
+import { Input } from './input.js';
 import { Traps } from './traps.js';
 
 export const FR = 0.4, SPEED = 5.3, CURVE = 0.95, SUDDEN_AT = 48;
@@ -152,16 +153,16 @@ class Boom {
         if (this.homing) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); this.th += clamp(angDiff(this.th, a), -3.4 * h, 3.4 * h); } }
         if (this.t >= this.tout) { this.phase = 'ret'; this.retT = 0; }
       } else {
-        this.retT += h; speed = 8 + 15 * Math.min(1, this.retT / 0.8);
+        this.retT += h; speed = 8 + 15 * Math.min(1, this.retT / 0.8); const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
         if (!o.alive) { this.fade = 1; return; }
-        const a = Math.atan2(o.x - this.x, o.z - this.z); const rate = 5.5 + this.retT * 7; this.th += clamp(angDiff(this.th, a), -rate * h, rate * h);
+        const a = Math.atan2(o.x - this.x, o.z - this.z); const rate = (5.5 + this.retT * 7) * (1 + (o.isBot ? 0 : g.cfg.ease) * 0.6); this.th += clamp(angDiff(this.th, a), -rate * h, rate * h);
       }
       this.x += dirx(this.th) * speed * h; this.z += dirz(this.th) * speed * h;
       if (g.wind) { this.x += g.wind[0] * 0.5 * h; this.z += g.wind[1] * 0.5 * h; }
       g.boomCollide(this);
       if (!this.alive) return;
       // catch
-      if (o.alive && (this.phase === 'ret' || this.t > 0.22) && Math.hypot(o.x - this.x, o.z - this.z) < 0.62 * o.mods.catchR + (this.giant ? 0.3 : 0) && this.total > 0.25) { this.caught(); return; }
+      if (o.alive && (this.phase === 'ret' || this.t > 0.22) && Math.hypot(o.x - this.x, o.z - this.z) < 0.62 * o.mods.catchR * (o.isBot ? 1 : g.cfg.catch) + (this.giant ? 0.3 : 0) && this.total > 0.25) { this.caught(); return; }
       g.boomHitFighters(this);
       if (!this.alive) return;
     }
@@ -195,7 +196,7 @@ export class Game {
     this.mut = o.mutator || null; this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) });
     const n = o.players.length; const order = this.rules.teams && n === 4 ? [0, 3, 1, 2] : n === 1 ? [0] : n === 2 ? [0, 1] : n === 3 ? [0, 1, 3] : [0, 1, 2, 3];
     o.players.forEach((d, i) => { const sp = spawns()[order[i]]; this.fighters.push(new Fighter(this, d, i, [cx(sp[0]), cz(sp[1])])); });
-    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.introT = o.intro === undefined ? 3.2 : o.intro; this.lastCount = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0;
+    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.introT = o.intro === undefined ? 3.2 : o.intro; this.lastCount = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = speedCfg();
     this.puT = 3.5; this.suddenRing = -1; this.suddenT = 0; this.sudden = false; this.crackT = 8; this.result = null; this.koFlash = 0; this.playTime = 0; this.winner = null; this.winTeam = -1;
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
   }
@@ -242,7 +243,7 @@ export class Game {
     const assist = f.isBot ? false : S().settings.aimAssist; let tg = null;
     if (assist) {
       let bs = 1e9;
-      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const lim = explicit ? 0.22 : 1.3; if (d > lim) continue; const sc = d + dist * 0.02; if (sc < bs) { bs = sc; tg = o; } }
+      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
       if (!tg && !explicit) tg = this.nearestEnemy(f, f.x, f.z, 1e9);
     }
     if (!tg) return base;
@@ -365,14 +366,16 @@ export class Game {
   update(dt) {
     if (this.hitstop > 0) { this.hitstop -= dt; this.vis(dt); return; }
     if (this.slowT > 0) { this.slowT -= dt; dt *= 0.4; }
+    // v3.1 Game Speed: one global time scale for the whole simulation (the 3-2-1 intro and the round-end pause stay real-time)
+    const cfg = this.cfg = speedCfg(); const rdt = dt; if (this.state !== 'intro' && this.mode !== 'attract') dt *= cfg.ts; else if (this.mode === 'attract') dt *= Math.max(cfg.ts, 0.7);
     this.time += dt;
     if (this.state === 'intro') {
-      this.introT -= dt; const c = Math.ceil(this.introT);
+      this.introT -= rdt; const c = Math.ceil(this.introT);
       if (c !== this.lastCount) { this.lastCount = c; if (c <= 3 && c > 0 && this.mode !== 'attract') sfx('beep'); this.onEvent('countdown', { n: c }); }
       if (this.introT <= 0) { this.state = 'play'; if (this.mode !== 'attract') sfx('go'); this.onRulesGo(); this.onEvent('go'); }
     } else if (this.state === 'play' || this.state === 'roundEnd') {
       if (this.state === 'play') { this.playTime += dt; this.puT -= dt; if (this.puT <= 0) { this.puT = (this.rules.puEvery || 6) + Math.random() * 3; if (this.powerups.length < 3) this.spawnPowerup(); } }
-      if (this.state === 'roundEnd') { this.endT += dt; if (this.endT > 2.3 && !this.result) { this.result = 'done'; this.onEvent('roundEnd', { winner: this.winner, winTeam: this.winTeam }); } }
+      if (this.state === 'roundEnd') { this.endT += rdt; if (this.endT > 2.3 && !this.result) { this.result = 'done'; this.onEvent('roundEnd', { winner: this.winner, winTeam: this.winTeam }); } }
     }
     for (const f of this.fighters) f.update(dt);
     for (let i = this.booms.length - 1; i >= 0; i--) { const b = this.booms[i]; if (this.state !== 'intro') b.update(dt); if (!b.alive) this.booms.splice(i, 1); }

@@ -108,12 +108,13 @@ Object.assign(UI, {
     const s = S(), v = s.setup, mode = p.mode || v.mode || 'classic'; v.mode = mode; const M = MODES[mode]; const el = h('div', 'screen page'); const hd = h('header');
     hd.appendChild(this.backBtn(() => this.show('modes'))); hd.appendChild(h('h2', '', M.name)); hd.appendChild(this.coinChip()); el.appendChild(hd);
     const grid = h('div', 'panel vs-grid scroll'); const touch = this.app.isTouchDevice(); const add = (r) => grid.appendChild(r);
+    add(this.seg('Game speed', s.settings, 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]));
     if (mode === 'coins' || mode === 'crumble') add(this.seg('Bots', v, 'bots', [[1, '1'], [2, '2'], [3, '3']]));
     if (mode === 'crumble') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins']]));
-    if (mode === 'classic') add(this.seg('Players', v, 'players', touch ? [[1, '1 Player']] : [[1, '1 Player'], [2, '2 Local']]));
+    if (mode === 'classic' && !touch) add(this.seg('Players', v, 'players', [[1, '1 Player'], [2, '2 Local']]));
     if (mode === 'classic') add(this.seg('Bots', v, 'bots', [[1, '1'], [2, '2'], [3, '3']]));
     if (mode === 'koth' || mode === 'bomb') add(this.seg('Bots', v, 'bots', [[mode === 'bomb' ? 2 : 1, mode === 'bomb' ? '2' : '1'], [2, mode === 'bomb' ? '2' : '2'], [3, '3']].filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i)));
-    if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]));
+    if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
     if (mode === 'classic' || mode === 'team') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins'], [5, '5 wins']]));
     add(this.seg('Arena events', s.settings, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
     if (!M.size) add(this.seg('Map size', v, 'size', [['small', 'Small'], ['large', 'Large'], ['huge', 'Huge']]));
@@ -149,6 +150,7 @@ Object.assign(UI, {
     d.appendChild(h('div', 'sub', `Stage ${st.n} · ${stageBlurb(st)}`)); d.appendChild(h('h2', '', st.name)); d.appendChild(h('div', 'tip', '💡 ' + st.tip));
     const hints = starHint(st); const sl = h('div', 'star-list'); hints.forEach((t, i) => sl.appendChild(h('div', i < got ? 'got' : '', `${stars(i + 1).replace(/class="star on"/g, 'class="star on"')} ${t}`))); d.appendChild(sl);
     if (st.boss) d.appendChild(h('div', 'bossline', `Boss: <b>${st.boss.name}</b> · ${st.boss.hp} HP`));
+    d.appendChild(this.seg('Game speed', s.settings, 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]));
     const b = h('div', 'btns'); b.appendChild(this.btn('▶ Start', 'primary', () => this.app.startStage(st.n))); b.appendChild(this.btn('Back', 'back', () => this.show('campaign'), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ================= shop =================
