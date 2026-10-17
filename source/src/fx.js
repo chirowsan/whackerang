@@ -1,4 +1,5 @@
-import { THREE, gfx, toon } from './gfx.js';
+import { THREE, gfx, toon, softTex } from './gfx.js';
+import { Ribbon } from './ribbon.js';
 
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3(), _c = new THREE.Color(), _e = new THREE.Euler();
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -48,9 +49,17 @@ export const fx = {
     this.glow = new Particles(scene, new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }), 700);
     this.rings = []; const rg = new THREE.RingGeometry(0.82, 1, 36);
     for (let i = 0; i < 12; i++) { const m = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })); m.rotation.x = -Math.PI / 2; m.visible = false; m.userData = { t: 0, life: 1, max: 1 }; scene.add(m); this.rings.push(m); }
-    this.popRoot = document.getElementById('popups');
+    this.popRoot = document.getElementById('popups'); this.flashEl = document.getElementById('flash');
+    this.ribbons = []; this.scorches = []; const sg = new THREE.PlaneGeometry(1, 1);
+    for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: softTex(), color: 0x000000, transparent: true, opacity: 0, depthWrite: false })); m.rotation.x = -Math.PI / 2; m.position.y = 0.012; m.visible = false; m.userData = { t: 0, life: 1, a: 0.5 }; scene.add(m); this.scorches.push(m); }
+    this.sIdx = 0;
   },
-  clear() { this.debris.clear(); this.glow.clear(); for (const r of this.rings) r.visible = false; if (this.popRoot) this.popRoot.innerHTML = ''; },
+  ribbon(color, width, rainbow) { const r = new Ribbon(this.scene, color, width, rainbow); this.ribbons.push(r); return r; },
+  flash(color = '#ffffff', a = 0.35, ms = 160) { const e = this.flashEl; if (!e || !gfx.flashOn) return; e.style.transition = 'none'; e.style.background = color; e.style.opacity = a; void e.offsetWidth; e.style.transition = `opacity ${ms}ms ease-out`; e.style.opacity = 0; },
+  scorch(x, z, size = 2, color = 0x000000, a = 0.45, life = 7) { const m = this.scorches[this.sIdx++ % this.scorches.length]; m.visible = true; m.position.set(x, 0.012 + (this.sIdx % 3) * 0.001, z); m.scale.setScalar(size); m.material.color.setHex(color); m.userData = { t: life, life, a }; m.rotation.z = Math.random() * 6; },
+  shockwave(x, z, color = 0xffffff, size = 4) { this.ring(x, 0.15, z, color, size, 0.42); this.ring(x, 0.22, z, 0xffffff, size * 0.62, 0.3); },
+  confetti(x, z, n = 40, y = 1.2) { n = Math.ceil(n * Math.max(0.5, gfx.density)); const cols = [0xffd23c, 0xff5a8a, 0x4fd1ff, 0x7dff6a, 0xb78cff, 0xffffff]; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = Math.random() * 3.2; this.debris.spawn(x, y, z, Math.cos(a) * r, 5 + Math.random() * 5, Math.sin(a) * r, 0.11 + Math.random() * 0.08, 1.6 + Math.random() * 0.8, cols[i % cols.length], 11, 0.6, 9); } },
+  clear() { if (this.ribbons) { this.ribbons.forEach((r) => r.dispose()); this.ribbons.length = 0; this.scorches.forEach((m) => (m.visible = false)); } this.debris.clear(); this.glow.clear(); for (const r of this.rings) r.visible = false; if (this.popRoot) this.popRoot.innerHTML = ''; },
   burst(x, y, z, n, color, o = {}) {
     n = Math.ceil(n * gfx.density); const sp = o.speed || 4, up = o.up === undefined ? 3 : o.up;
     for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = Math.random() * sp; this.debris.spawn(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3, Math.cos(a) * r, up * (0.4 + Math.random()), Math.sin(a) * r, (o.size || 0.13) * (0.6 + Math.random() * 0.8), (o.life || 0.9) * (0.6 + Math.random() * 0.8), Array.isArray(color) ? color[Math.floor(Math.random() * color.length)] : color, 14, 0.4, 8 + Math.random() * 8); }
@@ -71,6 +80,8 @@ export const fx = {
   update(dt) {
     this.time += dt; const t = this.time;
     this.debris.update(dt); this.glow.update(dt);
+    for (let i = this.ribbons.length - 1; i >= 0; i--) { const r = this.ribbons[i]; r.tick(dt); if (r.done) this.ribbons.splice(i, 1); }
+    for (const m of this.scorches) { if (!m.visible) continue; const u = m.userData; u.t -= dt; if (u.t <= 0) { m.visible = false; continue; } m.material.opacity = u.a * Math.min(1, u.t / 2); }
     for (const r of this.rings) { const u = r.userData; if (!r.visible) continue; u.t -= dt; if (u.t <= 0) { r.visible = false; continue; } const k = 1 - u.t / u.life; r.scale.setScalar(0.3 + k * u.max); r.material.opacity = (1 - k) * 0.8; }
     if (this.amb) {
       this.ambAcc += dt * 9 * gfx.density;

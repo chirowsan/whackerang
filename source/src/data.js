@@ -30,5 +30,78 @@ export const POWERUPS = {
   homing: { name: 'Homing', color: 0xb26bff, short: 'HM' },
   shield: { name: 'Shield', color: 0x6fffb0, short: 'SH' },
   speed: { name: 'Speed', color: 0xfff04a, short: 'SP' },
+  rune: { name: 'Boomerang Rune', color: 0xff9a4f, short: 'BR' },
 };
 export const PLAYER_COLORS = [0xffd23c, 0xff5a8a, 0x4fd1ff, 0x7dff6a];
+
+// ---------------- v2.0 additions ----------------
+export const BOOM_TYPES = {
+  classic: { name: 'Classic', color: 0xffd23c, cost: 0, desc: 'Balanced. Curves out, bounces, returns.' },
+  razor: { name: 'Razor', color: 0xd8f4ff, cost: 250, desc: 'Slices through rivals and crates without stopping.' },
+  frost: { name: 'Frost', color: 0x7fdcff, cost: 300, desc: 'Freezes rivals solid. Any hit on ice shatters it.' },
+  chain: { name: 'Chain', color: 0xffb347, cost: 400, desc: 'Leaps on to a second rival after a hit.' },
+  boom: { name: 'Blast', color: 0xff6a2e, cost: 450, desc: 'Explodes on the first hit or bounce.' },
+  phantom: { name: 'Phantom', color: 0xb78cff, cost: 500, desc: 'Drifts through walls and crates.' },
+};
+export const TRAILS = {
+  none: { name: 'Team color', color: 0xffffff, cost: 0 },
+  spark: { name: 'Sparkle', color: 0xffe680, cost: 100 },
+  flame: { name: 'Flame', color: 0xff6a2a, cost: 150 },
+  frost: { name: 'Frostbite', color: 0x9ad8ff, cost: 150 },
+  leaf: { name: 'Leafy', color: 0x7dff6a, cost: 120 },
+  rose: { name: 'Rosy', color: 0xff7ac8, cost: 200 },
+  neon: { name: 'Rainbow', color: 0xffffff, cost: 300, rainbow: true },
+};
+export const SKINS = {
+  default: { name: 'Hero style', cost: 0 },
+  gold: { name: 'Gilded', cost: 200, arm: 0xffd23c, tip: 0xfff3a0, trim: 0xb8860b, glow: 0xffe066 },
+  ruby: { name: 'Ruby', cost: 200, arm: 0xff3b5c, tip: 0xffb3c0, trim: 0x7a0f24, glow: 0xff5a7a },
+  ocean: { name: 'Ocean', cost: 200, arm: 0x2aa6ff, tip: 0xbfeaff, trim: 0x0a4a8a, glow: 0x5cd0ff },
+  shadow: { name: 'Shadow', cost: 260, arm: 0x2a2540, tip: 0xb26bff, trim: 0x120a1e, glow: 0xb26bff },
+  candy: { name: 'Candy', cost: 260, arm: 0xff8ad8, tip: 0xffffff, trim: 0x6ad8ff, glow: 0xff9ae6 },
+  mint: { name: 'Minty', cost: 160, arm: 0x5ff0b8, tip: 0xeafff6, trim: 0x1a8a62, glow: 0x7dffd0 },
+};
+export const EMOTES = {
+  gg: { text: 'GG!', color: '#ffd23c', cost: 0 }, nice: { text: 'Nice!', color: '#7dff6a', cost: 0 }, oops: { text: 'Oops!', color: '#ff9a5a', cost: 0 }, wow: { text: 'Wow!', color: '#4fd1ff', cost: 0 },
+  haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 },
+};
+export const ULTS = {
+  bao: { name: 'Dumpling Storm', desc: 'Fires a ring of 8 boomerangs.' },
+  nori: { name: 'Shadow Step', desc: '3s invulnerable and super fast, dash recharged.' },
+  tako: { name: 'Overcharge', desc: '6s: instant max-charge homing throws, +2 boomerangs.' },
+  kuma: { name: 'Cannon Volley', desc: 'Three blast boomerangs in a fan.' },
+  pico: { name: 'Zen Bubble', desc: 'Shield, +1 life (if any) and 6s speed.' },
+  yuki: { name: 'Blizzard', desc: 'Freezes every rival nearby.' },
+};
+export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'sniper', kuma: 'aggressor', pico: 'collector', yuki: 'duelist' };
+export const PERSONA_INFO = { defender: 'Patient, deflects a lot', trickster: 'Dashes and weaves', sniper: 'Long range, fully charged', aggressor: 'Rushes you down', collector: 'Hunts power-ups', duelist: 'Precise one-on-one fighter', boss: 'Boss' };
+export const MODES = {
+  classic: { name: 'Classic', icon: '🏆', color: '#ffd23c', blurb: 'Free-for-all rounds. Last fighter standing wins.' },
+  team: { name: 'Team 2v2', icon: '🤝', color: '#4fd1ff', blurb: 'You and a bot partner vs two bots. Teammates cannot hurt each other.' },
+  survival: { name: 'Survival', icon: '🌊', color: '#ff7a5a', blurb: 'Endless waves. 3 lives. How far can you get?' },
+  koth: { name: 'King of the Hill', icon: '👑', color: '#b78cff', blurb: 'Hold the glowing zone to score. KOs respawn.' },
+  bomb: { name: 'Bomb Tag', icon: '💣', color: '#ff5a8a', blurb: 'Pass the bomb by hitting rivals. Do not be holding it!' },
+  campaign: { name: 'Campaign', icon: '⭐', color: '#7dff6a', blurb: '12 stages, 3 bosses, earn up to 36 stars.' },
+};
+export const ACHIEVEMENTS = [
+  { id: 'first_ko', name: 'First Blood', desc: 'KO a rival', stat: 'ko', n: 1, coins: 20 },
+  { id: 'ko_50', name: 'Boomerang Bully', desc: 'KO 50 rivals', stat: 'ko', n: 50, coins: 80 },
+  { id: 'ko_250', name: 'Menace', desc: 'KO 250 rivals', stat: 'ko', n: 250, coins: 200 },
+  { id: 'catch_50', name: 'Safe Hands', desc: 'Catch 50 boomerangs', stat: 'catch', n: 50, coins: 60 },
+  { id: 'catch_250', name: 'Human Magnet', desc: 'Catch 250 boomerangs', stat: 'catch', n: 250, coins: 150 },
+  { id: 'deflect_15', name: 'Not Today', desc: 'Parry 15 boomerangs', stat: 'deflect', n: 15, coins: 80 },
+  { id: 'win_1', name: 'Champion', desc: 'Win a match', stat: 'win', n: 1, coins: 30 },
+  { id: 'win_25', name: 'Serial Winner', desc: 'Win 25 matches', stat: 'win', n: 25, coins: 150 },
+  { id: 'wave_5', name: 'Survivor', desc: 'Reach wave 5 in Survival', stat: 'wave', n: 5, coins: 80, max: true },
+  { id: 'wave_10', name: 'Unstoppable', desc: 'Reach wave 10 in Survival', stat: 'wave', n: 10, coins: 200, max: true },
+  { id: 'koth_win', name: 'King of the Hill', desc: 'Win King of the Hill', stat: 'kothwin', n: 1, coins: 60 },
+  { id: 'bomb_win', name: 'Cool Hands', desc: 'Win a Bomb Tag match', stat: 'bombwin', n: 1, coins: 60 },
+  { id: 'team_win', name: 'Dream Team', desc: 'Win a Team 2v2 match', stat: 'teamwin', n: 1, coins: 60 },
+  { id: 'boss_1', name: 'Giant Slayer', desc: 'Defeat the first boss', stat: 'boss', n: 1, coins: 100 },
+  { id: 'boss_3', name: 'Boss Rush', desc: 'Defeat all 3 bosses', stat: 'boss', n: 3, coins: 300 },
+  { id: 'shatter', name: 'Ice Breaker', desc: 'Shatter 5 frozen rivals', stat: 'shatter', n: 5, coins: 80 },
+  { id: 'chain2', name: 'Double Trouble', desc: 'Chain a boomerang through 2 rivals', stat: 'chainko', n: 1, coins: 80 },
+  { id: 'ult_10', name: 'Ultimate Power', desc: 'Use 10 ultimates', stat: 'ult', n: 10, coins: 100 },
+  { id: 'stars_18', name: 'Star Collector', desc: 'Earn 18 campaign stars', stat: 'stars', n: 18, coins: 200, max: true },
+  { id: 'level_10', name: 'Veteran', desc: 'Reach level 10', stat: 'level', n: 10, coins: 150, max: true },
+];

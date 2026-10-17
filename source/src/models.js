@@ -1,5 +1,5 @@
-import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon } from './gfx.js';
-import { POWERUPS } from './data.js';
+import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, softTex } from './gfx.js';
+import { POWERUPS, SKINS as SHOP_SKINS, BOOM_TYPES } from './data.js';
 import { buildFighterBody, animateFighter } from './fighters.js';
 
 const G = {};
@@ -22,7 +22,7 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   const ring = new THREE.Mesh(geo('ring', () => new THREE.RingGeometry(0.5, 0.64, 28)), new THREE.MeshBasicMaterial({ color: teamColor, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; root.add(ring); m.ring = ring;
   // blob shadow (visible on low where real shadows are off), tinted by the hero colour
-  const blob = new THREE.Mesh(geo('blob', () => new THREE.CircleGeometry(0.5, 16)), new THREE.MeshBasicMaterial({ color: new THREE.Color(h.color).multiplyScalar(0.16), transparent: true, opacity: 0.34, depthWrite: false }));
+  const blob = new THREE.Mesh(geo('blob', () => new THREE.PlaneGeometry(1.25, 1.25)), new THREE.MeshBasicMaterial({ map: softTex(), color: new THREE.Color(h.color).multiplyScalar(0.12), transparent: true, opacity: 0.62, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; root.add(blob); m.blob = blob;
   // shield bubble
   const bub = new THREE.Mesh(SPH(0.78, 18, 12), new THREE.MeshBasicMaterial({ color: 0x6fffb0, transparent: true, opacity: 0.28, depthWrite: false })); bub.position.y = 0.55; bub.visible = false; root.add(bub); m.bubble = bub;
@@ -72,9 +72,10 @@ const SKINS = {
   monk: { arm: 0x4fe0a0, tip: 0xff9a2e, trim: 0xe8b23a, glow: 0x7dffc8, w: 0.1, kind: 'jade' },
   peng: { arm: 0xcfeeff, tip: 0x5ab8ff, trim: 0xf0b83a, glow: 0x9ad8ff, w: 0.055, kind: 'katana' },
 };
-export function buildBoomerang(color, hero) {
+export function buildBoomerang(color, hero, skin, type) {
   const g = new THREE.Group(); const inner = new THREE.Group(); g.add(inner);
-  const sk = SKINS[hero ? faceKeyOf(hero) : 'panda']; const c = toon(sk.arm), tp = toon(sk.tip), tr = toon(sk.trim);
+  const sk = { ...SKINS[hero ? faceKeyOf(hero) : 'panda'] }; const so = skin && SHOP_SKINS[skin]; if (so && so.arm) { sk.arm = so.arm; sk.tip = so.tip; sk.trim = so.trim; sk.glow = so.glow; }
+  const tyd = type && type !== 'classic' ? BOOM_TYPES[type] : null; if (tyd) sk.glow = tyd.color; const c = toon(sk.arm), tp = toon(sk.tip), tr = toon(sk.trim);
   for (const s of [-1, 1]) {
     const arm = new THREE.Group(); arm.rotation.y = s * 0.78; inner.add(arm);
     const flat = sk.kind === 'blade' || sk.kind === 'katana';
@@ -91,8 +92,10 @@ export function buildBoomerang(color, hero) {
   else if (sk.kind === 'skull') { mesh(SPH(0.14, 10, 8), toon(0xf0ece0), inner, { outline: 0.025, grp: 'other' }); for (const x of [-0.05, 0.05]) mesh(SPH(0.03, 5, 4), toon(0x1a1530), inner, { pos: [x, 0.06, 0.1], cast: false }); }
   else mesh(SPH(0.13, 10, 8), c, inner, { outline: 0.025, grp: 'other' });
   mesh(SPH(0.065, 8, 6), tc, inner, { pos: [0, 0.1, 0], cast: false }); // team-coloured gem keeps ownership readable
-  mergeToon(inner, null, { cast: false, ol: true, grp: 'other' });
-  const glow = glowSprite(sk.glow, 1.1, 0.5); glow.position.y = 0.15; g.add(glow);
+  if (type === 'phantom') inner.traverse((o) => { if (o.isMesh && o.material && !o.material.isMeshBasicMaterial) { o.material.transparent = true; o.material.opacity = 0.62; } }); else mergeToon(inner, null, { cast: false, ol: true, grp: 'other' });
+  if (type === 'razor') for (const a of [0, 1.57, 3.14, 4.71]) mesh(CONE(0.045, 0.2, 4), toon(0xe8f8ff), inner, { pos: [Math.sin(a) * 0.17, 0.02, Math.cos(a) * 0.17], rot: [Math.PI / 2 * Math.cos(a), 0, -Math.PI / 2 * Math.sin(a)], cast: false });
+  if (type === 'frost') for (const a of [0.5, 2.6, 4.7]) mesh(CONE(0.05, 0.22, 5), toon(0xbff0ff), inner, { pos: [Math.sin(a) * 0.15, 0.1, Math.cos(a) * 0.15], rot: [0, 0, 0], cast: false });
+  const glow = glowSprite(sk.glow, tyd ? 1.5 : 1.1, tyd ? 0.65 : 0.5); glow.position.y = 0.15; g.add(glow);
   g.userData = { inner, glow }; return g;
 }
 const faceKeyOf = (h) => ({ bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng' }[h.id] || 'panda');
@@ -117,6 +120,7 @@ function powerIcon(kind) {
     case 'giant': P([[64, 28], [96, 52], [96, 82], [64, 100], [32, 82], [32, 52]]); break;
     case 'fire': P([[64, 24], [86, 56], [84, 90], [64, 102], [44, 90], [42, 60], [54, 70]]); break;
     case 'homing': x.beginPath(); x.arc(64, 64, 26, 0, 7); x.stroke(); x.beginPath(); x.moveTo(64, 26); x.lineTo(64, 102); x.moveTo(26, 64); x.lineTo(102, 64); x.stroke(); break;
+    case 'rune': P([[30, 84], [64, 36], [98, 84], [80, 84], [64, 60], [48, 84]]); break;
     case 'shield': P([[64, 24], [96, 36], [92, 72], [64, 102], [36, 72], [32, 36]]); break;
     case 'speed': P([[34, 36], [64, 64], [34, 92], [50, 92], [80, 64], [50, 36]]); P([[62, 36], [92, 64], [62, 92], [78, 92], [108, 64], [78, 36]]); break;
   }

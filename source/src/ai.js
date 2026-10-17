@@ -8,11 +8,20 @@ const P = [ // easy, normal, hard
   { react: 0.17, err: 0.15, dodge: 0.78, deflect: 0.3, cd: 0.8, think: 0.14, range: 10.5, lead: 0.5 },
   { react: 0.07, err: 0.055, dodge: 0.96, deflect: 0.6, cd: 0.45, think: 0.09, range: 12.5, lead: 1 },
 ];
-const OUT = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false };
+const OUT = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false };
+const PM = { // persona tuning: range, err, deflect+, dash chance, pref distance, cd mult, pickup radius, charge
+  defender: { range: 1, err: 1, def: 0.28, dash: 0.5, pref: 1.15, cd: 1.0, pu: 9, ch: 1 },
+  trickster: { range: 1, err: 1.1, def: 0.05, dash: 0.95, pref: 0.95, cd: 0.9, pu: 10, ch: 0.6 },
+  sniper: { range: 1.3, err: 0.6, def: 0.1, dash: 0.5, pref: 1.5, cd: 1.1, pu: 8, ch: 2 },
+  aggressor: { range: 0.9, err: 1.2, def: 0.05, dash: 0.7, pref: 0.65, cd: 0.6, pu: 7, ch: 0.5 },
+  collector: { range: 1, err: 1, def: 0.1, dash: 0.6, pref: 1.05, cd: 1.0, pu: 16, ch: 1 },
+  duelist: { range: 1.05, err: 0.8, def: 0.15, dash: 0.6, pref: 1.0, cd: 0.85, pu: 9, ch: 1.2 },
+  boss: { range: 1.1, err: 0.7, def: 0.0, dash: 0.0, pref: 0.8, cd: 0.7, pu: 0, ch: 1.4 },
+};
 
 export class Bot {
-  constructor(g, f, diff) {
-    this.g = g; this.f = f; this.d = P[Math.max(0, Math.min(2, diff))]; this.thinkT = Math.random() * 0.2; this.dir = [0, 0]; this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 1; this.threatT = 0; this.holdT = 0; this.holding = false; this.aim = [0, 0];
+  constructor(g, f, diff, persona) {
+    this.g = g; this.f = f; this.pm = PM[persona] || PM.duelist; this.persona = persona; const base = P[Math.max(0, Math.min(2, diff))]; this.d = { ...base, range: base.range * this.pm.range, err: base.err * this.pm.err, deflect: Math.min(0.85, base.deflect + this.pm.def * (diff + 1) / 2), cd: base.cd * this.pm.cd }; this.thinkT = Math.random() * 0.2; this.dir = [0, 0]; this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 1; this.threatT = 0; this.holdT = 0; this.holding = false; this.aim = [0, 0];
     this.throwWait = 0.5 + Math.random() * 0.8; this.pendDash = 0; this.sideLock = 0; this.target = null; this.goalPU = null; this.out = { ...OUT };
   }
   predict(b, T, steps, f) {
@@ -45,13 +54,13 @@ export class Bot {
   }
   update(dt) {
     const g = this.g, f = this.f, d = this.d, o = this.out;
-    o.fire = false; o.dash = false; o.deflect = false; o.aimX = 0; o.aimZ = 0;
+    o.fire = false; o.dash = false; o.deflect = false; o.ult = false; o.aimX = 0; o.aimZ = 0;
     if (g.state === 'intro') { o.mx = 0; o.mz = 0; return o; }
     this.throwWait -= dt; this.strafeT -= dt; this.sideLock -= dt;
     // ---- threats (every tick, cheap)
     let threat = null, tHit = 9;
-    for (const b of g.booms) { if (b.owner === f || !b.alive || b.fade > 0) continue; const th = this.predict(b, 0.55, 5, f); if (th >= 0 && th < tHit) { tHit = th; threat = b; } }
-    if (threat && threat !== this.lastThreat) { this.lastThreat = threat; this.dodgeRoll = Math.random() < d.dodge; this.defRoll = Math.random() < d.deflect; this.dashRoll = Math.random() < 0.6; }
+    for (const b of g.booms) { if (b.owner === f || b.owner.team === f.team || !b.alive || b.fade > 0) continue; const th = this.predict(b, 0.55, 5, f); if (th >= 0 && th < tHit) { tHit = th; threat = b; } }
+    if (threat && threat !== this.lastThreat) { this.lastThreat = threat; this.dodgeRoll = Math.random() < d.dodge; this.defRoll = Math.random() < d.deflect; this.dashRoll = Math.random() < this.pm.dash; }
     if (threat) { this.threatT += dt; } else this.threatT = Math.max(0, this.threatT - dt * 2);
     let evade = null;
     if (threat && this.threatT > d.react) {
@@ -64,6 +73,8 @@ export class Bot {
       if (this.defRoll && tHit < 0.2 && f.deflectCd <= 0 && f.dashT <= 0) { o.deflect = true; }
       if (!this.dodgeRoll) evade = null;
     }
+    // ---- ultimate
+    if (f.ult >= 100 && g.state === 'play' && !f.boss) { this.ultT = (this.ultT || 0) - dt; if (this.ultT <= 0) { this.ultT = 0.6; const tgt = this.target; if (tgt && tgt.alive && Math.hypot(tgt.x - f.x, tgt.z - f.z) < 9 && Math.random() < 0.5) o.ult = true; } }
     // ---- decisions
     this.thinkT -= dt; if (this.thinkT <= 0) { this.thinkT = d.think * (0.8 + Math.random() * 0.4); this.think(); }
     // ---- aiming/throwing
@@ -77,7 +88,7 @@ export class Bot {
         // lead the target a bit on higher difficulties
         let tx = tg.x + tg.vx * 0.25 * d.lead, tz = tg.z + tg.vz * 0.25 * d.lead; const a0 = Math.atan2(tx - f.x, tz - f.z); const ft = Math.min(0.9, dist / 11);
         const a = a0 - 0.5 * CURVE * ft * 0.9 + (Math.random() - 0.5) * 2 * d.err * (1 + dist / 12);
-        this.aim = [Math.sin(a), Math.cos(a)]; this.holding = true; this.holdT = dist > 7 ? clamp((dist - 5.5) / 9, 0.05, 0.55) / f.mods.charge : 0.05; o.fire = true; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
+        this.aim = [Math.sin(a), Math.cos(a)]; this.holding = true; this.holdT = dist > 7 ? clamp((dist - 5.5) / 9, 0.05, 0.55) * this.pm.ch / f.mods.charge : 0.05; o.fire = true; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
       }
     }
     // ---- movement
@@ -112,20 +123,23 @@ export class Bot {
   }
   think() {
     const g = this.g, f = this.f, d = this.d;
-    let tg = null, bd = 1e9; for (const e of g.fighters) { if (e === f || !e.alive) continue; const dist = Math.hypot(e.x - f.x, e.z - f.z); if (dist < bd) { bd = dist; tg = e; } }
+    const R = g.rules; let tg = null, bd = 1e9;
+    for (const e of g.fighters) { if (!e.alive || !g.isFoe(f, e)) continue; let dist = Math.hypot(e.x - f.x, e.z - f.z); if (R.type === 'koth' && g.zone && Math.hypot(e.x - g.zone.x, e.z - g.zone.z) < 2.6) dist *= 0.6; if (R.type === 'bomb' && g.mst.holder === e && f !== g.mst.holder) dist *= 0.5; if (dist < bd) { bd = dist; tg = e; } }
+    if (R.type === 'bomb') { const hd = g.mst.holder; if (hd === f) { tg = null; bd = 1e9; for (const e of g.fighters) { if (e === f || !e.alive || e.tagImmune > 0) continue; const dist = Math.hypot(e.x - f.x, e.z - f.z); if (dist < bd) { bd = dist; tg = e; } } } }
     this.target = tg; let gx = 0, gz = 0;
     // power-up goal
-    let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < 9) { pd = dist; pu = p; } }
+    let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < this.pm.pu) { pd = dist; pu = p; } }
     if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = 0.8 + Math.random() * 1.6; }
     if (pu && (!tg || bd > 3.2)) { gx = pu.x - f.x; gz = pu.z - f.z; }
     else if (tg) {
-      const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; const pref = f.ammo > 0 ? 6.2 : 8.5;
+      const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; let pref = (f.ammo > 0 ? 6.2 : 8.5) * this.pm.pref; if (R.type === 'bomb') pref = g.mst.holder === f ? 3.5 : 9; if (f.boss) pref = 4.6;
       let k = clamp((dist - pref) / 3, -1, 1); gx = ux * k; gz = uz * k;
       gx += -uz * this.strafe * 0.8; gz += ux * this.strafe * 0.8;
       if (f.ammo > 0 && !this.los(f, tg)) { gx += ux * 0.8; gz += uz * 0.8; }
       if (f.ammo === 0 && dist > 5) { gx *= 0.2; gz *= 0.2; }
       // wall repulsion
       gx += clamp(-f.x / HX, -1, 1) * 0.25 * Math.max(0, Math.abs(f.x) / HX - 0.6) * 4; gz += clamp(-f.z / HZ, -1, 1) * 0.25 * Math.max(0, Math.abs(f.z) / HZ - 0.6) * 4;
+      if (R.type === 'koth' && g.zone) { const zx = g.zone.x - f.x, zz = g.zone.z - f.z, zd = Math.hypot(zx, zz); if (zd > 1.6 && (bd > 3 || zd < 4.5)) { gx = zx / zd * 0.95; gz = zz / zd * 0.95; } else if (zd <= 1.6) { gx *= 0.25; gz *= 0.25; gx += -uz * this.strafe * 0.4; gz += ux * this.strafe * 0.4; } }
       // keep clear of returning boomerangs' lane: stand still near owner path if waiting for catch
       for (const b of g.booms) if (b.owner === f && b.phase === 'ret') { gx += (b.x - f.x) * 0.15; gz += (b.z - f.z) * 0.15; }
     }

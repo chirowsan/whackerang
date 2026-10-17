@@ -1,7 +1,8 @@
 // Arena layouts + visuals (4 original themes).
-import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon } from './gfx.js';
+import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, RIM } from './gfx.js';
 import { AW, AH, HX, HZ, cx, cz, idx, inb, rnd, shuffle, mulberry32 } from './util.js';
 import { buildCrate } from './models.js';
+import { buildScenery, patchFloor, updateScenery } from './scenery.js';
 
 export const T = { FLOOR: 0, PILLAR: 1, CRATE: 2, SPIKE: 3, LAVA: 4, CONV: 5 };
 export const SPAWNS = [[2, 2], [17, 9], [17, 2], [2, 9]]; // cells; order picks far-apart pairs for 2 players
@@ -10,7 +11,7 @@ export const THEMES = {
   dojo: { bg: 0xbfe3ff, fog: 0xd9eeff, a: 0xd7edb0, b: 0xc3e096, rim: 0x6b4a2e, rimTop: 0xa77d52, hemi: [0xffffff, 0x9fb4a0, 1.0], sun: 1.9, ambient: 'dojo' },
   rooftop: { bg: 0x0c0d2e, fog: 0x0c0d2e, a: 0x252a5c, b: 0x1d2150, rim: 0x151a40, rimTop: 0xff2bd6, hemi: [0x8aa0ff, 0x221a50, 0.9], sun: 1.0, ambient: 'rooftop' },
   jungle: { bg: 0x1e5a44, fog: 0x2a7a58, a: 0x8ea46a, b: 0x7c9459, rim: 0x5c6b46, rimTop: 0x93a56f, hemi: [0xe6ffd0, 0x44603a, 1.0], sun: 1.7, ambient: 'jungle' },
-  ice: { bg: 0xd2edff, fog: 0xe4f5ff, a: 0xd6f3ff, b: 0xbfe6fb, rim: 0x6aa6d6, rimTop: 0xcdeaff, hemi: [0xffffff, 0x8ab4e0, 1.05], sun: 1.8, ambient: 'ice' },
+  ice: { bg: 0x9cc8ea, fog: 0xb2d6f0, a: 0xa6d6f2, b: 0x8cc4e6, rim: 0x6aa6d6, rimTop: 0xcdeaff, hemi: [0xf4faff, 0x6f9fd0, 0.95], sun: 1.55, ambient: 'ice' },
 };
 
 export function genLayout(id, seed) {
@@ -75,7 +76,7 @@ export class ArenaView {
       else if (v === T.LAVA) this.addLava(i, j);
       else if (v === T.CONV) this.addConv(i, j);
     }
-    this.decor();
+    const pat = buildScenery(this, this.id, L); patchFloor(fm, pat); RIM.c.value.set(this.rim || 0x9ec0ff); { const vg = document.getElementById('vig'); if (vg) vg.style.setProperty('--vt', { dojo: '40,16,10', rooftop: '10,0,40', jungle: '0,24,8', ice: '10,30,70' }[this.id]); }
     if (gfx.quality === 'low') this.mergeLow();
   }
   mergeLow() {
@@ -132,6 +133,7 @@ export class ArenaView {
   }
   breakCrate(k) { const g = this.crates.get(k); if (g) { this.root.remove(g); this.crates.delete(k); } }
   update(dt, t, game) {
+    updateScenery(this, t, dt);
     const f = this.floor; let dirty = false; const m4 = this._m || (this._m = new THREE.Matrix4()), col = this._c || (this._c = new THREE.Color());
     if (game && game.hole) {
       for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
@@ -156,5 +158,5 @@ export class ArenaView {
     for (const l of this.lavas) { const k = 0.85 + Math.sin(t * 2.2 + l.seed) * 0.15; l.m.color.setRGB(2.3 * k, 0.65 * k, 0.1); l.glow.material.opacity = 0.28 + 0.1 * Math.sin(t * 3 + l.seed); }
     for (const c of this.convMats) { const o = c.m.map.offset; o.y = (o.y - dt * 0.9) % 1; }
   }
-  dispose() { this.scene.remove(this.root); this.scene.fog = null; this.root.traverse((o) => { if (o.geometry && o.geometry !== BOXG) o.geometry.dispose && 0; }); }
+  dispose() { this.scene.remove(this.root); if (this.dyn) this.scene.remove(this.dyn); this.scene.fog = null; this.root.traverse((o) => { if (o.geometry && o.geometry !== BOXG) o.geometry.dispose && 0; }); }
 }

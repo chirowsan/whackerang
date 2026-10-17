@@ -9,7 +9,7 @@ import { S } from './save.js';
 export { THREE };
 export const gfx = {
   renderer: null, scene: null, camera: null, composer: null, bloom: null, sun: null, hemi: null,
-  trauma: 0, w: 1, h: 1, dpr: 1, quality: 'high', qSetting: 'auto', ok: false, camBase: new THREE.Vector3(), camTarget: new THREE.Vector3(),
+  trauma: 0, kx: 0, kz: 0, flashOn: true, w: 1, h: 1, dpr: 1, quality: 'high', qSetting: 'auto', ok: false, camBase: new THREE.Vector3(), camTarget: new THREE.Vector3(),
   density: 1, dprMax: 1, dprCur: 1, outlinesAll: true, camMode: 'play', useBloom: true, lastRender: 0, fovPulse: 0, tilt: 56, reserveL: 0, reserveR: 0,
 };
 
@@ -18,7 +18,16 @@ export function gradMap() {
   if (GRAD) return GRAD;
   GRAD = new THREE.DataTexture(new Uint8Array([80, 140, 205, 255]), 4, 1, THREE.RedFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.needsUpdate = true; return GRAD;
 }
-export function toon(color, o = {}) { return new THREE.MeshToonMaterial({ color, gradientMap: gradMap(), ...o }); }
+// Cheap rim light: fresnel term added to every toon material (shared uniforms, retinted per arena theme). No extra lights/passes.
+export const RIM = { c: { value: new THREE.Color(0x9ec0ff) }, k: { value: 0.42 } };
+export function addRim(m) {
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.rimC = RIM.c; sh.uniforms.rimK = RIM.k;
+    sh.fragmentShader = 'uniform vec3 rimC; uniform float rimK;\n' + sh.fragmentShader.replace('#include <opaque_fragment>', 'float rimF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.4);\n outgoingLight += rimC * rimF * rimK;\n#include <opaque_fragment>');
+  };
+  m.customProgramCacheKey = () => 'rimtoon'; return m;
+}
+export function toon(color, o = {}) { return addRim(new THREE.MeshToonMaterial({ color, gradientMap: gradMap(), ...o })); }
 export function glowMat(color, intensity = 2, o = {}) { return new THREE.MeshToonMaterial({ color, emissive: color, emissiveIntensity: intensity, gradientMap: gradMap(), ...o }); }
 export function basic(color, o = {}) { return new THREE.MeshBasicMaterial({ color, ...o }); }
 
@@ -56,7 +65,7 @@ export function mergeToon(root, exclude, opt = {}) {
   const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3); let k = 0;
   geos.forEach((g, i) => { const c = items[i].material.color, cnt = g.attributes.position.count; pos.set(g.attributes.position.array, k * 3); nor.set(g.attributes.normal.array, k * 3); for (let v = 0; v < cnt; v++) { col[(k + v) * 3] = c.r; col[(k + v) * 3 + 1] = c.g; col[(k + v) * 3 + 2] = c.b; } k += cnt; g.dispose(); });
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  if (!_mergeMat) _mergeMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: gradMap() });
+  if (!_mergeMat) _mergeMat = addRim(new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: gradMap() }));
   const m = new THREE.Mesh(geo, _mergeMat); m.castShadow = !!opt.cast; m.receiveShadow = false; m.matrixAutoUpdate = false;
   if (opt.ol) {
     const oi = items.filter((o) => o.children.some((c) => c.userData.ol !== undefined));
@@ -76,6 +85,12 @@ export function glowTexture() {
   gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; glowTexture.t = t; return t;
+}
+let SOFT = null;
+export function softTex() {
+  if (SOFT) return SOFT; const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); SOFT = new THREE.CanvasTexture(c); SOFT.colorSpace = THREE.SRGBColorSpace; return SOFT;
 }
 export function glowSprite(color, scale = 1, opacity = 1) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -166,8 +181,14 @@ export function resize() {
 const _v = new THREE.Vector3();
 export function fitCamera(mode = gfx.camMode || 'play') {
   if (gfx.freeCam) return;
-  const cam = gfx.camera; gfx.camMode = mode; cam.clearViewOffset();
+  const cam = gfx.camera; gfx.camMode = mode; cam.clearViewOffset(); const nearWant = mode === 'menu' ? 11.5 : 0.5; if (cam.near !== nearWant) { cam.near = nearWant; cam.updateProjectionMatrix(); }
   const ar = cam.aspect; const menu = mode === 'menu';
+  if (menu) { // hero showcase framing: low, close, hero right of centre
+    const tg = new THREE.Vector3(0.2, 1.5, 0.6); const wide = Math.min(1.35, Math.max(0.85, ar / 2.2));
+    cam.position.set(-2.2, 3.5, 17.5 / Math.min(1.1, wide + 0.1)); cam.lookAt(tg); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    gfx.viewShift = 0; gfx.viewShiftX = 0.34; gfx.camBase.copy(cam.position); gfx.camTarget.copy(tg); gfx.camDist = cam.position.distanceTo(tg);
+    cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, 0, gfx.w, gfx.h); return;
+  }
   const tdeg = menu ? 52 : ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
   const pts = []; const hx = HX + 0.9, hz = HZ + 0.9;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) pts.push([sx * hx, -0.1, sz * hz], [sx * hx, 1.4, sz * hz]);
@@ -189,12 +210,14 @@ export function fitCamera(mode = gfx.camMode || 'play') {
   cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, (gfx.viewShift / 2) * gfx.h, gfx.w, gfx.h);
 }
 export function shake(amount) { if (!S().settings.shake) amount *= 0.15; gfx.trauma = Math.min(1, gfx.trauma + amount); }
+export function punch(dx, dz, a = 0.3) { const l = Math.hypot(dx, dz) || 1; gfx.kx += dx / l * a; gfx.kz += dz / l * a; }
 export function pulseFov(a) { gfx.fovPulse = Math.max(gfx.fovPulse, a); }
 export function updateGfx(dt, t) {
   const cam = gfx.camera;
   gfx.trauma = Math.max(0, gfx.trauma - dt * 1.8);
   const tr = gfx.trauma * gfx.trauma;
-  cam.position.copy(gfx.camBase); cam.lookAt(gfx.camTarget);
+  gfx.kx *= Math.max(0, 1 - dt * 9); gfx.kz *= Math.max(0, 1 - dt * 9);
+  cam.position.copy(gfx.camBase); cam.position.x += gfx.kx; cam.position.z += gfx.kz; cam.lookAt(gfx.camTarget);
   if (tr > 0.0005) { const s = t * 40; cam.position.x += (Math.sin(s * 1.1) + Math.sin(s * 2.3)) * 0.4 * tr; cam.position.y += Math.sin(s * 1.7 + 1) * 0.25 * tr; cam.position.z += (Math.sin(s * 1.3 + 2) + Math.sin(s * 3.1)) * 0.3 * tr; cam.rotation.z += Math.sin(s * 0.9) * 0.012 * tr; }
   gfx.fovPulse = Math.max(0, gfx.fovPulse - dt * 2.2);
   const fov = 30 - gfx.fovPulse * 1.5; if (Math.abs(cam.fov - fov) > 0.001) { cam.fov = fov; cam.updateProjectionMatrix(); }
