@@ -103,7 +103,7 @@ export function initGfx(canvas) {
   gfx.renderer = renderer; gfx.ok = true;
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap; renderer.toneMapping = THREE.NoToneMapping;
   const scene = gfx.scene = new THREE.Scene();
-  const cam = gfx.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 140);
+  const cam = gfx.camera = new THREE.PerspectiveCamera(30, 1, 0.5, 260);
   gfx.hemi = new THREE.HemisphereLight(0xffffff, 0x445577, 1.0); scene.add(gfx.hemi);
   const sun = gfx.sun = new THREE.DirectionalLight(0xffffff, 1.8);
   sun.position.set(-7, 15, 8); sun.castShadow = true;
@@ -186,29 +186,55 @@ export function fitCamera(mode = gfx.camMode || 'play') {
   if (menu) { // hero showcase framing: low, close, hero right of centre
     const tg = new THREE.Vector3(0.2, 1.5, 0.6); const wide = Math.min(1.35, Math.max(0.85, ar / 2.2));
     cam.position.set(-2.2, 3.5, 17.5 / Math.min(1.1, wide + 0.1)); cam.lookAt(tg); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    gfx.viewShift = 0; gfx.viewShiftX = 0.34; gfx.camBase.copy(cam.position); gfx.camTarget.copy(tg); gfx.camDist = cam.position.distanceTo(tg);
+    gfx.viewShift = 0; gfx.viewShiftX = 0.34; gfx.camBase.copy(cam.position); gfx.camTarget.copy(tg); gfx.camDist = cam.position.distanceTo(tg); gfx.follow = null;
     cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, 0, gfx.w, gfx.h); return;
   }
-  const tdeg = menu ? 52 : ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
-  const pts = []; const hx = HX + 0.9, hz = HZ + 0.9;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) pts.push([sx * hx, -0.1, sz * hz], [sx * hx, 1.4, sz * hz]);
-  const hudPx = menu ? 4 : Math.min(60, Math.max(34, gfx.h * 0.11));
-  const topM = Math.max(0.02, hudPx / gfx.h), botM = menu ? 0.02 : 0.03, sideM = 0.015;
-  const yMax = 1 - topM * 2, yMin = -1 + botM * 2, xLim = menu ? 0.56 : Math.min(1 - sideM * 2, Math.max(0.35, 1 - (gfx.reserveL + gfx.reserveR) / gfx.w));
-  const tgt = new THREE.Vector3(0, 0, 0.2); let lo = 6, hi = 90;
-  const proj = (d) => {
-    cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    let a = 9, b = -9, c = 9, e = -9;
-    for (const p of pts) { _v.set(p[0], p[1], p[2]).project(cam); a = Math.min(a, _v.x); b = Math.max(b, _v.x); c = Math.min(c, _v.y); e = Math.max(e, _v.y); }
-    return [a, b, c, e];
+  const tdeg = ar > 2.6 ? 66 : ar > 2.2 ? 62 : ar > 1.9 ? 59 : gfx.tilt; const tilt = tdeg * Math.PI / 180;
+  const hudPx = Math.min(60, Math.max(34, gfx.h * 0.11));
+  const topM = Math.max(0.02, hudPx / gfx.h), botM = 0.03, sideM = 0.015;
+  const yMax = 1 - topM * 2, yMin = -1 + botM * 2, xLim = Math.min(1 - sideM * 2, Math.max(0.35, 1 - (gfx.reserveL + gfx.reserveR) / gfx.w));
+  const solve = (hxv, hzv) => {
+    const pts = []; const hx = hxv + 0.9, hz = hzv + 0.9;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) pts.push([sx * hx, -0.1, sz * hz], [sx * hx, 1.4, sz * hz]);
+    const tgt = new THREE.Vector3(0, 0, 0.2); let lo = 6, hi = 140;
+    const proj = (d) => {
+      cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+      let a = 9, b = -9, c = 9, e = -9;
+      for (const p of pts) { _v.set(p[0], p[1], p[2]).project(cam); a = Math.min(a, _v.x); b = Math.max(b, _v.x); c = Math.min(c, _v.y); e = Math.max(e, _v.y); }
+      return [a, b, c, e];
+    };
+    for (let i = 0; i < 24; i++) { const d = (lo + hi) / 2; const [a, b, c, e] = proj(d); const fits = (b - a) <= xLim * 2 && (e - c) <= (yMax - yMin); if (fits) hi = d; else lo = d; }
+    const d = hi; const [a, b, c, e] = proj(d); const cy = (c + e) / 2, cxx = (a + b) / 2;
+    return { d, tgt, vs: (yMax + yMin) / 2 - cy, vsx: (gfx.reserveL - gfx.reserveR) / gfx.w - cxx };
   };
-  for (let i = 0; i < 22; i++) { const d = (lo + hi) / 2; const [a, b, c, e] = proj(d); const fits = (b - a) <= xLim * 2 && (e - c) <= (menu ? 1.5 : (yMax - yMin)); if (fits) hi = d; else lo = d; }
-  const d = hi; const [a, b, c, e] = proj(d);
-  const cy = (c + e) / 2, want = menu ? 0 : (yMax + yMin) / 2, cxx = (a + b) / 2;
-  gfx.viewShift = want - cy; gfx.viewShiftX = (menu ? 0.43 : (gfx.reserveL - gfx.reserveR) / gfx.w) - cxx;
-  gfx.camBase.copy(cam.position); gfx.camTarget.copy(tgt); gfx.camDist = d;
+  const full = solve(HX, HZ); const small = (HX > 10.5 || HZ > 6.5) ? solve(10, 6) : full;
+  const R = small; // view offsets are computed for the small-arena framing so HUD margins stay stable while following
+  gfx.viewShift = R.vs; gfx.viewShiftX = R.vsx; gfx.tilt_ = tilt;
+  gfx.follow = (HX > 10.5 || HZ > 6.5) ? { dMin: small.d * 0.98, dFull: full.d, cx: 0, cz: 0.2, d: small.d, init: false } : null;
+  const cd = gfx.follow ? gfx.follow.d : full.d; cam.position.set(0, Math.sin(tilt) * cd, Math.cos(tilt) * cd).add(full.tgt); cam.lookAt(full.tgt);
+  gfx.camBase.copy(cam.position); gfx.camTarget.copy(full.tgt); gfx.camDist = cd;
   cam.setViewOffset(gfx.w, gfx.h, -(gfx.viewShiftX / 2) * gfx.w, (gfx.viewShift / 2) * gfx.h, gfx.w, gfx.h);
 }
+// Follow camera for Large/Huge arenas: keeps humans (and nearby foes / objectives) in view, clamped for readability.
+const _fb = { a: 0, b: 0, c: 0, d: 0 };
+export function followCam(dt, points, humans) {
+  const f = gfx.follow; if (!f || gfx.freeCam) return;
+  const set = humans && humans.length ? humans : points; if (!set.length) return;
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  for (const p of set) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  // include other points (foes/objectives) only if close to the human box so we never zoom out to fit far-away things
+  for (const p of points) { if (set.includes(p)) continue; const dx = Math.max(x0 - p[0], 0, p[0] - x1), dz = Math.max(z0 - p[1], 0, p[1] - z1); if (Math.hypot(dx, dz) < 7) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } }
+  const bw = x1 - x0 + 7, bh = z1 - z0 + 6; const ratio = Math.max(bw / 21.8, bh / 13.8, 1);
+  const cap = Math.min(f.dFull, f.dMin * 1.5);
+  let want = Math.min(cap, f.dMin * ratio); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
+  const lim = (v, h, vis) => Math.max(-h + vis * 0.35, Math.min(h - vis * 0.35, v)); const vis = want / f.dMin; tx = lim(tx, HX, 10 * vis); tz = lim(tz, HZ, 6 * vis);
+  const k = f.init ? 1 - Math.exp(-dt * 5) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (f.init ? 1 - Math.exp(-dt * 3) : 1);
+  const tilt = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tilt) * f.d, Math.cos(tilt) * f.d + f.cz); gfx.camDist = f.d;
+  const sun = gfx.sun; if (sun && sun.target) { sun.target.position.set(f.cx, 0, f.cz); sun.position.set(f.cx - 7, 15, f.cz + 8); }
+}
+// project a world point to screen fractions (0..1), returns [sx, sy, onScreen]
+const _pv = new THREE.Vector3();
+export function toScreen(x, y, z) { _pv.set(x, y, z).project(gfx.camera); return [(_pv.x + 1) / 2, (1 - _pv.y) / 2, _pv.z < 1 && _pv.x > -1 && _pv.x < 1 && _pv.y > -1 && _pv.y < 1]; }
 export function shake(amount) { if (!S().settings.shake) amount *= 0.15; gfx.trauma = Math.min(1, gfx.trauma + amount); }
 export function punch(dx, dz, a = 0.3) { const l = Math.hypot(dx, dz) || 1; gfx.kx += dx / l * a; gfx.kz += dz / l * a; }
 export function pulseFov(a) { gfx.fovPulse = Math.max(gfx.fovPulse, a); }

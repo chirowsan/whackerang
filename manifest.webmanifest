@@ -1,7 +1,7 @@
 {
-  "id": "/boomerang-brawl/",
-  "name": "Boomerang Brawl",
-  "short_name": "Brawl",
+  "id": "/whackerang/",
+  "name": "Whackerang",
+  "short_name": "Whackerang",
   "description": "A party brawler: throw boomerangs, catch them, be the last one standing. Plays offline.",
   "lang": "en",
   "dir": "ltr",

@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 640, h: 360 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(1500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(1500);
 const res = await page.evaluate(async () => {
   const bg = __bg; bg.app.paused = true; bg.app.mode = 'menu'; const out = {};
   const run = (diffs, N, arenas) => { const wins = diffs.map(() => 0); let draws = 0, tot = 0;

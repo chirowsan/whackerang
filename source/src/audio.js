@@ -123,6 +123,10 @@ const TRACKS = {
   rooftop: { bpm: 132, root: 40, chords: [[0, M], [0, M], [-4, MJ], [-2, MJ]], bass: '1.1.1.1.1.1.8.1.', arp: '0123012301230123', kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.', bw: 'sawtooth', aw: 'square' },
   jungle: { bpm: 120, root: 43, chords: [[0, M], [-4, MJ], [-2, MJ], [-5, MJ]], bass: '1..1..5.1..1..8.', arp: '0.21.30.2.13.20.1', kick: 'x..x..x.x..x..x.', snare: '....x.......x..x', hat: 'x.xxx.xxx.xxx.xx', bw: 'triangle', aw: 'sine' },
   ice: { bpm: 104, root: 47, chords: [[0, M], [-4, MJ], [3, MJ], [-2, MJ]], bass: '1.......5.......', arp: '0.1.2.3.2.1.0.1.', kick: 'x.......x.......', snare: '........x.......', hat: '..x...x...x...x.', bw: 'sine', aw: 'triangle' },
+  volcano: { bpm: 126, root: 38, chords: [[0, M], [1, MJ], [-2, M], [-4, MJ]], bass: '1.1.1.5.1.1.8.5.', arp: '0.2.3.2.0.2.3.5.', kick: 'x..xx...x..xx...', snare: '....x.......x..x', hat: 'x.xxx.xxx.xxx.xx', bw: 'sawtooth', aw: 'square' },
+  pirate: { bpm: 118, root: 45, chords: [[0, M], [-2, MJ], [-4, MJ], [-2, MJ]], bass: '1..5..1..5..8.5.', arp: '0.2.4.2.0.2.4.2.', kick: 'x..x..x.x..x..x.', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.', bw: 'triangle', aw: 'square' },
+  space: { bpm: 128, root: 41, chords: [[0, M], [-3, MJ], [-5, MJ], [-7, M]], bass: '1...1...5...1.8.', arp: '0.3.5.3.0.3.5.7.', kick: 'x...x...x...x...', snare: '........x.......', hat: '..x.x.x...x.x.xx', bw: 'sine', aw: 'sawtooth' },
+  haunted: { bpm: 100, root: 43, chords: [[0, M], [1, MJ], [0, M], [-2, M]], bass: '1.......5...1...', arp: '0.2.1.2.3.2.1.0.', kick: 'x.......x.......', snare: '............x...', hat: '..x...x...x...x.', bw: 'triangle', aw: 'sine' },
   boss: { bpm: 144, root: 38, chords: [[0, M], [-2, MJ], [-4, MJ], [-5, M]], bass: '1.1.1.8.1.1.5.8.', arp: '0.2.1.3.0.2.3.1.', kick: 'x..xx..xx..xx.x.', snare: '....x.......x..x', hat: 'xxxxxxxxxxxxxxxx', bw: 'sawtooth', aw: 'sawtooth' },
   bomb: { bpm: 140, root: 41, chords: [[0, M], [1, M], [0, M], [-2, MJ]], bass: '1.1.1.1.1.1.8.8.', arp: '0.1.2.1.0.1.2.3.', kick: 'x...x...x...x.x.', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.xx', bw: 'square', aw: 'square' },
   koth: { bpm: 124, root: 43, chords: [[0, MJ], [-3, M], [-5, MJ], [-7, MJ]], bass: '1.1.5.1.1.1.8.5.', arp: '0.12.3.21.0.12.3.2', kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.', bw: 'triangle', aw: 'square' },
@@ -131,7 +135,7 @@ const TRACKS = {
 let cur = null, curName = null, step = 0, nextT = 0, tempoMul = 1, musicOn = true, inten = 0;
 export function setIntensity(x) { inten = x; }
 export function music(name) {
-  if (name === curName) return; curName = name; cur = name ? TRACKS[name] : null; step = 0; if (ctx) nextT = ctx.currentTime + 0.1;
+  if (name === curName) return; curName = name; cur = name ? (TRACKS[name] || TRACKS.dojo) : null; step = 0; if (ctx) nextT = ctx.currentTime + 0.1;
 }
 export function setTempo(m) { tempoMul = m; }
 export function musicName() { return curName; }
@@ -155,7 +159,7 @@ function sched() {
     if (inten > 0.8 && s % 4 === 2) tone(mtof(root + 36 + ct[(s / 2) % 3]), t, sd * 1.2, 'square', 0.05, { lp: 5000, send: 0.4, bus: musBus });
     if (inten > 0.9 && s % 8 === 0) tone(mtof(root - 12), t, sd * 6, 'sawtooth', 0.14, { lp: 500, bus: musBus });
     if (s === 0 && bar % 2 === 0 && tr.bw !== 'sine') tone(mtof(root + 12 + ct[2]), t, sd * 14, 'triangle', 0.05, { send: 0.2, bus: musBus, a: 0.3 });
-    if (tr === TRACKS.ice && s % 4 === 0) tone(mtof(root + 36 + ct[(s / 4) % 3]), t, sd * 3, 'sine', 0.08, { send: 0.6, bus: musBus });
+    if ((tr === TRACKS.ice || tr === TRACKS.haunted || tr === TRACKS.space) && s % 4 === 0) tone(mtof(root + 36 + ct[(s / 4) % 3]), t, sd * 3, 'sine', 0.08, { send: 0.6, bus: musBus });
     nextT += sd; step++;
   }
 }

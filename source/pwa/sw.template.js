@@ -1,13 +1,13 @@
-/* Boomerang Brawl service worker - build __BUILD__. Whole game is one HTML file, so precache is tiny. */
+/* Whackerang service worker - build __BUILD__. Whole game is one HTML file, so precache is tiny. */
 const VERSION = '__BUILD__';
-const CACHE = 'bb-' + VERSION;
+const CACHE = 'whk-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png', './screenshots/play.png', './screenshots/menu.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all(CORE.map((u) => c.add(new Request(u, { cache: 'reload' })).catch((err) => { if (u === './' || u === './index.html') throw err; })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k.startsWith('bb-') && k !== CACHE) await caches.delete(k);
+    for (const k of await caches.keys()) if ((k.startsWith('bb-') || k.startsWith('whk-')) && k !== CACHE) await caches.delete(k);
     await self.clients.claim();
     for (const c of await self.clients.matchAll()) c.postMessage({ type: 'offline-ready', version: VERSION });
   })());

@@ -1,0 +1,271 @@
+{
+ "packageName": "com.chirow.whackerang",
+ "firstBuyBonus": 0.5,
+ "items": {
+  "types:razor": {
+   "cat": "types",
+   "id": "razor",
+   "cost": 250,
+   "premium": false
+  },
+  "types:frost": {
+   "cat": "types",
+   "id": "frost",
+   "cost": 300,
+   "premium": false
+  },
+  "types:chain": {
+   "cat": "types",
+   "id": "chain",
+   "cost": 400,
+   "premium": false
+  },
+  "types:boom": {
+   "cat": "types",
+   "id": "boom",
+   "cost": 450,
+   "premium": false
+  },
+  "types:phantom": {
+   "cat": "types",
+   "id": "phantom",
+   "cost": 500,
+   "premium": false
+  },
+  "trails:spark": {
+   "cat": "trails",
+   "id": "spark",
+   "cost": 100,
+   "premium": false
+  },
+  "trails:flame": {
+   "cat": "trails",
+   "id": "flame",
+   "cost": 150,
+   "premium": false
+  },
+  "trails:frost": {
+   "cat": "trails",
+   "id": "frost",
+   "cost": 150,
+   "premium": false
+  },
+  "trails:leaf": {
+   "cat": "trails",
+   "id": "leaf",
+   "cost": 120,
+   "premium": false
+  },
+  "trails:rose": {
+   "cat": "trails",
+   "id": "rose",
+   "cost": 200,
+   "premium": false
+  },
+  "trails:neon": {
+   "cat": "trails",
+   "id": "neon",
+   "cost": 300,
+   "premium": false
+  },
+  "trails:cosmic": {
+   "cat": "trails",
+   "id": "cosmic",
+   "cost": 1200,
+   "premium": true
+  },
+  "trails:comet": {
+   "cat": "trails",
+   "id": "comet",
+   "cost": 800,
+   "premium": true
+  },
+  "skins:gold": {
+   "cat": "skins",
+   "id": "gold",
+   "cost": 200,
+   "premium": false
+  },
+  "skins:ruby": {
+   "cat": "skins",
+   "id": "ruby",
+   "cost": 200,
+   "premium": false
+  },
+  "skins:ocean": {
+   "cat": "skins",
+   "id": "ocean",
+   "cost": 200,
+   "premium": false
+  },
+  "skins:shadow": {
+   "cat": "skins",
+   "id": "shadow",
+   "cost": 260,
+   "premium": false
+  },
+  "skins:candy": {
+   "cat": "skins",
+   "id": "candy",
+   "cost": 260,
+   "premium": false
+  },
+  "skins:mint": {
+   "cat": "skins",
+   "id": "mint",
+   "cost": 160,
+   "premium": false
+  },
+  "skins:aurora": {
+   "cat": "skins",
+   "id": "aurora",
+   "cost": 1400,
+   "premium": true
+  },
+  "skins:galaxy": {
+   "cat": "skins",
+   "id": "galaxy",
+   "cost": 1800,
+   "premium": true
+  },
+  "skins:inferno": {
+   "cat": "skins",
+   "id": "inferno",
+   "cost": 1800,
+   "premium": true
+  },
+  "emotes:haha": {
+   "cat": "emotes",
+   "id": "haha",
+   "cost": 60,
+   "premium": false
+  },
+  "emotes:taunt": {
+   "cat": "emotes",
+   "id": "taunt",
+   "cost": 80,
+   "premium": false
+  },
+  "emotes:thanks": {
+   "cat": "emotes",
+   "id": "thanks",
+   "cost": 60,
+   "premium": false
+  },
+  "emotes:grr": {
+   "cat": "emotes",
+   "id": "grr",
+   "cost": 80,
+   "premium": false
+  },
+  "emotes:party": {
+   "cat": "emotes",
+   "id": "party",
+   "cost": 150,
+   "premium": true
+  },
+  "emotes:bonk": {
+   "cat": "emotes",
+   "id": "bonk",
+   "cost": 150,
+   "premium": true
+  },
+  "hats:band": {
+   "cat": "hats",
+   "id": "band",
+   "cost": 40,
+   "premium": false
+  },
+  "hats:party": {
+   "cat": "hats",
+   "id": "party",
+   "cost": 60,
+   "premium": false
+  },
+  "hats:top": {
+   "cat": "hats",
+   "id": "top",
+   "cost": 90,
+   "premium": false
+  },
+  "hats:halo": {
+   "cat": "hats",
+   "id": "halo",
+   "cost": 120,
+   "premium": false
+  },
+  "hats:flower": {
+   "cat": "hats",
+   "id": "flower",
+   "cost": 80,
+   "premium": false
+  },
+  "hats:shades": {
+   "cat": "hats",
+   "id": "shades",
+   "cost": 100,
+   "premium": false
+  },
+  "hats:crown": {
+   "cat": "hats",
+   "id": "crown",
+   "cost": 900,
+   "premium": true
+  },
+  "heroes:pico": {
+   "cat": "heroes",
+   "id": "pico",
+   "cost": 300
+  },
+  "heroes:yuki": {
+   "cat": "heroes",
+   "id": "yuki",
+   "cost": 450
+  }
+ },
+ "packs": {
+  "whackerang.gold.500": {
+   "id": "gold_500",
+   "name": "Pocketful",
+   "price": 0.99,
+   "gold": 500,
+   "oneTime": false,
+   "items": []
+  },
+  "whackerang.gold.2800": {
+   "id": "gold_2800",
+   "name": "Pouch",
+   "price": 4.99,
+   "gold": 2800,
+   "oneTime": false,
+   "items": []
+  },
+  "whackerang.gold.6000": {
+   "id": "gold_6000",
+   "name": "Chest",
+   "price": 9.99,
+   "gold": 6000,
+   "oneTime": false,
+   "items": []
+  },
+  "whackerang.gold.13000": {
+   "id": "gold_13000",
+   "name": "Vault",
+   "price": 19.99,
+   "gold": 13000,
+   "oneTime": false,
+   "items": []
+  },
+  "whackerang.starter": {
+   "id": "starter",
+   "name": "Starter Pack",
+   "price": 2.99,
+   "gold": 2000,
+   "oneTime": true,
+   "items": [
+    "trails:cosmic",
+    "skins:aurora"
+   ]
+  }
+ }
+}

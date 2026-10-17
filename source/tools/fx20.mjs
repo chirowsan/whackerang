@@ -1,7 +1,7 @@
 import { launch, sleep } from './lib.mjs';
 const tag = process.argv[2] || 'a';
 const { browser, page, errors } = await launch({ w: 915, h: 412, dpr: 1, mobile: true });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 await page.evaluate(() => { const s = __bg.S(); s.tutorialDone = true; s.settings.events = 'off'; });
 const shot = async (n) => { await page.evaluate(() => { __bg.renderNow(); __bg.renderNow(); }); await page.screenshot({ path: `/workspace/boomerang-brawl/shots/v20/fx-${n}-${tag}.png` }); };
 const ev = (f, ...a) => page.evaluate(f, ...a);

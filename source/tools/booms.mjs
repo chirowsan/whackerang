@@ -2,7 +2,7 @@
 import { launch, sleep } from './lib.mjs';
 const tag = process.argv[2] || 'ac', arena = process.argv[3] || 'jungle', W = +(process.argv[4] || 1280), H = +(process.argv[5] || 720);
 const { browser, page, errors } = await launch({ w: W, h: H });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
 await page.evaluate((arena) => { const s = __bg.S(); s.setup.arena = arena; s.setup.bots = 3; __bg.app.startMatch(); }, arena);
 for (let i = 0; i < 40; i++) { if (await page.evaluate(() => __bg.app.game.state) === 'play') break; await sleep(300); }
 await page.evaluate(() => {

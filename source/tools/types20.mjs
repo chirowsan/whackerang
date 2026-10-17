@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 915, h: 412, dpr: 1, mobile: true });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 await page.evaluate(() => { const s = __bg.S(); s.tutorialDone = true; s.settings.events = 'off'; s.setup.arena = 'dojo'; s.setup.bots = 3; s.setup.diff = 0; });
 const run = (type, wall) => page.evaluate((type, wall) => {
   __bg.app.startMode('classic'); __bg.step(240); const g = __bg.app.game;

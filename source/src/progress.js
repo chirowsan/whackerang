@@ -1,5 +1,6 @@
 // XP / levels, daily challenges, achievements, shop catalog. All local, no accounts.
 import { S, save } from './save.js';
+import { ledgerAdd } from './economy.js';
 import { HATS, BOOM_TYPES, TRAILS, SKINS, EMOTES, HEROES, ACHIEVEMENTS } from './data.js';
 
 export const xpNeed = (lv) => 70 + lv * 40;
@@ -9,13 +10,13 @@ export const LEVEL_REWARDS = { 2: { trails: 'spark' }, 3: { types: 'razor' }, 4:
 const NAMES = { types: (id) => BOOM_TYPES[id].name + ' boomerang', trails: (id) => TRAILS[id].name + ' trail', skins: (id) => SKINS[id].name + ' skin', emotes: (id) => EMOTES[id].text + ' emote' };
 let notify = (msg, kind) => {}; export const setNotifier = (fn) => { notify = fn; };
 
-export function addCoins(n) { const s = S(); s.coins += n; if (n > 0) { s.totalCoins = (s.totalCoins || 0) + n; } }
+export function addCoins(n, reason = 'play') { const s = S(); s.coins += n; if (n > 0) { s.totalCoins = (s.totalCoins || 0) + n; ledgerAdd(n, reason, 'earn'); } }
 export function addXp(n) {
   const s = S(), before = levelInfo().level; s.xp += Math.round(n); const after = levelInfo().level; const ups = [];
   for (let lv = before + 1; lv <= after; lv++) {
-    const coins = 40 + lv * 10; addCoins(coins); const up = { level: lv, coins, unlock: null };
+    const coins = 40 + lv * 10; addCoins(coins, 'level'); const up = { level: lv, coins, unlock: null };
     const r = LEVEL_REWARDS[lv]; if (r) { const k = Object.keys(r)[0], id = r[k]; if (!s.own[k].includes(id)) { s.own[k].push(id); up.unlock = NAMES[k](id); } }
-    ups.push(up); notify(`LEVEL ${lv}!  +${coins} coins` + (up.unlock ? ' · unlocked ' + up.unlock : ''), 'level');
+    ups.push(up); notify(`LEVEL ${lv}!  +${coins} gold` + (up.unlock ? ' · unlocked ' + up.unlock : ''), 'level');
   }
   s.stats.level = Math.max(s.stats.level || 1, after); checkAch(); save(); return ups;
 }
@@ -23,7 +24,7 @@ export function addXp(n) {
 // ---------- achievements ----------
 export function checkAch() {
   const s = S();
-  for (const a of ACHIEVEMENTS) { if (s.ach[a.id]) continue; if ((s.stats[a.stat] || 0) >= a.n) { s.ach[a.id] = Date.now(); addCoins(a.coins); notify(`ACHIEVEMENT: ${a.name}  +${a.coins}`, 'ach'); } }
+  for (const a of ACHIEVEMENTS) { if (s.ach[a.id]) continue; if ((s.stats[a.stat] || 0) >= a.n) { s.ach[a.id] = Date.now(); addCoins(a.coins, 'achievement'); notify(`ACHIEVEMENT: ${a.name}  +${a.coins} gold`, 'ach'); } }
 }
 // ---------- daily challenges ----------
 const POOL = [
@@ -46,7 +47,7 @@ export function ensureDaily() {
   s.daily = { date: key, list, prog: {}, claimed: {} }; save(); return s.daily;
 }
 export function dailyProgress(c) { const d = ensureDaily(); return Math.min(c.n, d.prog[c.id] || 0); }
-export function claimDaily(i) { const d = ensureDaily(), c = d.list[i]; if (!c || d.claimed[c.id] || dailyProgress(c) < c.n) return false; d.claimed[c.id] = true; addCoins(c.coins); addXp(c.xp); save(); return true; }
+export function claimDaily(i) { const d = ensureDaily(), c = d.list[i]; if (!c || d.claimed[c.id] || dailyProgress(c) < c.n) return false; d.claimed[c.id] = true; addCoins(c.coins, 'daily'); addXp(c.xp); save(); return true; }
 // ---------- stat tracking ----------
 export function track(stat, n = 1) {
   const s = S(); const a = ACHIEVEMENTS.find((q) => q.stat === stat && q.max);
@@ -55,17 +56,24 @@ export function track(stat, n = 1) {
   checkAch();
 }
 // ---------- shop ----------
+const np = (o) => Object.entries(o).filter(([, v]) => v.cost && !v.premium);
 export const SHOP = {
   Boomerangs: Object.entries(BOOM_TYPES).filter(([, v]) => v.cost).map(([id, v]) => ({ cat: 'types', id, name: v.name, desc: v.desc, cost: v.cost, color: v.color })),
-  Skins: Object.entries(SKINS).filter(([, v]) => v.cost).map(([id, v]) => ({ cat: 'skins', id, name: v.name, cost: v.cost, color: v.arm })),
-  Trails: Object.entries(TRAILS).filter(([, v]) => v.cost).map(([id, v]) => ({ cat: 'trails', id, name: v.name, cost: v.cost, color: v.color, rainbow: v.rainbow })),
-  Hats: HATS.filter((h) => h.cost).map((h) => ({ cat: 'hats', id: h.id, name: h.name, cost: h.cost })),
-  Emotes: Object.entries(EMOTES).filter(([, v]) => v.cost).map(([id, v]) => ({ cat: 'emotes', id, name: v.text, cost: v.cost, color: v.color })),
+  Skins: np(SKINS).map(([id, v]) => ({ cat: 'skins', id, name: v.name, cost: v.cost, color: v.arm })),
+  Trails: np(TRAILS).map(([id, v]) => ({ cat: 'trails', id, name: v.name, cost: v.cost, color: v.color, rainbow: v.rainbow })),
+  Hats: HATS.filter((h) => h.cost && !h.premium).map((h) => ({ cat: 'hats', id: h.id, name: h.name, cost: h.cost })),
+  Emotes: Object.entries(EMOTES).filter(([, v]) => v.cost && !v.premium).map(([id, v]) => ({ cat: 'emotes', id, name: v.text, cost: v.cost, color: v.color })),
   Fighters: HEROES.filter((h) => h.cost).map((h) => ({ cat: 'heroes', id: h.id, name: h.name, cost: h.cost, hero: h })),
+  Premium: [
+    ...Object.entries(SKINS).filter(([, v]) => v.premium).map(([id, v]) => ({ cat: 'skins', id, name: v.name + ' skin', cost: v.cost, color: v.arm })),
+    ...Object.entries(TRAILS).filter(([, v]) => v.premium).map(([id, v]) => ({ cat: 'trails', id, name: v.name + ' trail', cost: v.cost, color: v.color, rainbow: v.rainbow })),
+    ...HATS.filter((h) => h.premium).map((h) => ({ cat: 'hats', id: h.id, name: h.name + ' hat', cost: h.cost })),
+    ...Object.entries(EMOTES).filter(([, v]) => v.premium).map(([id, v]) => ({ cat: 'emotes', id, name: v.text, cost: v.cost, color: v.color })),
+  ],
 };
 export function owns(cat, id) { const s = S(); if (cat === 'hats') return s.unlockedHats.includes(id); if (cat === 'heroes') return s.unlockedHeroes.includes(id); return s.own[cat].includes(id); }
 export function buy(item) {
-  const s = S(); if (owns(item.cat, item.id) || s.coins < item.cost) return false; s.coins -= item.cost;
+  const s = S(); if (owns(item.cat, item.id) || s.coins < item.cost) return false; s.coins -= item.cost; ledgerAdd(-item.cost, 'shop:' + item.cat + ':' + item.id, 'spend');
   if (item.cat === 'hats') s.unlockedHats.push(item.id); else if (item.cat === 'heroes') s.unlockedHeroes.push(item.id); else s.own[item.cat].push(item.id); save(); return true;
 }
 export function equip(cat, id) { const s = S(); const k = { types: 'type', trails: 'trail', skins: 'skin' }[cat]; if (k) { s.eq[k] = id; save(); } }

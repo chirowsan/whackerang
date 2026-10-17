@@ -1,8 +1,8 @@
 // Mode rules, ultimates, respawn, bomb tag, KOTH, survival waves and boss logic. Mixed into Game.
 import { THREE, gfx, glowMat, toon, shake, pulseFov, punch } from './gfx.js';
-import { AW, AH, HX, HZ, cx, cz, ci, cj, idx, inb, clamp, pick, rr, shuffle } from './util.js';
+import { AW, AH, HX, HZ, cx, cz, ci, cj, idx, inb, clamp, pick, rr, shuffle, arenaScale } from './util.js';
 import { HEROES, PLAYER_COLORS, PERSONAS, BOOM_TYPES, ULTS, POWERUPS } from './data.js';
-import { SPAWNS, T } from './arena.js';
+import { spawns, T } from './arena.js';
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { Marker } from './events.js';
@@ -19,16 +19,18 @@ export function installRules(Game, { Boom, Fighter }) {
     if (r.type === 'bomb') { this.mst.holder = null; this.mst.fuse = 12; this.mst.fuseMax = 12; const m = new THREE.Group(); const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), toon(0x1c1c28)); const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.14, 8), toon(0x888899)); cap.position.y = 0.36; const spark = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffc040 })); spark.position.set(0.1, 0.55, 0); m.add(body, cap, spark); m.userData = { body, spark }; m.visible = false; this.scene.add(m); this.bombMesh = m; this.bombMk = new Marker(this.scene, 0xff4040, 1.1, 0.25); this.bombMk.g.visible = false; }
     if (r.type === 'survival') { this.mst.wave = 0; this.mst.waveDelay = 2.5; this.mst.kills = 0; this.mst.starting = true; }
     this.slam = []; this.mst.bossSpawned = false;
+    if (r.type === 'ctf' || r.type === 'coins' || r.type === 'ball' || r.type === 'bossrush' || r.crumble) this.initMode2();
   };
-  P.disposeRules = function () { if (this.zone) this.zone.mk.dispose(); if (this.bombMesh) { this.scene.remove(this.bombMesh); this.bombMk.dispose(); } for (const s of this.slam || []) s.mk.dispose(); if (this.slamMk) this.slamMk.dispose(); };
+  P.disposeRules = function () { if (this.zone) this.zone.mk.dispose(); if (this.bombMesh) { this.scene.remove(this.bombMesh); this.bombMk.dispose(); } for (const s of this.slam || []) s.mk.dispose(); if (this.slamMk) this.slamMk.dispose(); if (this.disposeMode2) this.disposeMode2(); };
   P.onRulesGo = function () { if (this.rules.type === 'bomb') this.passBomb(null, pick(this.fighters.filter((f) => f.alive))); };
-  P.respawnDelay = function (f) { return this.rules.type === 'survival' ? 1.8 : 2.2; };
+  P.respawnDelay = function (f) { return this.rules.type === 'survival' || this.rules.type === 'bossrush' ? 1.8 : this.rules.type === 'ball' ? 1.6 : 2.2; };
 
   P.respawn = function (f) {
     if (this.state !== 'play') { f.respawnT = 0.5; return; }
     const foes = this.fighters.filter((o) => o.alive && o.team !== f.team); let best = null, bd = -1;
-    const spots = [...SPAWNS.map(([i, j]) => [cx(i), cz(j)]), [0, 0], [-6, 0], [6, 0]];
+    const [sk, sz] = arenaScale(); const spots = [...spawns().map(([i, j]) => [cx(i), cz(j)]), [0, 0], [-6 * sk, 0], [6 * sk, 0]];
     for (const [x, z] of spots) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.layout.t[k] === T.LAVA || this.layout.t[k] === T.SPIKE || this.sol[k]) continue; const d = foes.length ? Math.min(...foes.map((o) => Math.hypot(o.x - x, o.z - z))) : 5 + Math.random(); if (d > bd) { bd = d; best = [x, z]; } }
+    const sp2 = this.respawnSpot2 ? this.respawnSpot2(f) : null; if (sp2) best = sp2;
     best = best || [f.spawn[0], f.spawn[1]]; f.x = best[0]; f.z = best[1]; f.vx = f.vz = 0; f.alive = true; f.deadT = 0; f.air = 0; f.hp = f.maxHp; f.inv = 2.2; f.spawnT = 0; f.ammo = f.maxAmmo; f.charging = false; f.shield = false; f.frozenT = 0; f.stunT = 0; f.deathKind = '';
     const m = f.model; m.body.rotation.set(0, 0, 0); m.root.scale.setScalar(f.bs); m.root.position.set(f.x, 0, f.z); f.ult = Math.min(f.ult, 40);
     sfx('spawn'); fx.ring(f.x, 0.1, f.z, f.color, 2.8, 0.5); fx.sparks(f.x, 0.8, f.z, 16, [f.color, 0xffffff], { speed: 4, life: 0.6 });
@@ -61,7 +63,7 @@ export function installRules(Game, { Boom, Fighter }) {
   // ---------------- enemies (survival / boss minions)
   P.spawnEnemy = function (d) {
     const humans = this.fighters.filter((f) => f.team === 0 && f.alive); let best = null, bd = -1;
-    const spots = [...SPAWNS.map(([i, j]) => [cx(i), cz(j)]), [0, -4.5], [0, 4.5], [-8, 0], [8, 0]];
+    const [sk, sz] = arenaScale(); const spots = [...spawns().map(([i, j]) => [cx(i), cz(j)]), [0, -4.5 * sz], [0, 4.5 * sz], [-8 * sk, 0], [8 * sk, 0]];
     for (const [x, z] of shuffle(spots)) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.sol[k] || this.layout.t[k] !== T.FLOOR) continue; const dd = humans.length ? Math.min(...humans.map((o) => Math.hypot(o.x - x, o.z - z))) : 6; if (dd > bd) { bd = dd; best = [x, z]; } }
     best = best || [0, 0]; const hero = d.hero || pick(HEROES);
     const def = { ctrl: 'bot', hero, name: d.name || hero.name, persona: d.persona || PERSONAS[hero.id], slot: -1, ...d };
@@ -116,6 +118,7 @@ export function installRules(Game, { Boom, Fighter }) {
       if (foes === 0) { m.waveDelay -= dt; if (m.waveDelay <= 0 && !m.pendingEnd) { this.spawnWave(); m.waveDelay = 3.2; } }
       else m.waveDelay = 3.2;
     }
+    if (this.updateMode2) this.updateMode2(dt);
     // KOTH
     if (r.type === 'koth') this.updateKoth(dt);
     // bomb
@@ -154,7 +157,7 @@ export function installRules(Game, { Boom, Fighter }) {
   };
   P.checkEnd = function () {
     if (this.state !== 'play') return; const r = this.rules;
-    if (r.type === 'koth') return; // handled in updateKoth
+    if (r.type === 'koth' || r.type === 'ctf' || r.type === 'coins' || r.type === 'ball' || r.type === 'bossrush') return; // handled by their own update
     const live = this.fighters.filter((f) => f.alive || f.respawnT > 0);
     if (r.type === 'survival') { if (!live.some((f) => f.team === 0)) { this.mst.lost = true; this.finish(1, null); } return; }
     const teams = new Set(live.map((f) => f.team));
@@ -166,6 +169,7 @@ export function installRules(Game, { Boom, Fighter }) {
     if (r.type === 'koth') { o.scores = m.scores; o.target = m.target; o.owner = this.zone.owner; o.contested = this.zone.contested; o.zoneIn = Math.max(0, (r.zoneMove || 22) - this.zone.t); }
     if (r.type === 'bomb') { o.holder = m.holder; o.fuse = Math.max(0, m.fuse || 0); o.fuseMax = m.fuseMax; }
     if (r.type === 'survival') { o.wave = m.wave; o.left = m.enemies; }
+    Object.assign(o, this.mstate2());
     const boss = this.fighters.find((f) => f.boss); if (boss) { o.boss = { hp: boss.alive ? boss.hp : 0, max: boss.maxHp, name: boss.name }; }
     return o;
   };

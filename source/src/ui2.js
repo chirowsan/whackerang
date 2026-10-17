@@ -2,17 +2,22 @@
 import { UI, h, $ } from './ui.js';
 import { S, save, resetSave } from './save.js';
 import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, MODES, ACHIEVEMENTS, PERSONA_INFO } from './data.js';
+import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
+import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
+import { todayMutator, MUTATORS } from './mutators.js';
+import { TRAP_INFO } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
 import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS } from './progress.js';
 import { sfx, applyVolumes } from './audio.js';
-import { setQuality, gfx } from './gfx.js';
+import { setQuality, gfx, toScreen } from './gfx.js';
+import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
 import { Input } from './input.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
+const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', volcano: 'linear-gradient(135deg,#57444a,#ff7a1a)', pirate: 'linear-gradient(135deg,#c29560,#2fb4e8)', space: 'linear-gradient(135deg,#44507a,#36e0ff)', haunted: 'linear-gradient(135deg,#66567a,#8a6aff)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path d="M3 18 2 7l5 4 5-7 5 7 5-4-1 11z" fill="#ffd23c" stroke="#8a5200" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const heart = (on) => `<svg class="heart ${on ? '' : 'off'}" viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.800-8 11-8 11z" fill="#ff4a7a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const boomSvg = (c) => `<svg viewBox="0 0 48 48" class="bsv"><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#1a0a2a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -25,13 +30,47 @@ Object.assign(UI, {
   notify(msg, kind) { this._nq = this._nq || []; this._nq.push({ msg, kind }); if (!this._nr) this._nextNote(); },
   _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
   heroLine(hh) { return `<div class="perk">★ ${hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
-  coinChip() { return h('div', 'chip', `<span class="coin"></span><span id="coinval">${S().coins}</span>`); },
+  coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
+  // ================= Gold Store =================
+  goldstore(p) {
+    const s = S(); const tab = p.tab || 'earn'; const el = h('div', 'screen page gold-store'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(p.ret || 'menu'))); hd.appendChild(h('h2', '', 'Gold Store')); hd.appendChild(h('div', 'chip', `<span class="coin"></span><span id="coinval">${s.coins}</span>`)); el.appendChild(hd);
+    const tabs = h('div', 'tabs'); [['earn', 'Earn free'], ['buy', 'Buy gold']].forEach(([id, t]) => { const b = h('button', 'tab' + (id === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: id, ret: p.ret }); }); tabs.appendChild(b); }); el.appendChild(tabs);
+    const body = h('div', 'gs-body scroll'); const again = () => this.show('goldstore', { tab, ret: p.ret });
+    if (tab === 'earn') {
+      const e = earnToday(); const st = streakInfo(); const d = ensureDaily();
+      body.appendChild(h('div', 'gs-note', `Everything in Whackerang can be earned by playing. <b>Earned today: ${e.total} gold</b>`));
+      // login streak
+      const sc = h('div', 'gs-card', `<h4>Daily login streak</h4><div class="streak">${st.ladder.map((g, i) => `<span class="${i < st.n ? 'done' : ''}${i === st.next - 1 && !st.claimedToday ? ' now' : ''}"><b>Day ${i + 1}</b>${g}</span>`).join('')}</div>`);
+      sc.appendChild(st.claimedToday ? h('div', 'owned', '✓ Claimed today — come back tomorrow!') : this.btn(`Claim +${st.reward} gold`, 'gold small', () => { if (claimStreak()) { sfx('buy'); again(); } })); body.appendChild(sc);
+      // daily challenges
+      const dc = h('div', 'gs-card', '<h4>Today\u2019s challenges</h4>'); d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} gold</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); again(); } })); dc.appendChild(row); }); body.appendChild(dc);
+      // bonus placeholder
+      const bn = h('div', 'gs-card', `<h4>Bonus gold <span class="tag">placeholder</span></h4><small>A rewarded-bonus slot. No ad is shown in this version. ${bonusLeft()} of ${EARN.bonusPerDay} left today.</small>`); bn.appendChild(this.btn(bonusLeft() ? `Collect +${EARN.bonus} gold` : 'Come back tomorrow', 'small ' + (bonusLeft() ? 'gold' : 'locked'), () => { if (claimBonus()) { sfx('buy'); again(); } })); body.appendChild(bn);
+      // play to earn
+      body.appendChild(h('div', 'gs-card', `<h4>Earn by playing</h4><ul class="earnlist"><li><b>+${EARN.win}</b> win a match <i>(+${EARN.play} just for playing)</i></li><li><b>+${EARN.ko}</b> every KO</li><li><b>+${EARN.catchStar}</b> per campaign star, <b>+${EARN.firstClear}</b> first clear</li><li><b>+${EARN.bossRushBoss}</b> per Boss Rush boss, <b>+${EARN.bossRushClear}</b> for clearing it</li><li><b>+50…200</b> achievements · <b>+${EARN.level(5)}…</b> every level up</li></ul>`));
+      const near = ACHIEVEMENTS.filter((a) => !s.ach[a.id]).map((a) => ({ a, f: Math.min(1, (s.stats[a.stat] || 0) / a.n) })).sort((x, y) => y.f - x.f).slice(0, 3);
+      if (near.length) body.appendChild(h('div', 'gs-card', `<h4>Almost there</h4>${near.map(({ a, f }) => `<div class="daily"><div><b>${a.name}</b> <small>${a.desc} · +${a.coins} gold</small><span class="xpbar"><i style="width:${Math.round(f * 100)}%"></i></span></div></div>`).join('')}`));
+    } else if (!gatePassed()) {
+      const q = gateQuestion(); const g = h('div', 'gs-card gate', `<h4>🔒 Grown-ups only</h4><p>Buying gold needs a parent or guardian. ${q.text}</p>`); const row = h('div', 'gate-opts');
+      q.opts.forEach((o) => { const b = this.btn(String(o), 'small', () => { if (o === q.ans) { gatePass(); sfx('buy'); again(); } else { sfx('deny'); this.toast('Not quite. Ask a grown-up to help.'); this.show('goldstore', { tab, ret: p.ret }); } }); row.appendChild(b); }); g.appendChild(row);
+      g.appendChild(h('small', '', 'You can keep earning gold for free in the Earn free tab — nothing in the game needs a purchase.')); body.appendChild(g);
+    } else {
+      const prov = getProvider(); const first = isFirstPurchase();
+      if (TEST_MODE) body.appendChild(h('div', 'gs-test', '<b>TEST MODE</b> — no real money is charged. These are fake purchases that just add gold so we can test the store.'));
+      if (first) body.appendChild(h('div', 'gs-note', `First purchase bonus: <b>+${Math.round(FIRST_BUY_BONUS * 100)}% extra gold</b> on your first pack (one time).`));
+      const grid = h('div', 'pack-grid'); const buyPack = async (pack) => { try { const r = await prov.purchase(pack); sfx('buy'); this.toast(`+${r.gold} gold added${TEST_MODE ? ' (TEST)' : ''}`); again(); } catch (err) { sfx('deny'); this.toast(String(err.message || err)); } };
+      if (!s.starterBought) { const c = h('div', 'pack starter', `<div class="pi">${STARTER.icon}</div><h4>${STARTER.name}</h4><b class="pg">${packTotal(STARTER, first)} gold</b><small>+ Cosmic trail + Aurora skin</small><em>one-time offer</em>`); c.appendChild(this.btn(`${fmtPrice(STARTER)}${TEST_MODE ? ' · TEST' : ''}`, 'small primary', () => buyPack(STARTER))); grid.appendChild(c); }
+      PACKS.forEach((pk) => { const c = h('div', 'pack', `<div class="pi">${pk.icon}</div><h4>${pk.name}</h4><b class="pg">${packTotal(pk, first)} gold</b>${pk.bonus ? `<span class="bonus">+${pk.bonus}% bonus</span>` : '<span class="bonus none"></span>'}${first ? `<small>incl. first-buy bonus</small>` : ''}`); c.appendChild(this.btn(`${fmtPrice(pk)}${TEST_MODE ? ' · TEST' : ''}`, 'small primary', () => buyPack(pk))); grid.appendChild(c); });
+      body.appendChild(grid); body.appendChild(h('div', 'gs-note', 'Gold only buys cosmetics and shortcuts (skins, trails, hats, emotes, fighters). Power is never for sale: every boomerang type is unlocked by levelling up.'));
+    }
+    el.appendChild(body); return el;
+  },
   seg(label, obj, key, opts, onChange) { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([val, t]) => { const b = h('button', obj[key] === val ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { obj[key] = val; save(); [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); sfx('click'); onChange && onChange(); }); sg.appendChild(b); }); r.appendChild(sg); return r; },
 
   // ================= menu =================
   menu() {
     const a = this.app, s = S(), hero = this.heroById(s.hero); const el = h('div', 'screen', null, { id: 'menu' }); const left = h('div', 'left');
-    left.appendChild(h('div', '', `<div class="title">BOOMERANG<br>BRAWL</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
+    left.appendChild(h('div', '', `<div class="title">WHACKERANG</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
     left.appendChild(this.btn('▶ Play', 'primary big', () => (!s.tutorialDone ? this.show('tutintro') : this.show('modes'))));
     const g = h('div', 'menu-grid');
     const dailyReady = ensureDaily().list.some((c, i) => !ensureDaily().claimed[c.id] && dailyProgress(c) >= c.n);
@@ -69,23 +108,28 @@ Object.assign(UI, {
     const s = S(), v = s.setup, mode = p.mode || v.mode || 'classic'; v.mode = mode; const M = MODES[mode]; const el = h('div', 'screen page'); const hd = h('header');
     hd.appendChild(this.backBtn(() => this.show('modes'))); hd.appendChild(h('h2', '', M.name)); hd.appendChild(this.coinChip()); el.appendChild(hd);
     const grid = h('div', 'panel vs-grid scroll'); const touch = this.app.isTouchDevice(); const add = (r) => grid.appendChild(r);
+    if (mode === 'coins' || mode === 'crumble') add(this.seg('Bots', v, 'bots', [[1, '1'], [2, '2'], [3, '3']]));
+    if (mode === 'crumble') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins']]));
     if (mode === 'classic') add(this.seg('Players', v, 'players', touch ? [[1, '1 Player']] : [[1, '1 Player'], [2, '2 Local']]));
     if (mode === 'classic') add(this.seg('Bots', v, 'bots', [[1, '1'], [2, '2'], [3, '3']]));
     if (mode === 'koth' || mode === 'bomb') add(this.seg('Bots', v, 'bots', [[mode === 'bomb' ? 2 : 1, mode === 'bomb' ? '2' : '1'], [2, mode === 'bomb' ? '2' : '2'], [3, '3']].filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i)));
-    if (mode !== 'survival') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]));
+    if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]));
     if (mode === 'classic' || mode === 'team') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins'], [5, '5 wins']]));
     add(this.seg('Arena events', s.settings, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
+    if (!M.size) add(this.seg('Map size', v, 'size', [['small', 'Small'], ['large', 'Large'], ['huge', 'Huge']]));
+    if (!M.noTraps) add(this.seg('Traps', v, 'traps', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
+    add(this.seg('Daily twist', v, 'mutator', [['off', 'Off'], ['daily', 'Today: ' + todayMutator().name]]));
     const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt');
     [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', v.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id]}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); b.addEventListener('click', () => { v.arena = A.id; save(); [...ao.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); sfx('click'); }); ao.appendChild(b); });
     ar.appendChild(ao); ar.style.gridColumn = '1 / -1'; add(ar);
     // loadout
     const lr = h('div', 'row loadout', '<span>Boomerang</span>'); lr.style.gridColumn = '1 / -1'; const lt = h('div', 'ltypes'); const desc = h('div', 'ldesc', BOOM_TYPES[s.eq.type].desc);
-    Object.entries(BOOM_TYPES).forEach(([id, t]) => { const has = owns('types', id); const b = h('button', 'ltype' + (s.eq.type === id ? ' on' : '') + (has ? '' : ' lk'), `${boomSvg(hex(t.color))}<span>${t.name}</span>${has ? '' : '<em>🔒</em>'}`, { 'data-nav': 1, style: `--tc:${hex(t.color)}` }); b.addEventListener('click', () => { if (!has) { sfx('deny'); this.toast(`Unlock ${t.name} in the Shop (${t.cost} coins) or by levelling up`); return; } equip('types', id); [...lt.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); desc.textContent = t.desc; sfx('click'); }); lt.appendChild(b); });
+    Object.entries(BOOM_TYPES).forEach(([id, t]) => { const has = owns('types', id); const b = h('button', 'ltype' + (s.eq.type === id ? ' on' : '') + (has ? '' : ' lk'), `${boomSvg(hex(t.color))}<span>${t.name}</span>${has ? '' : '<em>🔒</em>'}`, { 'data-nav': 1, style: `--tc:${hex(t.color)}` }); b.addEventListener('click', () => { if (!has) { sfx('deny'); this.toast(`Unlock ${t.name} in the Shop (${t.cost} gold) or by levelling up`); return; } equip('types', id); [...lt.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); desc.textContent = t.desc; sfx('click'); }); lt.appendChild(b); });
     lr.appendChild(lt); add(lr); const dr = h('div', '', '', { style: 'grid-column:1/-1' }); dr.appendChild(desc); add(dr);
     const hero = this.heroById(s.hero), hero2 = this.heroById(s.hero2);
     const hr = h('div', 'row', `<span>Fighter: <b>${hero.name}</b></span>`); hr.appendChild(this.btn('Change', 'small', () => this.show('heroes', { mode: 'pick', ret: 'setup', rp: { mode } }))); add(hr);
     if (mode === 'classic' && !touch && v.players === 2) { const h2 = h('div', 'row', `<span>P2: <b>${hero2.name}</b></span>`); h2.appendChild(this.btn('Change', 'small', () => this.show('heroes', { mode: 'pick2', ret: 'setup', rp: { mode } }))); add(h2); }
-    add(h('div', 'note-line', { survival: 'Survive endless waves with 3 lives. Elite enemies appear every 5th wave.', koth: 'First to 100 points wins (4 pts/sec alone in the zone). KO\u2019d fighters respawn.', bomb: 'The holder of the bomb must hit a rival to pass it. Last one standing wins.', team: 'You + a bot partner (cyan) vs two bots (pink). Friendly fire is off.', classic: 'Hit anyone with a boomerang to KO. Sudden death shrinks the arena.' }[mode]));
+    add(h('div', 'note-line', { survival: 'Survive endless waves with 3 lives. Elite enemies appear every 5th wave.', koth: 'First to 100 points wins (4 pts/sec alone in the zone). KO\u2019d fighters respawn.', bomb: 'The holder of the bomb must hit a rival to pass it. Last one standing wins.', ctf: 'Grab the rival flag (pink or cyan) and carry it to your own base while YOUR flag is safe. Carriers are slower. Boomerangs KO, KOs respawn at base. First to 3 captures.', coins: 'Collect coins (blue gems are worth 5). KO a rival and they spill coins. First to 40 or most after 100s.', ball: 'Push the ball with your body, dash to kick it hard, or hit it with a boomerang. Boomerangs only stun here. First to 3 goals.', crumble: 'Tiles flash and drop. Keep moving, KO rivals, and be the last one standing.', bossrush: 'You and a bot buddy face three bosses in a row. You have 3 lives each. Dodge slams, parry and hit hard.', team: 'You + a bot partner (cyan) vs two bots (pink). Friendly fire is off.', classic: 'Hit anyone with a boomerang to KO. Sudden death shrinks the arena.' }[mode]));
     el.appendChild(grid);
     const go = this.btn('▶ START', 'primary', () => this.app.startMode(mode)); go.style.alignSelf = 'flex-end'; el.appendChild(go); return el;
   },
@@ -119,7 +163,7 @@ Object.assign(UI, {
       const c = h('div', 'card' + (eqd ? ' eq' : ''), `${prev}<h4>${it.cat === 'emotes' ? 'Emote' : it.name}</h4><p>${it.desc || ''}</p>`);
       let act;
       if (own) { if (it.cat === 'heroes') act = h('div', 'owned', '✓ Owned'); else act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { if (it.cat === 'emotes') toggleEmote(it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else equip(it.cat, it.id); sfx('click'); this.show('shop', { tab }); }); }
-      else act = this.btn(`<span class="coin"></span> ${it.cost}`, 'small ' + (s.coins >= it.cost ? 'primary' : 'locked'), () => { if (buy(it)) { sfx('buy'); if (it.cat !== 'hats' && it.cat !== 'heroes') equip(it.cat, it.id); this.show('shop', { tab }); } else { sfx('deny'); this.toast('Not enough coins - win matches and complete challenges!'); } });
+      else act = this.btn(`<span class="coin"></span> ${it.cost}`, 'small ' + (s.coins >= it.cost ? 'primary' : 'locked'), () => { if (buy(it)) { sfx('buy'); if (it.cat !== 'hats' && it.cat !== 'heroes') equip(it.cat, it.id); this.show('shop', { tab }); } else { sfx('deny'); this.toast('Not enough gold! Tap the gold counter to see free ways to earn more.'); } });
       c.appendChild(act); grid.appendChild(c);
     });
     if (tab === 'Emotes') grid.appendChild(h('div', 'note-line', 'Equip up to 4 emotes. In a match press 1-4 or tap the chat button.', { style: 'grid-column:1/-1' }));
@@ -133,8 +177,8 @@ Object.assign(UI, {
     left.appendChild(h('div', 'lvbig', `<img src="${this.pic(hero)}"><div><b>Level ${l.level}</b><div class="xpbar big"><i style="width:${Math.round(l.cur / l.need * 100)}%"></i></div><small>${l.cur} / ${l.need} XP</small></div>`));
     const nx = Object.keys(LEVEL_REWARDS).map(Number).find((x) => x > l.level); if (nx) { const k = Object.keys(LEVEL_REWARDS[nx])[0]; left.appendChild(h('div', 'note-line', `Next reward at level ${nx}: ${LEVEL_REWARDS[nx][k]} (${k.slice(0, -1)})`)); }
     left.appendChild(h('h4', '', 'Daily challenges')); const d = ensureDaily();
-    d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} coins · +${c.xp} XP</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); this.show('profile'); } else sfx('deny'); })); left.appendChild(row); });
-    left.appendChild(h('h4', '', 'Stats')); left.appendChild(h('div', 'stat-grid', [['KOs', s.stats.ko], ['Catches', s.stats.catch], ['Parries', s.stats.deflect], ['Wins', s.stats.win], ['Matches', s.played], ['Best wave', s.best.survival || 0], ['Stars', `${campStars()}/${MAX_STARS}`], ['Coins earned', s.totalCoins || 0]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')));
+    d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} gold · +${c.xp} XP</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); this.show('profile'); } else sfx('deny'); })); left.appendChild(row); });
+    left.appendChild(h('h4', '', 'Stats')); left.appendChild(h('div', 'stat-grid', [['KOs', s.stats.ko], ['Catches', s.stats.catch], ['Parries', s.stats.deflect], ['Wins', s.stats.win], ['Matches', s.played], ['Best wave', s.best.survival || 0], ['Stars', `${campStars()}/${MAX_STARS}`], ['Gold earned', s.totalCoins || 0]].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')));
     right.appendChild(h('h4', '', `Achievements ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`));
     ACHIEVEMENTS.forEach((a) => { const got = !!s.ach[a.id]; const pr = Math.min(a.n, s.stats[a.stat] || 0); right.appendChild(h('div', 'ach' + (got ? ' got' : ''), `<div class="ai">${got ? '🏆' : '🔒'}</div><div><b>${a.name}</b><small>${a.desc}</small>${got ? '' : `<span class="xpbar"><i style="width:${Math.round(pr / a.n * 100)}%"></i></span>`}</div><span class="ar">${got ? '✓' : '+' + a.coins}</span>`)); });
     body.appendChild(left); body.appendChild(right); el.appendChild(body); return el;
@@ -159,29 +203,58 @@ Object.assign(UI, {
     const l0 = p.lvBefore, l1 = p.lv; const lv0 = l0.level; const pct0 = Math.round(l0.cur / l0.need * 100), pct1 = l1.level > lv0 ? 100 : Math.round(l1.cur / l1.need * 100);
     const xr = h('div', 'xprow', `<b>LV ${lv0}</b><span class="xpbar big"><i style="width:${pct0}%"></i></span><span class="gain">+${p.xp} XP</span><span class="gain gold"><span class="coin"></span> +${p.coins}</span>`); d.appendChild(xr);
     requestAnimationFrame(() => requestAnimationFrame(() => { const i = xr.querySelector('.xpbar i'); if (i) i.style.width = pct1 + '%'; }));
-    (p.ups || []).forEach((u) => d.appendChild(h('div', 'levelup', `LEVEL ${u.level}! +${u.coins} coins${u.unlock ? ' · unlocked ' + u.unlock : ''}`)));
+    (p.ups || []).forEach((u) => d.appendChild(h('div', 'levelup', `LEVEL ${u.level}! +${u.coins} gold${u.unlock ? ' · unlocked ' + u.unlock : ''}`)));
     const b = h('div', 'btns');
     if (p.tutorial) { b.appendChild(this.btn('Play ▶', 'primary', () => this.app.quitToMenu(true))); }
     else { if (p.stage && p.won && p.stage.n < STAGES.length) b.appendChild(this.btn('Next stage ▶', 'primary', () => this.app.startStage(p.stage.n + 1))); b.appendChild(this.btn(p.stage ? (p.won ? '↻ Replay' : '↻ Retry') : 'Rematch ▶', p.stage && p.won ? '' : 'primary', () => this.app.rematch())); if (p.stage) b.appendChild(this.btn('Campaign', '', () => { this.app.quitToMenu(); this.show('campaign'); })); b.appendChild(this.btn('Menu', '', () => this.app.quitToMenu())); }
     d.appendChild(b); el.appendChild(d); return el;
   },
-  introTitle(m, g) { if (!m) return ''; if (m.tutorial) return 'TRAINING'; if (m.stage) return 'STAGE ' + m.stage.n; return { classic: 'ROUND ' + m.round, team: 'ROUND ' + m.round, survival: 'SURVIVAL', koth: 'KING OF THE HILL', bomb: 'BOMB TAG' }[m.mode] || 'GET READY'; },
-  introSub(m, g) { if (!m) return ''; if (m.tutorial) return 'Follow the tips!'; if (m.stage) return m.stage.name; const an = ARENAS.find((a) => a.id === g.arenaId).name; return (m.mode === 'classic' || m.mode === 'team') ? an + ' · first to ' + m.need : an; },
+  introTitle(m, g) { if (!m) return ''; if (m.tutorial) return 'TRAINING'; if (m.stage) return 'STAGE ' + m.stage.n; return { classic: 'ROUND ' + m.round, team: 'ROUND ' + m.round, survival: 'SURVIVAL', koth: 'KING OF THE HILL', bomb: 'BOMB TAG', ctf: 'CAPTURE THE FLAG', coins: 'COIN RUSH', ball: 'BOOMERANG BALL', crumble: 'ROUND ' + m.round, bossrush: 'BOSS RUSH' }[m.mode] || 'GET READY'; },
+  introSub(m, g) { if (!m) return ''; if (m.tutorial) return 'Follow the tips!'; if (m.stage) return m.stage.name; const an = ARENAS.find((a) => a.id === g.arenaId).name; return (m.mode === 'classic' || m.mode === 'team' || m.mode === 'crumble') ? an + ' · first to ' + m.need : m.mode === 'ctf' ? 'First to 3 captures' : m.mode === 'ball' ? 'First to 3 goals' : m.mode === 'coins' ? 'First to 40 coins' : m.mode === 'bossrush' ? 'Three bosses. Stay alive!' : an; },
   // ================= HUD =================
   hudStart(game) {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; this.emoteClose(); this.tutorialHide(); if (!game || game.mode === 'attract') return; this.hudGame = game;
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'mid', '', { id: 'h-mid' }); const rr = h('div', 'grp');
     rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
     top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' }));
+    if (gfx.follow) { const cv = h('canvas', '', '', { id: 'minimap' }); cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
+  },
+  // minimap (Large/Huge): arena, solids, hazards, fighters, camera window
+  mapUpdate(game) {
+    const cv = this.mm; if (!cv || !game) return; const c = cv.getContext('2d'), W = cv.width, H = cv.height, sx = W / AW, sz = H / AH; c.clearRect(0, 0, W, H);
+    c.fillStyle = 'rgba(12,8,36,.72)'; c.fillRect(0, 0, W, H);
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { const k = j * AW + i; const t = game.layout.t[k]; let col = null; if (game.hole[k] < 0) col = '#000'; else if (game.sol[k]) col = t === 2 ? '#b98a54' : '#7d86a8'; else if (t === 4) col = '#ff6a1a'; else if (t === 3) col = '#cfd6e6'; else if (t === 5) col = '#4ab0ff'; if (col) { c.fillStyle = col; c.fillRect(i * sx, j * sz, sx + 0.5, sz + 0.5); } }
+    for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#ff5ad0' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
+    for (const q of game.fighters) { if (!q.alive) continue; c.fillStyle = hex(q.color); c.strokeStyle = '#fff'; c.lineWidth = q.isBot ? 1 : 2; c.beginPath(); c.arc((q.x + HX) * sx, (q.z + HZ) * sz, q.isBot ? 3.2 : 4.4, 0, 6.3); c.fill(); c.stroke(); }
+    if (game.camPoints) for (const p of game.camPoints()) { c.fillStyle = p[2] || '#ffd23c'; c.fillRect((p[0] + HX) * sx - 3, (p[1] + HZ) * sz - 3, 6, 6); }
+    const f = gfx.follow; if (f) { const vw = 22 * f.d / f.dMin, vh = 13 * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
+    c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1; c.strokeRect(0.5, 0.5, W - 1, H - 1);
+  },
+  // arrows at the screen edge pointing to off-screen rivals
+  edgeUpdate(game) {
+    const box = this.edgeBox; if (!box || !game) return; const foes = game.fighters.filter((q) => q.alive && q.isBot); const me = game.fighters.find((q) => !q.isBot && q.alive);
+    while (this.edgeEls.length < foes.length) { const e = h('div', 'edge', '<i></i>'); box.appendChild(e); this.edgeEls.push(e); }
+    const W = gfx.w, H = gfx.h; const padX = 26, padT = 70, padB = 26;
+    this.edgeEls.forEach((e, n) => {
+      const q = foes[n]; if (!q) { e.style.display = 'none'; return; }
+      const [px, py, on] = toScreen(q.x, 0.5, q.z); if (on) { e.style.display = 'none'; return; }
+      const cx0 = 0.5, cy0 = 0.5; let dx = px - cx0, dy = py - cy0; const ax = (0.5 - padX / W), ay = (0.5 - padT / H); const k = Math.min(ax / Math.abs(dx || 1e-6), (0.5 - padB / H) / Math.abs(dy || 1e-6) * (dy > 0 ? 1 : 1), 1e6); let ex = cx0 + dx * Math.min(k, 1e6), ey = cy0 + dy * Math.min(k, 1e6);
+      const kx = Math.abs(dx) > 1e-6 ? ax / Math.abs(dx) : 1e9, ky = Math.abs(dy) > 1e-6 ? (dy > 0 ? (0.5 - padB / H) : ay) / Math.abs(dy) : 1e9; const kk = Math.min(kx, ky); ex = cx0 + dx * kk; ey = cy0 + dy * kk;
+      const near = me ? Math.hypot(q.x - me.x, q.z - me.z) : 20; e.style.display = 'block'; e.style.left = (ex * 100) + '%'; e.style.top = (ey * 100) + '%'; e.style.setProperty('--pc', hex(q.color)); e.style.setProperty('--rot', Math.atan2(dy, dx) + 'rad'); e.style.opacity = String(Math.max(0.45, Math.min(1, 1.3 - near / 26)));
+    });
   },
   hudUpdate(game) {
     if (!game || game.mode === 'attract' || !this.hudCache) return; const m = this.app.match; const ms = game.mstate(); const touch = Input.touch.enabled;
     const shown = game.fighters.slice(0, game.nPlayers);
     this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const hearts = lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; const rdy = q.ult >= 100; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
-    let mid = ''; const rt = ms.type;
+    this.mapUpdate(game); let mid = ''; const rt = ms.type;
     if (m && m.tutorial) mid = 'Training'; else if (m && m.stage) mid = `<b>${m.stage.n}</b> ${m.stage.name.replace('Boss: ', '')}`; else if (game.sudden) mid = '<span style="color:#ff5a5a">SUDDEN DEATH</span>'; else mid = (rt === 'elim' ? `Round ${game.round}` : '');
     if (rt === 'koth') { const teams = [...new Set(game.fighters.slice(0, game.nPlayers).map((f) => f.team))]; mid = `<div class="koth">${teams.map((t) => `<div class="kb ${ms.owner === t ? 'own' : ''}" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${Math.floor(ms.scores[t] || 0)}</b></div>`).join('')}</div><div class="kz ${ms.contested ? 'c' : ''}">${ms.contested ? 'CONTESTED' : 'Hill moves in ' + Math.ceil(ms.zoneIn) + 's'}</div>`; }
     else if (rt === 'bomb') { const hd = ms.holder; mid = `<div class="bombbar"><span>💣 ${hd ? hd.name : '...'}</span><i style="width:${Math.round(ms.fuse / ms.fuseMax * 100)}%" class="${ms.fuse < 4 ? 'hot' : ''}"></i></div>`; }
+    else if (rt === 'ctf' || rt === 'ball') { mid = `<div class="koth sc2">${[0, 1].map((t) => `<div class="kb" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${ms.scores[t] || 0}</b></div>`).join('')}</div><div class="kz">${rt === 'ctf' ? '🚩 ' : '⚽ '}${fmtTime(ms.left)}${rt === 'ctf' && ms.carry.some((c) => c) ? ' · FLAG CARRIED' : ''}</div>`; }
+    else if (rt === 'coins') { mid = `<div class="coinrow">${ms.coinRows.map((c) => `<span style="--pc:${hex(c.color)}">${c.score}</span>`).join('')}</div><div class="kz">🪙 first to ${ms.target} · ${fmtTime(ms.left)}</div>`; }
+    else if (rt === 'bossrush') mid = `<b>BOSS ${ms.rush.n} / ${ms.rush.total}</b>`;
+    else if (game.rules.crumble && ms.floor !== undefined) mid = `Round ${game.round} · <b>FLOOR ${ms.floor}%</b>`;
     else if (rt === 'survival') mid = `<b>WAVE ${ms.wave}</b> · ${ms.left} left${game.rules.waves ? ' / ' + game.rules.waves : ''}`;
     this.hudSet('h-mid', mid);
     const tl = rt === 'koth' ? '' : (game.sudden ? '☠' : (game.rules.sudden ? fmtTime(Math.max(0, 48 - game.playTime)) : fmtTime(game.playTime)));
@@ -223,5 +296,20 @@ UI.settings = function (p) {
   grid.insertBefore(this.seg('Arena events', s, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]), first);
   const tr = h('div', 'row', '<span>Training</span>'); tr.appendChild(this.btn('Replay tutorial', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); })); grid.appendChild(tr);
   return el;
+};
+
+// How to play: extra pages for the v3 features (modes, trap guide, switches, map sizes, gold, daily twists)
+const _howto = UI.howto;
+UI.howto = function (p) {
+  const el = _howto.call(this, p); const pn = el.querySelector('.howto'); if (!pn) return el;
+  const mm = Object.entries(MODES).filter(([k]) => k !== 'campaign').map(([, v]) => `<li><b>${v.icon} ${v.name}</b> <small>${v.blurb}</small></li>`).join('');
+  const tt = Object.entries(TRAP_INFO).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
+  const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
+  const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
+    <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
+    <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>
+    <h4 style="margin-top:1em">Daily twist</h4><p>Setup has a <b>Daily twist</b> option: one of these every day.</p><ul>${mu}</ul>
+    <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged. Gold buys looks and conveniences, never power.</p></div>`);
+  x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
 };
 UI.pause = ((orig) => function () { const el = orig.call(this); return el; })(UI.pause);

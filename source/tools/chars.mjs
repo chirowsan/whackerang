@@ -3,7 +3,7 @@ import fs from 'fs';
 import { launch, sleep } from './lib.mjs';
 const tag = process.argv[2] || 'ch'; const exprs = (process.argv[3] || 'happy').split(',');
 const { browser, page, errors } = await launch({ w: 900, h: 600 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
 const out = await page.evaluate((exprs) => {
   const r = {}; const hs = __bg.HEROES;
   for (const h of hs) { r[h.id] = []; for (const [rot, ex] of [[-0.35, exprs[0]], [0.9, exprs[0]], [3.1, exprs[0]]]) r[h.id].push(__bg.snap(h, 'none', { size: 360, rot, expr: ex })); for (const ex of exprs.slice(1)) r[h.id].push(__bg.snap(h, 'none', { size: 360, rot: -0.2, expr: ex })); }

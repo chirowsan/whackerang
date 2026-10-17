@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 900, h: 600 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
 const hats = ['band', 'party', 'top', 'halo', 'flower', 'shades'];
 const out = await page.evaluate((hats) => __bg.HEROES.map((h) => hats.map((ht) => __bg.snap(h, ht, { size: 220, rot: -0.25, expr: 'neutral' }))), hats);
 const p2 = await browser.newPage(); await p2.setViewport({ width: 220 * hats.length, height: 220 * out.length });

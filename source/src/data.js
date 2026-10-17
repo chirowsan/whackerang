@@ -15,12 +15,17 @@ export const HATS = [
   { id: 'halo', name: 'Halo', cost: 120 },
   { id: 'flower', name: 'Flower', cost: 80 },
   { id: 'shades', name: 'Shades', cost: 100 },
+  { id: 'crown', name: 'Crown', cost: 900, premium: true },
 ];
 export const ARENAS = [
   { id: 'dojo', name: 'Dojo Garden', blurb: 'Crates, lanterns & pop-up spikes', hazard: 'spikes' },
   { id: 'rooftop', name: 'Neon Rooftop', blurb: 'Conveyor belts & crates', hazard: 'conveyor' },
   { id: 'jungle', name: 'Jungle Ruins', blurb: 'Pillars & bubbling lava', hazard: 'lava' },
   { id: 'ice', name: 'Ice Dock', blurb: 'Slippery floor & cracking ice', hazard: 'crack' },
+  { id: 'volcano', name: 'Volcano Forge', blurb: 'Fire jets, rolling boulders & lava', hazard: 'fire' },
+  { id: 'pirate', name: 'Pirate Cove', blurb: 'Trapdoors, swinging mallets & teleport barrels', hazard: 'trapdoor' },
+  { id: 'space', name: 'Space Station', blurb: 'Lasers, jump pads & conveyor loops', hazard: 'laser' },
+  { id: 'haunted', name: 'Haunted Manor', blurb: 'Electric fences, goo & falling spikes', hazard: 'electric' },
 ];
 export const POWERUPS = {
   extra: { name: 'Extra Boomerang', color: 0x4fd1ff, short: '+1' },
@@ -51,6 +56,8 @@ export const TRAILS = {
   leaf: { name: 'Leafy', color: 0x7dff6a, cost: 120 },
   rose: { name: 'Rosy', color: 0xff7ac8, cost: 200 },
   neon: { name: 'Rainbow', color: 0xffffff, cost: 300, rainbow: true },
+  cosmic: { name: 'Cosmic', color: 0xffffff, cost: 1200, rainbow: true, premium: true },
+  comet: { name: 'Comet', color: 0xbfe8ff, cost: 800, premium: true },
 };
 export const SKINS = {
   default: { name: 'Hero style', cost: 0 },
@@ -60,10 +67,13 @@ export const SKINS = {
   shadow: { name: 'Shadow', cost: 260, arm: 0x2a2540, tip: 0xb26bff, trim: 0x120a1e, glow: 0xb26bff },
   candy: { name: 'Candy', cost: 260, arm: 0xff8ad8, tip: 0xffffff, trim: 0x6ad8ff, glow: 0xff9ae6 },
   mint: { name: 'Minty', cost: 160, arm: 0x5ff0b8, tip: 0xeafff6, trim: 0x1a8a62, glow: 0x7dffd0 },
+  aurora: { name: 'Aurora', cost: 1400, premium: true, arm: 0x4affc8, tip: 0xc8a0ff, trim: 0x14527a, glow: 0x7affd8 },
+  galaxy: { name: 'Galaxy', cost: 1800, premium: true, arm: 0x3a2a8a, tip: 0xff9ae6, trim: 0x140a3a, glow: 0xb78cff },
+  inferno: { name: 'Inferno', cost: 1800, premium: true, arm: 0xff5a1a, tip: 0xffe066, trim: 0x6a1204, glow: 0xff8a3a },
 };
 export const EMOTES = {
   gg: { text: 'GG!', color: '#ffd23c', cost: 0 }, nice: { text: 'Nice!', color: '#7dff6a', cost: 0 }, oops: { text: 'Oops!', color: '#ff9a5a', cost: 0 }, wow: { text: 'Wow!', color: '#4fd1ff', cost: 0 },
-  haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 },
+  haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 }, party: { text: 'Party!', color: '#ffd23c', cost: 150, premium: true }, bonk: { text: 'BONK!', color: '#ff9a5a', cost: 150, premium: true },
 };
 export const ULTS = {
   bao: { name: 'Dumpling Storm', desc: 'Fires a ring of 8 boomerangs.' },
@@ -81,9 +91,20 @@ export const MODES = {
   survival: { name: 'Survival', icon: '🌊', color: '#ff7a5a', blurb: 'Endless waves. 3 lives. How far can you get?' },
   koth: { name: 'King of the Hill', icon: '👑', color: '#b78cff', blurb: 'Hold the glowing zone to score. KOs respawn.' },
   bomb: { name: 'Bomb Tag', icon: '💣', color: '#ff5a8a', blurb: 'Pass the bomb by hitting rivals. Do not be holding it!' },
+  ctf: { name: 'Capture the Flag', icon: '🚩', color: '#4fd1ff', blurb: 'Steal the rival flag and bring it home. 2v2 with a bot partner. KOs respawn.', size: 'large' },
+  coins: { name: 'Coin Rush', icon: '🪙', color: '#ffd23c', blurb: 'Grab coins, steal them from KO\u2019d rivals. First to 40 wins.' },
+  ball: { name: 'Boomerang Ball', icon: '⚽', color: '#7dff6a', blurb: 'Boomerang soccer! Bonk the ball into their goal. Hits stun instead of KO.', size: 'large', noTraps: true },
+  crumble: { name: 'Crumbling Floor', icon: '🧱', color: '#ff9a3c', blurb: 'The floor falls apart. Be the last one standing.' },
+  bossrush: { name: 'Boss Rush', icon: '👹', color: '#ff5a5a', blurb: 'Co-op with a bot buddy against three bosses in a row.', size: 'large' },
   campaign: { name: 'Campaign', icon: '⭐', color: '#7dff6a', blurb: '12 stages, 3 bosses, earn up to 36 stars.' },
 };
 export const ACHIEVEMENTS = [
+  { id: 'ctf_win', name: 'Flag Runner', desc: 'Win Capture the Flag', stat: 'ctfwin', n: 1, coins: 60 },
+  { id: 'coins_win', name: 'Coin Collector', desc: 'Win Coin Rush', stat: 'coinswin', n: 1, coins: 50 },
+  { id: 'ball_win', name: 'Golden Boot', desc: 'Win Boomerang Ball', stat: 'ballwin', n: 1, coins: 60 },
+  { id: 'crumble_win', name: 'Sure-Footed', desc: 'Win Crumbling Floor', stat: 'crumblewin', n: 1, coins: 50 },
+  { id: 'rush_win', name: 'Boss Buster', desc: 'Clear Boss Rush', stat: 'bossrushwin', n: 1, coins: 150 },
+  { id: 'trap_ko', name: 'Trap Master', desc: 'KO 10 rivals with traps', stat: 'trapko', n: 10, coins: 100 },
   { id: 'first_ko', name: 'First Blood', desc: 'KO a rival', stat: 'ko', n: 1, coins: 20 },
   { id: 'ko_50', name: 'Boomerang Bully', desc: 'KO 50 rivals', stat: 'ko', n: 50, coins: 80 },
   { id: 'ko_250', name: 'Menace', desc: 'KO 250 rivals', stat: 'ko', n: 250, coins: 200 },

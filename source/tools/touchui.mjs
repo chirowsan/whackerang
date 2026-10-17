@@ -2,7 +2,7 @@ import { launch, sleep } from './lib.mjs';
 const W = +(process.argv[2] || 915), H = +(process.argv[3] || 330), tag = process.argv[4] || 'tc', opt = process.argv[5] || '';
 const { browser, page, errors, logs } = await launch({ w: W, h: H, dpr: 2, mobile: true });
 await page.setUserAgent('Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(3000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(3000);
 if (opt.includes('left')) await page.evaluate(() => { __bg.S().settings.leftHanded = true; });
 if (opt.includes('big')) await page.evaluate(() => { __bg.S().settings.ctrlScale = 1.4; });
 if (opt.includes('small')) await page.evaluate(() => { __bg.S().settings.ctrlScale = 0.75; });

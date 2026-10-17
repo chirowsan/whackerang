@@ -1,8 +1,8 @@
-const KEY = 'boomerangbrawl.save.v1';
+const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
   coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
   settings: { sfx: 0.85, music: 0.5, shake: true, vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false },
-  setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3, mode: 'classic' },
+  setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'small', traps: 'some', mutator: 'off' },
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
   own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'] },
@@ -22,7 +22,7 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   return r;
 };
 export function loadSave() {
-  try { const raw = localStorage.getItem(KEY); if (raw) data = merge(defaults(), JSON.parse(raw)); } catch (e) { data = defaults(); }
+  try { const raw = localStorage.getItem(KEY) || localStorage.getItem(OLDKEY); if (raw) data = merge(defaults(), JSON.parse(raw)); } catch (e) { data = defaults(); }
   return data;
 }
 export function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* ignore */ } }

@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 915, h: 412, dpr: 1, mobile: true });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 const ev = (f, ...a) => page.evaluate(f, ...a);
 await ev(() => { const s = __bg.S(); s.tutorialDone = true; s.coins = 1000; });
 // shop buy flow

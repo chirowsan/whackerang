@@ -49,8 +49,8 @@ export class Bot {
     const g = this.g; const i = ci(x), j = cj(z); if (!inb(i, j)) return 9; const k = idx(i, j);
     if (g.sol[k]) return 6; if (g.hole[k] !== 0) return 8; const t = g.layout.t[k]; if (t === T.LAVA) return 9; if (t === T.SPIKE) return (g.spk[k] > 0.2 || g.spkWarn[k] || (g.playTime + g.spkPh[k]) % 4.2 > 1.8) ? 8 : 2;
     if (g.sudden) { const ring = Math.min(i, j, AW - 1 - i, AH - 1 - j); if (ring <= g.suddenRing + 1) return 5; }
-    if (t === T.CONV) return 0.8;
-    return 0;
+    const td = g.traps ? g.traps.danger(x, z) : 0;
+    return Math.max(td, t === T.CONV ? 0.8 : 0);
   }
   update(dt) {
     const g = this.g, f = this.f, d = this.d, o = this.out;
@@ -130,7 +130,9 @@ export class Bot {
     // power-up goal
     let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < this.pm.pu) { pd = dist; pu = p; } }
     if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = 0.8 + Math.random() * 1.6; }
-    if (pu && (!tg || bd > 3.2)) { gx = pu.x - f.x; gz = pu.z - f.z; }
+    const ob = g.objective ? g.objective(f) : null;
+    if (ob && (ob.force || !tg || bd > (ob.yield || 3.2))) { gx = ob.x - f.x; gz = ob.z - f.z; const od = Math.hypot(gx, gz); if (od < 0.5) { gx = 0; gz = 0; } if (tg && !ob.force && bd < 7) { gx += -(tg.z - f.z) / (bd || 1) * this.strafe * 0.3; } }
+    else if (pu && (!tg || bd > 3.2)) { gx = pu.x - f.x; gz = pu.z - f.z; }
     else if (tg) {
       const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; let pref = (f.ammo > 0 ? 6.2 : 8.5) * this.pm.pref; if (R.type === 'bomb') pref = g.mst.holder === f ? 3.5 : 9; if (f.boss) pref = 4.6;
       let k = clamp((dist - pref) / 3, -1, 1); gx = ux * k; gz = uz * k;

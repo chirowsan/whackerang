@@ -19,12 +19,13 @@ export const STAGES = [
   { n: 11, name: 'Outnumbered', arena: 'rooftop', kind: 'elim', foes: [{ h: 'yuki', d: 2 }, { h: 'nori', d: 2 }, { h: 'bao', d: 2 }], par: 150, tip: 'Three hard bots. Use your ultimate!' },
   { n: 12, name: 'Boss: Shogun Yuki-Zero', arena: 'ice', kind: 'boss', boss: { h: 'yuki', name: 'Shogun Yuki-Zero', hp: 6, scale: 1.8, type: 'frost', color: 0x6ad8ff }, events: ['meteor', 'wind'], tip: 'Frost boomerangs freeze you. Parry or dash!' },
 ];
+for (const n of [1, 2, 3, 4, 8, 12]) STAGES[n - 1].traps = 'off'; // gentle ramp: no traps in the first stages, and none during boss fights (the boss is the hazard)
 export const MAX_STARS = STAGES.length * 3;
 export const KIND_MODE = { elim: 'classic', team: 'team', survival: 'survival', koth: 'koth', bomb: 'bomb', boss: 'classic' };
 
 const pickEvents = (arena, level) => {
   if (level === 'off') return [];
-  const base = { dojo: ['bumper', 'wind', 'meteor'], rooftop: ['bumper', 'meteor', 'wind'], jungle: ['meteor', 'wind', 'bumper'], ice: ['wind', 'meteor', 'bumper'] }[arena];
+  const base = { dojo: ['bumper', 'wind', 'meteor'], rooftop: ['bumper', 'meteor', 'wind'], jungle: ['meteor', 'wind', 'bumper'], ice: ['wind', 'meteor', 'bumper'], volcano: ['meteor', 'wind', 'bumper'], pirate: ['wind', 'bumper', 'meteor'], space: ['meteor', 'bumper', 'wind'], haunted: ['wind', 'meteor', 'bumper'] }[arena] || ['bumper', 'wind', 'meteor'];
   const n = level === 'wild' ? 2 : 1; const a = base.slice().sort(() => Math.random() - 0.5); return a.slice(0, n);
 };
 
@@ -35,6 +36,11 @@ export function rulesFor(mode, o = {}) {
   else if (mode === 'survival') { r.type = 'survival'; r.sudden = false; r.puEvery = 5; if (o.waves) r.waves = o.waves; }
   else if (mode === 'koth') { r.type = 'koth'; r.sudden = false; r.kothTarget = 100; }
   else if (mode === 'bomb') { r.type = 'bomb'; r.sudden = false; r.puEvery = 7; }
+  else if (mode === 'ctf') { r.type = 'ctf'; r.teams = true; r.sudden = false; r.puEvery = 7; }
+  else if (mode === 'coins') { r.type = 'coins'; r.sudden = false; r.puEvery = 6; }
+  else if (mode === 'ball') { r.type = 'ball'; r.teams = true; r.stunOnly = true; r.sudden = false; r.puEvery = 14; r.events = []; }
+  else if (mode === 'crumble') { r.crumble = true; r.sudden = false; r.puEvery = 5; }
+  else if (mode === 'bossrush') { r.type = 'bossrush'; r.sudden = false; r.puEvery = 6; }
   if (o.boss) { r.sudden = false; }
   return r;
 }

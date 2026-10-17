@@ -86,9 +86,13 @@ export const fx = {
     if (this.amb) {
       this.ambAcc += dt * 9 * gfx.density;
       while (this.ambAcc > 1) {
-        this.ambAcc -= 1; const x = (Math.random() - 0.5) * 30, z = (Math.random() - 0.5) * 18;
+        this.ambAcc -= 1; const x = (Math.random() - 0.5) * 30 * (this.ambK || 1), z = (Math.random() - 0.5) * 18 * (this.ambK || 1);
         if (this.amb === 'ice') this.glow.spawn(x, 8, z, (Math.random() - 0.5) * 0.4, -1.2 - Math.random() * 0.6, 0.2, 0.05 + Math.random() * 0.05, 6, 0xdff6ff);
         else if (this.amb === 'dojo') this.glow.spawn(x, 5, z, 0.6 + Math.random() * 0.6, -0.8 - Math.random() * 0.5, 0.2, 0.06 + Math.random() * 0.04, 7, 0xffb7d5, 0, 0, 3);
+        else if (this.amb === 'volcano') this.glow.spawn(x, 0.1, z, (Math.random() - 0.5) * 0.8, 1.2 + Math.random() * 1.2, (Math.random() - 0.5) * 0.8, 0.05 + Math.random() * 0.05, 5, Math.random() < 0.5 ? 0xff8a2a : 0xffd060, 2);
+        else if (this.amb === 'space') this.glow.spawn(x, 1 + Math.random() * 4, z, 0.3, 0, 0.1, 0.04 + Math.random() * 0.05, 8, 0xbfe8ff, 1.5);
+        else if (this.amb === 'haunted') this.glow.spawn(x, 0.3, z, (Math.random() - 0.5) * 0.6, 0.4 + Math.random() * 0.5, (Math.random() - 0.5) * 0.6, 0.06 + Math.random() * 0.05, 6, Math.random() < 0.5 ? 0x9a7aff : 0x7affd0, 1.5);
+        else if (this.amb === 'pirate') this.glow.spawn(x, 3 + Math.random() * 2, z, 0.8, -0.3, 0.3, 0.05, 6, 0xffffff);
         else if (this.amb === 'jungle') this.glow.spawn(x, 0.2, z, (Math.random() - 0.5) * 0.4, 0.5 + Math.random() * 0.6, (Math.random() - 0.5) * 0.4, 0.05 + Math.random() * 0.04, 5, 0xc8ff6a);
         else this.glow.spawn(x, 0.1, z, (Math.random() - 0.5) * 0.3, 0.8 + Math.random() * 0.8, 0, 0.04 + Math.random() * 0.04, 4.5, Math.random() < 0.5 ? 0x00e5ff : 0xff2bd6);
       }

@@ -1,6 +1,6 @@
-import { THREE, gfx, initGfx, setQuality, resize, fitCamera, updateGfx, render, adaptRes, isCoarse, shake, toon } from './gfx.js';
+import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon } from './gfx.js';
 import { S, save, loadSave } from './save.js';
-import { HEROES, HATS, ARENAS, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
+import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier } from './progress.js';
 import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity } from './audio.js';
@@ -13,7 +13,8 @@ import './ui2.js';
 import { buildFighter, buildBoomerang } from './models.js';
 import { makePortraits, portrait, snap } from './portraits.js';
 import { faceDebugCanvas } from './faces.js';
-import { pick, shuffle } from './util.js';
+import { resolveMutator } from './mutators.js';
+import { pick, shuffle, setArenaSize } from './util.js';
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
@@ -42,10 +43,17 @@ const app = {
     } catch (e) { UI.toast('Fullscreen not available'); }
   },
   // ---------- game lifecycle ----------
+  camFollow(dt) {
+    const g = app.game; if (!g || g.mode === 'attract') return; const pts = [], hum = [];
+    for (const f of g.fighters) { if (!f.alive) continue; const p = [f.x, f.z]; pts.push(p); if (!f.isBot) hum.push(p); }
+    if (g.camPoints) for (const p of g.camPoints()) pts.push(p); if (g.camFocus) for (const p of g.camFocus()) { pts.push(p); if (hum.length) hum.push(p); }
+    followCam(dt, pts, hum); UI.edgeUpdate(g);
+  },
   setGame(opts) {
     if (this.showPed) { this.game && this.game.scene.remove(this.showPed.ped, this.showBoom.mesh); this.showPed = null; this.showBoom = null; }
     if (this.game) { this.game.dispose(); this.game = null; }
-    this.game = new Game({ ...opts, input: Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
+    setArenaSize(opts.mode === 'attract' ? 'small' : (opts.size || 'small'));
+    this.game = new Game({ ...opts, mutator: opts.mode === 'attract' ? null : resolveMutator(opts.mutator), input: Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
     fitCamera(opts.mode === 'attract' ? 'menu' : 'play'); UI.hudStart(this.game);
     AU.mute = opts.mode === 'attract';
   },
@@ -94,20 +102,22 @@ const app = {
     const used = new Set(players.map((p) => p.hero.id)); const pool = () => shuffle(HEROES.filter((h) => !used.has(h.id)));
     let need = 1, rulesMode = modeId;
     if (modeId === 'classic') { const nb = Math.min(st.bots, 4 - nh); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); need = st.rounds; }
-    else if (modeId === 'team') { const pl = pool(); players[0].team = 0; players[0].color = 0x4fd1ff; players.push(this.botDef(pl[0], { team: 0, color: 0x9fe8ff })); players.push(this.botDef(pl[1], { team: 1, color: 0xff5a8a })); players.push(this.botDef(pl[2], { team: 1, color: 0xff9ab8 })); need = st.rounds; }
+    else if (modeId === 'team' || modeId === 'ctf' || modeId === 'ball') { const pl = pool(); players[0].team = 0; players[0].color = 0x4fd1ff; players.push(this.botDef(pl[0], { team: 0, color: 0x9fe8ff })); players.push(this.botDef(pl[1], { team: 1, color: 0xff5a8a })); players.push(this.botDef(pl[2], { team: 1, color: 0xff9ab8 })); need = modeId === 'team' ? st.rounds : 1; if (modeId !== 'team') players.forEach((p) => { p.lives = 99; }); }
+    else if (modeId === 'bossrush') { players[0].team = 0; players[0].lives = 3; players[0].color = 0x4fd1ff; if (nh === 2) { players[1].team = 0; players[1].lives = 3; } else players.push(this.botDef(pool()[0], { team: 0, color: 0x9fe8ff, lives: 3, diff: Math.max(1, st.diff) })); }
+    else if (modeId === 'crumble') { const nb = Math.min(st.bots, 4 - nh); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); need = st.rounds; }
     else if (modeId === 'survival') { players[0].team = 0; players[0].lives = 3; }
-    else { const nb = Math.max(modeId === 'bomb' ? 2 : 1, Math.min(st.bots, 4 - nh)); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); if (modeId === 'koth') players.forEach((p) => (p.lives = 99)); }
-    this.match = { mode: modeId, rulesMode, players, round: 0, need, arena: st.arena, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
+    else { const nb = Math.max(modeId === 'bomb' ? 2 : 1, Math.min(st.bots, 4 - nh)); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); if (modeId === 'koth' || modeId === 'coins') players.forEach((p) => (p.lives = 99)); }
+    this.match = { mode: modeId, rulesMode, players, round: 0, need, arena: st.arena, size: (MODES[modeId] && MODES[modeId].size) || st.size || 'small', traps: st.traps, trapSet: modeId === 'ball' ? [['bumper', 'q4'], ['jump', 'r2']] : null, mutator: st.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
     s.played++; track('play'); save(); this.nextRound(true);
   },
   startStage(n) {
     const stage = STAGES[n - 1]; const s = S(); const hd = this.humanDef(0); hd.name = hd.hero.name; const { players, rules } = stageSetup(stage, hd);
-    this.match = { mode: 'campaign', stage, rules, players, round: 0, need: 1, arena: stage.arena, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
+    this.match = { mode: 'campaign', stage, rules, players, round: 0, need: 1, arena: stage.arena, size: stage.size || 'small', traps: stage.traps || 'some', mutator: 'off', humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
     s.played++; track('play'); save(); this.nextRound(true);
   },
   startTutorial() {
     const hd = this.humanDef(0); hd.name = hd.hero.name; hd.lives = 99; const dummy = this.botDef(pick(HEROES.filter((h) => h.id !== hd.hero.id)), { diff: 0, team: 1, persona: 'defender', lives: 1, name: 'Dummy' });
-    this.match = { mode: 'tutorial', rules: { type: 'elim', sudden: false, events: [] }, players: [hd, dummy], round: 0, need: 1, arena: 'dojo', humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {}, tutorial: true };
+    this.match = { mode: 'tutorial', rules: { type: 'elim', sudden: false, events: [] }, players: [hd, dummy], round: 0, need: 1, arena: 'dojo', humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {}, tutorial: true, traps: 'off', mutator: 'off', size: 'small' };
     this.tut = { step: 0, t: 0, moved: 0, done: [] }; this.nextRound(true);
   },
   nextRound(first) {
@@ -116,7 +126,7 @@ const app = {
     const rules = m.rules ? { ...m.rules } : rulesFor(m.rulesMode || m.mode, { arena: aid, eventLevel: S().settings.events });
     if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: S().settings.events }); Object.assign(rules, r2); } }
     m.curRules = rules; this.mode = 'play';
-    this.setGame({ mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules }); music(m.stage && m.stage.kind === 'boss' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
+    this.setGame({ mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator }); music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
     if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0, ...(first ? {} : {}) }; const d = this.game.fighters[1]; if (d) d.stunT = 9999; UI.tutorialShow(this.tut); }
   },
   restartRound() { const m = this.match; if (!m) return; m.round--; if (m.mode !== 'classic' && m.mode !== 'team') { m.st = { deaths: 0, passes: 0, kos: 0 }; } this.nextRound(); },
@@ -131,7 +141,7 @@ const app = {
     else if (n === 'go') { if (this.mode === 'play') UI.banner(m && m.mode === 'tutorial' ? 'GO!' : 'FIGHT!', null, '#ffd23c'); }
     else if (n === 'ko') {
       if (this.mode !== 'play') return; const f = d.f; if (!f.isBot && navigator.vibrate && S().settings.vibrate) navigator.vibrate(f.deathKind === 'boom' ? 60 : 30); S().kos++;
-      if (m) { if (human) m.st.deaths++; if (d.killer && !d.killer.isBot && d.killer.team !== f.team) { m.st.kos++; track('ko'); } }
+      if (m) { if (human) m.st.deaths++; if (d.killer && !d.killer.isBot && d.killer.team !== f.team) { m.st.kos++; track('ko'); if (['saw', 'hammer', 'boulder', 'crush', 'fire', 'zap', 'laser', 'spike'].includes(d.kind)) track('trapko'); } }
       if (f.boss) { UI.banner('BOSS DOWN!', f.name + ' is defeated', '#ffd23c'); }
     }
     else if (n === 'throw') { if (human) track('throw'); }
@@ -145,6 +155,9 @@ const app = {
     else if (n === 'wave') { UI.banner('WAVE ' + d.n, d.n % 5 === 0 ? 'Elite incoming!' : null, '#ff9a6a'); if (m) track('wave', d.n); }
     else if (n === 'wind') { UI.toast('Wind gust!', 1400); }
     else if (n === 'zoneMove') { UI.toast('The hill moved!', 1200); }
+    else if (n === 'goal') { if (this.mode === 'play') UI.banner('GOAL!', d.team === 0 ? 'Cyan team scores' : 'Pink team scores', d.team === 0 ? '#4fd1ff' : '#ff5a8a'); }
+    else if (n === 'capture') { if (this.mode === 'play') UI.banner('FLAG CAPTURED!', d.f.team === 0 ? 'Cyan team scores' : 'Pink team scores', d.f.team === 0 ? '#4fd1ff' : '#ff5a8a'); }
+    else if (n === 'boss') { if (this.mode === 'play') UI.banner('BOSS ' + d.n + ' / 3', d.name, '#ff5a5a'); }
     else if (n === 'rage') { UI.banner('ENRAGED!', null, '#ff5a5a'); }
     else if (n === 'lastKO') { if (this.mode === 'play' && g.rules.type !== 'koth' && !(m && m.mode === 'survival')) UI.banner(d.draw ? 'DRAW' : (d.winTeam === 0 || (d.winner && !d.winner.isBot) ? 'K.O.!' : 'K.O.!'), d.winner ? d.winner.name + ' stands!' : 'Nobody stands...', '#ff7a5a'); if (m && m.tutorial) { /* handled in roundEnd */ } if (d.winner && d.winner.alive && !d.winner.isBot) { fx.confetti(d.winner.x, d.winner.z, 50); } }
     else if (n === 'sudden') { if (this.mode === 'play') UI.banner('SUDDEN DEATH!', 'The arena crumbles!', '#ff5a5a'); }
@@ -157,7 +170,7 @@ const app = {
     const m = this.match, g = this.game; const info = (win) => m.players.map((p, i) => ({ name: p.name, wins: p.wins, team: p.team === undefined ? i : p.team, color: p.color || PLAYER_COLORS[i % 4], img: portrait(p.hero, p.hat) }));
     const humanTeam = m.players[0].team === undefined ? 0 : m.players[0].team; const humanWon = d.winTeam === humanTeam && d.winTeam >= 0;
     const teamBased = !!g.rules.teams;
-    if (m.mode === 'classic' || m.mode === 'team') {
+    if (m.mode === 'classic' || m.mode === 'team' || m.mode === 'crumble') {
       const w = d.winner; if (d.winTeam >= 0) { m.players.forEach((p, i) => { const t = p.team === undefined ? i : p.team; if (t === d.winTeam) p.wins++; }); if (humanWon) m.humanWins++; }
       const champ = m.players.find((p) => p.wins >= m.need);
       if (champ) { const cTeam = champ.team === undefined ? m.players.indexOf(champ) : champ.team; this.finishMatch({ won: cTeam === humanTeam, winnerName: teamBased ? (cTeam === humanTeam ? 'Your team' : 'Rival team') : champ.name, champ, info: info() }); }
@@ -168,6 +181,9 @@ const app = {
     const r = g.rules.type; let won = humanWon, extra = { info: info() };
     const stats = { time: g.playTime, deaths: m.st.deaths, passes: m.st.passes };
     if (r === 'koth') { const sc = g.mst.scores; const mine = sc[humanTeam] || 0; const others = Math.max(0, ...Object.keys(sc).filter((k) => +k !== humanTeam).map((k) => sc[k])); stats.margin = mine - others; extra.scoreMine = Math.round(mine); extra.scoreBest = Math.round(others); }
+    if (r === 'ctf' || r === 'ball') { const sc = g.mst2 || g.m2.scores; extra.scoreMine = sc[humanTeam] || 0; extra.scoreBest = sc[1 - humanTeam] || 0; }
+    if (r === 'coins') { const me = g.fighters.find((f) => !f.isBot); extra.scoreMine = me ? me.score : 0; extra.scoreBest = Math.max(0, ...g.fighters.filter((f) => f.isBot).map((f) => f.score || 0)); }
+    if (r === 'bossrush') { extra.rush = g.m2.n; won = !g.mst.lost && g.m2.done; }
     if (r === 'survival') { stats.wave = g.mst.wave; extra.wave = g.mst.wave; extra.kills = m.st.kos; if (m.stage) won = !g.mst.lost; else won = false; }
     this.finishMatch({ won, stats, ...extra });
   },
@@ -177,13 +193,17 @@ const app = {
     const mode = m.mode; if (mode !== 'tutorial') { if (won) { s.wins++; track('win'); } }
     if (mode === 'team' && won) track('teamwin');
     if (mode === 'koth') { if (won) track('kothwin'); coins += won ? 25 : 0; rows.push(['Hill score', `${o.scoreMine} vs ${o.scoreBest}`]); if (!m.stage) s.best.koth = Math.max(s.best.koth || 0, Math.round(o.scoreMine || 0)); }
-    if (mode === 'bomb' && won) track('bombwin');
+    if (mode === 'bomb' && won) track('bombwin'); if (['ctf', 'coins', 'ball', 'crumble', 'bossrush'].includes(mode) && won) track(mode + 'win');
+    if (mode === 'ctf' || mode === 'ball') { coins += won ? 15 : 0; rows.push([mode === 'ctf' ? 'Captures' : 'Goals', `${o.scoreMine} vs ${o.scoreBest}`]); }
+    if (mode === 'coins') { coins += Math.min(40, Math.round((o.scoreMine || 0) * 0.8)); rows.push(['Coins grabbed', `${o.scoreMine} vs ${o.scoreBest}`]); }
+    if (mode === 'bossrush') { coins += (o.rush || 0) * 20 + (won ? 60 : 0); xp += (o.rush || 0) * 20; rows.push(['Bosses reached', `${o.rush || 0} / 3`]); }
+    if (mode === 'crumble') rows.push(['Rounds won', String(m.humanWins)]);
     if (mode === 'survival') { const wv = o.wave || 0; coins += wv * 9; xp += wv * 14; rows.push(['Waves reached', String(wv)], ['Rivals KO\u2019d', String(m.st.kos)]); if (!m.stage) { s.best.survival = Math.max(s.best.survival || 0, wv); } track('wave', wv); }
     if (mode === 'classic' || mode === 'team') rows.push(['Rounds won', String(m.humanWins)]);
     if (mode === 'bomb') rows.push(['Bombs passed', String(m.st.passes)]);
     if (m.stage) { const stg = m.stage; stars = evalStars(stg, st); const cur = s.camp.stars[stg.n - 1] || 0; prevStars = cur; firstClear = won && cur === 0; if (stars > cur) { s.camp.stars[stg.n - 1] = stars; } if (stg.kind === 'boss' && won) { track('boss', 0); s.camp.bosses = s.camp.bosses || {}; if (!s.camp.bosses[stg.n]) { s.camp.bosses[stg.n] = 1; track('boss', 1); } } const tot = s.camp.stars.reduce((a, b) => a + (b || 0), 0); track('stars', tot); if (won) { coins += 15 * stars + (firstClear ? 60 : 0); xp += 12 * stars + (firstClear ? 50 : 0); } rows.push(['Time', fmtT(g.playTime)], ['Times KO\u2019d', String(m.st.deaths)]); }
     if (m.tutorial) { s.tutorialDone = true; coins = 40; xp = 60; rows.length = 0; rows.push(['Tutorial', 'Complete!']); }
-    addCoins(coins); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd';
+    addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd';
     if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); }
     const lv = levelInfo();
     const base = { won, mode, stage: m.stage || null, stars, prevStars, firstClear, rows, coins, xp, lvBefore, lv, ups, winnerName: o.winnerName, champ: o.champ, info: o.info, tutorial: !!m.tutorial };
@@ -229,7 +249,7 @@ function boot() {
   initHead(); initHardening(); initWakeLock(); initFullscreenFirstTap(app); initInstall(UI); initSW(app, UI); pwa.onChange = () => { if (UI.cur === 'menu') UI.show('menu'); };
   $('#loading').remove(); app.ready = true;
   if (IS_IOS && !isStandalone() && !IS_APP && !S().settings.a2hs) { setTimeout(() => { if (app.mode === 'menu') { showIosHint(); S().settings.a2hs = true; save(); } }, 2600); }
-  console.log('Boomerang Brawl', BUILD, gfx.quality, 'dpr', gfx.dprCur);
+  console.log('Whackerang', BUILD, gfx.quality, 'dpr', gfx.dprCur);
   // loop
   let last = performance.now(), fAcc = 0, fN = 0;
   const prof = { frames: 0, sum: 0, max: 0, sim: 0, rend: 0, over: 0 }; 
@@ -237,7 +257,7 @@ function boot() {
     requestAnimationFrame(frame); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1; if (dt <= 0) return;
     const t0 = performance.now(); app.frames++;
     if (app.game && (!app.paused || app.mode === 'menu')) { app.acc += dt; let n = 0; while (app.acc >= STEP && n < 4) { app.game.update(STEP); app.acc -= STEP; n++; } if (app.acc > STEP * 4) app.acc = 0; }
-    const dts = app.paused ? 0 : dt; fx.update(dts); app.showcaseTick(dt); gfx.time = (gfx.time || 0) + dt; updateGfx(dt, gfx.time);
+    const dts = app.paused ? 0 : dt; fx.update(dts); app.showcaseTick(dt); gfx.time = (gfx.time || 0) + dt; if (app.game && app.mode === 'play' && gfx.follow) app.camFollow(dt); updateGfx(dt, gfx.time);
     if (!app.game || app.mode === 'menu' || app.paused || true) { const p = Input.menuPoll(); if (UI.cur) UI.padMenu(p); else if (app.mode === 'play' && p.back && false) app.pause(); }
     if (app.mode !== 'play' || app.paused) Input.edge.clear();
     app.tutTick(dt); if (app.game && app.mode === 'play' && app.game.mode !== 'attract') { const g = app.game; const al = g.fighters.filter((f) => f.alive).length; setIntensity(g.state === 'play' ? Math.min(1, (g.sudden ? 0.7 : 0) + (al <= 2 ? 0.45 : 0.15) + Math.min(0.3, g.playTime / 120) + (g.rules.type === 'bomb' && g.mst.fuse < 4 ? 0.5 : 0)) : 0); } else setIntensity(0);
@@ -248,6 +268,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, UI, S, Input, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) app.game && app.game.update(STEP); }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  window.__bg = { overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, UI, S, Input, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

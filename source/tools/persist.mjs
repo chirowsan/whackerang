@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 915, h: 330, dpr: 2, mobile: true });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 await page.evaluate(() => { const s = __bg.S(); s.settings.music = 0.2; s.settings.leftHanded = true; s.setup.arena = 'ice'; s.coins = 123; s.hats.bao = 'party'; s.unlockedHats.push('party'); __bg.UI.show('settings', {}); document.querySelectorAll('.seg')[0]; });
 await page.evaluate(() => { const b = __bg; b.UI.root.querySelector('[data-back]').click(); });
 await page.reload(); await sleep(2000);

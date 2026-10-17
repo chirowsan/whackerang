@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 640, h: 360 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(1500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(1500);
 const res = await page.evaluate(async () => {
   const bg = __bg; bg.app.paused = true; bg.app.mode = 'menu'; const out = {};
   const mk = () => { const inp = [{ mx: 0, mz: 0, aimX: 1, aimZ: 0, fire: false, dash: false, deflect: false }, { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false }]; const ev = []; const g = new bg.Game({ mode: 'attract', arenaId: 'dojo', intro: 0.01, input: { read: (s) => inp[s] }, onEvent: (n, d) => ev.push(n), players: [0, 1].map((i) => ({ hero: bg.HEROES[i], hat: 'none', ctrl: 'human', slot: i, name: 'p' + i })) });

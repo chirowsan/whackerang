@@ -1,7 +1,7 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 915, h: 330, dpr: 2, mobile: true });
 await page.setUserAgent('Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36');
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
 await page.evaluate((a) => { const s = __bg.S(); s.setup.arena = a; s.setup.bots = 3; __bg.app.startMatch(); }, process.argv[2] || 'dojo'); await sleep(1500);
 console.log(await page.evaluate(() => { const sc = __bg.gfx.scene; const isv = (c) => { let p = c; while (p) { if (!p.visible) return false; p = p.parent; } return true; };
   const desc = (c) => c.geometry ? c.geometry.type.replace('Geometry','') + (c.userData && c.userData.ol ? '[ol:'+c.userData.ol+']' : '') + (c.material && c.material.side === 1 ? '[back]' : '') : c.type;

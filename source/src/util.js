@@ -1,5 +1,8 @@
-export const AW = 20, AH = 12;          // arena size in cells (1 unit each)
-export const HX = AW / 2, HZ = AH / 2;  // half extents in world units
+// Arena size in cells (1 unit each). Live bindings: call setArenaSize() BEFORE building a Game.
+export const SIZES = { small: { w: 20, h: 12, name: 'Small' }, large: { w: 26, h: 16, name: 'Large' }, huge: { w: 32, h: 20, name: 'Huge' } };
+export let AW = 20, AH = 12, HX = 10, HZ = 6, ARENA_SIZE = 'small';
+export function setArenaSize(id) { const z = SIZES[id] || SIZES.small; ARENA_SIZE = SIZES[id] ? id : 'small'; AW = z.w; AH = z.h; HX = AW / 2; HZ = AH / 2; }
+export const arenaScale = () => [AW / 20, AH / 12];
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export const lerp = (a, b, t) => a + (b - a) * t;
 export const rnd = Math.random;

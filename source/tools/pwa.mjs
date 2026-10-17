@@ -5,7 +5,7 @@ const { browser, page, errors, logs } = await launch({ w: 1280, h: 720 });
 const R = {};
 await page.goto(URL, { waitUntil: 'load' }); await sleep(4000);
 if (shots) { await page.screenshot({ path: 'pwa/screenshots/menu.png' }); await page.evaluate(() => { __bg.S().setup.arena = 'dojo'; __bg.app.startMatch(); }); await sleep(6000); await page.screenshot({ path: 'pwa/screenshots/play.png' }); await browser.close(); process.exit(0); }
-R.build = logs.find((l) => l.includes('Boomerang Brawl v')) || '';
+R.build = logs.find((l) => l.includes('Whackerang v')) || '';
 R.manifestLink = await page.evaluate(() => document.querySelector('link[rel=manifest]') && document.querySelector('link[rel=manifest]').href);
 R.appleIcon = await page.evaluate(() => !!document.querySelector('link[rel=apple-touch-icon]'));
 R.splashLinks = await page.evaluate(() => document.querySelectorAll('link[rel=apple-touch-startup-image]').length);

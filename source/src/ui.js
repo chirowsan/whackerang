@@ -19,7 +19,7 @@ const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 
-const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster"};
+const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster", "rune": "Gives a random special boomerang (Razor, Frost, Chain, Blast or Phantom) for 16 s"};
 export const UI = {
   app: null, root: null, cur: null, focusEl: null, hudCache: null,
   init(app) {
@@ -57,7 +57,7 @@ export const UI = {
   menu() {
     const a = this.app, s = S(), hero = this.heroById(s.hero);
     const el = h('div', 'screen', null, { id: 'menu' }); const left = h('div', 'left');
-    left.appendChild(h('div', '', `<div class="title">BOOMERANG<br>BRAWL</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
+    left.appendChild(h('div', '', `<div class="title">WHACKERANG</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
     left.appendChild(this.btn('▶ Play', 'primary', () => this.show('setup')));
     const g = h('div', 'menu-grid');
     g.appendChild(this.btn('Fighters', 'gold', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
@@ -72,7 +72,7 @@ export const UI = {
   },
   setup() {
     const s = S(), v = s.setup; const el = h('div', 'screen page'); const hd = h('header');
-    hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Brawl Setup')); hd.appendChild(this.coinChip()); el.appendChild(hd);
+    hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Match Setup')); hd.appendChild(this.coinChip()); el.appendChild(hd);
     const grid = h('div', 'panel vs-grid scroll');
     const segr = (label, key, opts) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([val, t]) => { const b = h('button', v[key] === val ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { v[key] = val; save(); sfx('click'); [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); }); sg.appendChild(b); }); r.appendChild(sg); grid.appendChild(r); };
     const touch = this.app.isTouchDevice();
@@ -88,7 +88,7 @@ export const UI = {
     if (!touch && v.players === 2) { const h2 = h('div', 'row', `<span>P2: <b>${hero2.name}</b></span>`); h2.appendChild(this.btn('Change', 'small', () => this.show('heroes', { mode: 'pick2', ret: 'setup' }))); grid.appendChild(h2); }
     grid.appendChild(h('div', '', 'Hit anyone with a boomerang to KO. Sudden death shrinks the arena. +10 coins per round won.', { style: 'grid-column:1/-1;color:var(--dim);font-size:calc(var(--u)*.95);font-weight:700' }));
     el.appendChild(grid);
-    const go = this.btn('▶ START BRAWL', 'primary', () => this.app.startMatch()); go.style.alignSelf = 'flex-end'; el.appendChild(go);
+    const go = this.btn('▶ START', 'primary', () => this.app.startMatch()); go.style.alignSelf = 'flex-end'; el.appendChild(go);
     return el;
   },
   heroes(p) {

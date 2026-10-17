@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, errors } = await launch({ w: 915, h: 412, dpr: 1, mobile: true });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 await page.evaluate(() => { __bg.S().tutorialDone = false; });
 await page.evaluate(() => __bg.UI.show('tutintro')); await sleep(300);
 await page.evaluate(() => { [...document.querySelectorAll('button')].find((b) => /start training/i.test(b.textContent)).click(); });

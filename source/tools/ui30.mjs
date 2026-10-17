@@ -1,0 +1,14 @@
+import { launch, sleep } from './lib.mjs';
+const { browser, page, errors } = await launch({ w: 915, h: 412, dpr: 1, mobile: true });
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
+await page.evaluate(() => { const s = __bg.S(); s.tutorialDone = true; s.coins = 1234; __bg.app.reloadSettings(); __bg.app.quitToMenu(false); });
+await sleep(1200);
+const shot = async (n) => { await sleep(500); await page.screenshot({ path: `/workspace/boomerang-brawl/shots/v30/ui-${n}.png` }); console.log(n); };
+await shot('menu');
+const show = async (n, id, p = {}) => { await page.evaluate((id, p) => __bg.UI.show(id, p), id, p); await shot(n); };
+await show('modes', 'modes'); await show('setup-classic', 'setup', { mode: 'classic' }); await show('setup-ctf', 'setup', { mode: 'ctf' });
+await show('store-earn', 'goldstore', { tab: 'earn' }); await show('store-gate', 'goldstore', { tab: 'buy' });
+await page.evaluate(() => { __bg.UI.show('goldstore', { tab: 'buy' }); });
+await page.evaluate(async () => { const m = await import('./x'); }).catch(() => {});
+await show('shop-premium', 'shop', { tab: 'Premium' }); await show('profile', 'profile');
+console.log('errors', errors.slice(0, 6)); await browser.close();

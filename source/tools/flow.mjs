@@ -1,6 +1,6 @@
 import { launch, sleep } from './lib.mjs';
 const { browser, page, logs, errors } = await launch({ w: 1280, h: 720 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(2000);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 const res = await page.evaluate(async () => {
   const bg = __bg, app = bg.app, K = bg.Input.keys; const cnt = {}; const o = app.gameEvent.bind(app); app.gameEvent = (n, d) => { cnt[n] = (cnt[n] || 0) + 1; o(n, d); };
   const s = bg.S(); s.setup = { ...s.setup, bots: 1, diff: 0, arena: 'dojo', rounds: 2, players: 1 }; app.startMatch();

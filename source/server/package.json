@@ -1,0 +1,1 @@
+{ "name": "whackerang-server", "version": "0.1.0", "private": true, "type": "module", "description": "Local-only prototype of the Whackerang gold ledger + purchase verification API. NOT deployed.", "scripts": { "start": "node server.mjs", "test": "node --test test.mjs", "catalog": "node gen-catalog.mjs" }, "engines": { "node": ">=20" } }

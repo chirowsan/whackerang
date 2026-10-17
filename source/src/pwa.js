@@ -38,7 +38,7 @@ export function initSW(app, UI) {
 export function initInstall(UI) {
   if (IS_APP) return;
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pwa.deferred = e; changed(); });
-  window.addEventListener('appinstalled', () => { pwa.deferred = null; pwa.installed = true; changed(); UI.toast('Installed! Launch Boomerang Brawl from your home screen'); });
+  window.addEventListener('appinstalled', () => { pwa.deferred = null; pwa.installed = true; changed(); UI.toast('Installed! Launch Whackerang from your home screen'); });
 }
 export const canInstall = () => !IS_APP && !isStandalone() && !pwa.installed && (!!pwa.deferred || IS_IOS);
 export async function promptInstall(UI) {
@@ -50,7 +50,7 @@ export function showIosHint() {
   if (document.getElementById('a2hs')) return;
   const d = document.createElement('div'); d.id = 'a2hs';
   const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-  d.innerHTML = `<div class="card"><b>Install Boomerang Brawl</b><ol><li>${safari ? 'Tap' : 'Open this page in <b>Safari</b>, then tap'} <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#8ff6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg> <b>Share</b></li><li>Choose <b>Add to Home Screen</b></li><li>Launch it from your home screen for full-screen play</li></ol><button>Got it</button></div>`;
+  d.innerHTML = `<div class="card"><b>Install Whackerang</b><ol><li>${safari ? 'Tap' : 'Open this page in <b>Safari</b>, then tap'} <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#8ff6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg> <b>Share</b></li><li>Choose <b>Add to Home Screen</b></li><li>Launch it from your home screen for full-screen play</li></ol><button>Got it</button></div>`;
   d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
 }
 
@@ -83,7 +83,7 @@ export function initFullscreenFirstTap(app) {
 // ---- touch hardening (no pull-to-refresh / zoom / callouts)
 export function initHardening() {
   const ok = (t) => t && t.closest && t.closest('.scroll, input, textarea, select');
-  document.addEventListener('touchmove', (e) => { if (!ok(e.target)) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.cancelable && !ok(e.target)) e.preventDefault(); }, { passive: false });
   ['gesturestart', 'gesturechange', 'gestureend'].forEach((n) => document.addEventListener(n, (e) => e.preventDefault()));
   document.addEventListener('dblclick', (e) => e.preventDefault());
   document.addEventListener('selectstart', (e) => { if (!ok(e.target)) e.preventDefault(); });

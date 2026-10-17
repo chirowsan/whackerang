@@ -3,7 +3,7 @@ const W = +(process.argv[2] || 915), H = +(process.argv[3] || 330), tag = proces
 const { browser, page, logs, errors } = await launch({ w: W, h: H, dpr: 2, mobile: true });
 await page.setUserAgent('Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36');
 const cdp = await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-await page.goto('file:///workspace/boomerang-brawl/BoomerangBrawl.html'); await sleep(3500);
+await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(3500);
 console.log(logs.filter((l) => l.includes('Boomerang')));
 await page.screenshot({ path: `shots/${tag}-menu.png` });
 const tapSel = async (txt) => { const r = await page.evaluate((txt) => { const b = [...document.querySelectorAll('#ui button')].find((x) => x.textContent.includes(txt)); if (!b) return null; const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; }, txt); if (!r) { console.log('no btn', txt); return false; } await page.touchscreen.tap(r[0], r[1]); await sleep(500); return true; };

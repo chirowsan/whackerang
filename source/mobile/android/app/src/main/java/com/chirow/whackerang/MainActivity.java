@@ -1,4 +1,4 @@
-package com.chirow.boomerangbrawl;
+package com.chirow.whackerang;
 
 import android.os.Bundle;
 import android.view.View;
