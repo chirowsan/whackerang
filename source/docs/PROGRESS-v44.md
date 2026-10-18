@@ -10,3 +10,5 @@ perf unchanged vs v4.3 (calls 195-249); haze layers only visible when holes exis
 version bumped 44, docs/FALLING.md written
 min build v4.4-20261018; final suites running tools/fin44.sh -> /workspace/out/v4.4-results/summary
 all final suites pass (falls44 78, traps43 119, tut42 18, net_ui 32, net_life 25, net_relay43 44, relay43 26, perf same); next APK
+pushed pages v4.4
+released v4.4, live verified (12/12 live relay checks)

@@ -118,8 +118,8 @@ function sfxInner(name, p, t) {
     case 'win': [0, 4, 7, 12, 7, 12, 16, 19].forEach((s, i) => tone(mtof(67 + s), t + i * 0.1, 0.25, 'square', 0.16, { lp: 3500, send: 0.3 })); break;
     case 'round': [0, 7, 12].forEach((s, i) => tone(mtof(72 + s), t + i * 0.09, 0.22, 'triangle', 0.2, { send: 0.3 })); break;
     case 'lose': [7, 3, 0, -5].forEach((s, i) => tone(mtof(60 + s), t + i * 0.2, 0.4, 'sawtooth', 0.16, { lp: 1500 })); break;
-    case 'beep': tone(660, t, 0.12, 'square', 0.14); break;
-    case 'go': tone(990, t, 0.4, 'square', 0.16, { send: 0.3 }); tone(1320, t, 0.4, 'triangle', 0.12); break;
+    case 'beep': tone(660, t, 0.16, 'square', 0.17); tone(330, t, 0.16, 'triangle', 0.1); break;
+    case 'go': tone(1320, t, 0.5, 'square', 0.18, { send: 0.3 }); tone(1760, t, 0.5, 'triangle', 0.14); tone(660, t, 0.5, 'triangle', 0.1); break;
     case 'freeze': noise(t, 0.35, 0.35, { type: 'highpass', f: 5000, fTo: 9000 }); [0, 7, 12, 19].forEach((x, i) => tone(mtof(88 + x), t + i * 0.04, 0.25, 'sine', 0.12, { send: 0.5 })); break;
     case 'shatter': noise(t, 0.3, 0.7, { type: 'highpass', f: 3500, fTo: 9000 }); tone(2400 * r, t, 0.2, 'triangle', 0.25, { to: 500 }); tone(110, t, 0.2, 'sine', 0.5, { to: 45 }); break;
     case 'chain': tone(900 * r, t, 0.08, 'square', 0.14, { to: 1800 }); tone(1800, t + 0.06, 0.08, 'square', 0.1, { to: 900 }); break;

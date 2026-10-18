@@ -492,3 +492,18 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #edgewarn.on { opacity: 1; }
 #edgewarn i { position: absolute; left: 50%; top: calc(var(--u)*5); transform: translateX(-50%); font-style: normal; font-weight: 900; font-size: calc(var(--u)*2.4); color: #0a0620; background: #8ff6ff; border-radius: 999px; padding: 0 calc(var(--u)*1.1); box-shadow: 0 0 calc(var(--u)*1.2) #3fe6ff; }
 @keyframes edgepulse { from { filter: brightness(.7); } to { filter: brightness(1.5); } }
+
+/* v4.5 countdown: big centred 3-2-1-GO (#countdown) with its own caption element (#cdcap) above it. Both sit mid-screen (z-index above the edge overlay) so the top HUD and the bottom touch controls stay clear. */
+#countdown, #cdcap { position: fixed; left: 0; right: 0; display: none; flex-direction: column; align-items: center; pointer-events: none; text-align: center; }
+#countdown { top: 50%; transform: translateY(-46%); z-index: 5; }
+#cdcap { top: 17%; z-index: 6; }
+#countdown.on, #cdcap.on { display: flex; }
+#cdcap > div { display: flex; flex-direction: column; align-items: center; background: rgba(14,8,40,.66); border-radius: 12px; padding: 2px 18px 4px; }
+#cdcap b { font-size: clamp(16px, 5.2vh, 40px); font-weight: 1000; font-style: italic; letter-spacing: .08em; text-transform: uppercase; color: #fff; text-shadow: 0 2px 0 #1a0f4a, 0 0 14px var(--acc); }
+#cdcap span { font-size: clamp(11px, 3vh, 22px); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #cfe6ff; text-shadow: 0 2px 6px #000; }
+#countdown .cdnum { font-size: clamp(110px, 40vh, 420px); line-height: .9; font-weight: 1000; font-style: italic; color: #fff; -webkit-text-stroke: clamp(3px, .9vh, 9px) #1a0f4a; paint-order: stroke fill; text-shadow: 0 0 .22em var(--acc), 0 .06em 0 #1a0f4a; min-height: .9em; }
+#countdown .cdnum.pop { animation: cdpop .95s cubic-bezier(.2,1.3,.4,1) both; }
+#countdown .cdnum.go { color: #ffd23c; font-size: clamp(90px, 34vh, 360px); text-shadow: 0 0 .25em #ff9a1c, 0 .06em 0 #6a3a00; animation: cdgo .8s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes cdpop { 0% { transform: scale(2.4); opacity: 0; } 18% { transform: scale(.92); opacity: 1; } 32% { transform: scale(1.08); } 46% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(.82); opacity: 0; } }
+@keyframes cdgo { 0% { transform: scale(.4); opacity: 0; } 22% { transform: scale(1.25); opacity: 1; } 45% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #countdown .cdnum.pop, #countdown .cdnum.go { animation-duration: .01s; } }

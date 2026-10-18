@@ -13,7 +13,7 @@ import { fx } from '../fx.js';
 import { sfx } from '../audio.js';
 import { todayMutator } from '../mutators.js';
 import { track, addCoins, addXp, levelInfo } from '../progress.js';
-import { shuffle, pick } from '../util.js';
+import { shuffle, pick, CD_LEN } from '../util.js';
 
 const SNAP_N = 3;                    // sim steps per snapshot: 3 -> 20 Hz
 const SNAP_N_RELAY = 5;              // v4.3 low-bandwidth mode when anybody is on the relay: 12 Hz (guests also send inputs at 15 Hz)
@@ -292,10 +292,12 @@ export const Net = {
     this.syncLobby(); app.nextRound(true); return true;
   },
   // app.nextRound (host) asks us to complete the Game options; we also announce the round to guests
-  hostGameOpts(o) { const s = this.H.settings; return { ...o, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
+  hostGameOpts(o) { const s = this.H.settings; // v4.5: the host's countdown is a 3 s real-time count after a pre-roll that grows with the worst peer ping, so slow links still see the 3 before it starts
+    let worst = 0; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) worst = Math.max(worst, p.ping || 0);
+    const pre = Math.min(1.2, Math.max(0.45, 0.45 + worst / 1000)); return { ...o, intro: CD_LEN + pre, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
   roundMsg() {
     const m = this.app.match, g = this.app.game, o = this.curOpts;
-    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, speed: this.H.settings.speed, players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
+    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
   },
   onGameCreated(g, opts) {
     this.curOpts = opts;
@@ -308,7 +310,7 @@ export const Net = {
     }
   },
   relayEvent(n, d) {
-    const g = this.app.game; if (!this.isHost || !g) return; if (n === 'roundEnd') return; const ix = (f) => (f ? g.fighters.indexOf(f) : -1);
+    const g = this.app.game; if (!this.isHost || !g) return; if (n === 'roundEnd' || n === 'countdown' || n === 'go' || n === 'cdclear') return; const ix = (f) => (f ? g.fighters.indexOf(f) : -1);
     const m = { t: 'evt', n, f: ix(d && d.f), k: ix(d && d.killer), from: ix(d && d.from), kind: d && d.kind, w: ix(d && d.winner), wt: d && d.winTeam, draw: d && d.draw, team: d && d.team, num: d && d.n, name: d && d.name };
     this.sendAll(m);
   },
@@ -439,10 +441,13 @@ export const Net = {
     const localIdx = g.fighters.findIndex((f) => !f.isBot && f.def.slot === 0);
     this.world = new GuestWorld(g, { slotOf: null, localIdx, mySlot: this.mySlot, speed: cfg.speed, send: (buf) => { this.G && this.G.link && this.G.link.send('fast', buf); } });
     if (this.G && this.G.link && this.G.link.relay) { this.world.sendEvery = 4; this.world.relay = true; }
-    g.guestUpdate = (dt) => this.world.update(dt);
+    this.world.rttOf = () => this.rtt || 0; g.guestUpdate = (dt) => this.world.update(dt);
     for (const f of g.fighters) { if (!f.isBot && f.model.setMarker) { const own = f.def.slot === 0; const pl = this.lobby.players.find((p) => p.slot === (own ? this.mySlot : (f.def.slot === this.mySlot ? 0 : f.def.slot))); f.model.setMarker(f.color, own ? 'YOU' : tag((cfg.players[g.fighters.indexOf(f)] || {}).name), own); } }
   },
+  // v4.5: the host says how long until GO (seconds, at send time); the guest turns that into a local deadline minus half the round trip, so all countdowns end together (direct or relay)
+  goAtFor(c) { const rtt = Math.min(1200, Math.max(0, this.rtt || 0)); return performance.now() + Math.max(0, (c.goIn === undefined ? CD_LEN : c.goIn) * 1000 - rtt / 2); },
   guestEvent(m) {
+    if (m.n === 'countdown' || m.n === 'go') return; // guests run their own synced countdown
     const g = this.app.game; if (!g) return; const F = (i) => (i >= 0 ? g.fighters[i] : null);
     if (m.n === 'botin') { this.note(`${m.name} left: a bot takes over`); this.UI.toast(`${m.name} left. A bot takes over.`, 2200); return; }
     this.app.gameEvent(m.n, { f: F(m.f), killer: F(m.k), from: F(m.from), kind: m.kind, winner: F(m.w), winTeam: m.wt, draw: m.draw, team: m.team, n: m.num, name: m.name });

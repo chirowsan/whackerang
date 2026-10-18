@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.5 (3-2-1-GO countdown)
+Every round now starts with a big **3-2-1-GO** (3 s real time, independent of Game Speed): numbers pop in with a beep, a higher chime and a stronger buzz on GO. Nobody can move, throw or use traps, no clock or hazard has started and nobody can be hurt until GO. Works for every mode, offline vs bots, restart/rematch and online (the host's start time is shared; guests end with the host within a fraction of a second). Training uses a short version. Details and tests: `docs/COUNTDOWN.md`.
+
 ## What's new in v4.4 (falling is clear and forgiving)
 - **Every drop looks the same on every arena:** dark hazy abyss (no more floor-coloured "holes"), a glowing **cyan rim** on every ledge, cracking tiles that blink dark/cyan. Cyan edge = drop.
 - **Edge help (Settings, on by default):** screen-edge glow + `EDGE` chip, a tick and a buzz as you near a drop, a wobble when you stand on nothing, **0.25 s ledge grace**, and your **first fall each match is forgiven once** (put back on safe floor, short stun and shield). After that falling is real. Off = old behaviour.

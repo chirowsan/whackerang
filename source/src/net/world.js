@@ -153,6 +153,8 @@ export class GuestWorld {
       let S; try { S = decodeFast(buf); decodeFastRest(S, this.type, this.crumble); } catch (e) { this.stats.errs++; return; }
       this.lastRecv = now; if (this.buf.length && S.tick <= this.buf[this.buf.length - 1].tick) { if (this.buf.some((x) => x.tick === S.tick)) return; this.stats.late++; }
       S.at = now; this.stats.snaps++;
+      // v4.5: refine the countdown deadline from the host's own remaining intro time (fast channel, so it is not delayed like the slow 'round' message). One-way delay = half the measured round trip.
+      { const g = this.g; if (S.state === 0 && g.goAt && !g.cdDone) { const tgt = performance.now() + Math.max(0, S.introT) * 1000 - Math.min(1200, this.rttOf ? this.rttOf() : 0) / 2; g.goAt = g.goLock ? g.goAt + (tgt - g.goAt) * 0.35 : tgt; g.goLock = true; } }
       const ht = S.tick * STEP * 1000; const o = now - ht; this.offs.push(o); if (this.offs.length > 120) this.offs.shift(); let mn = Infinity; for (const v of this.offs) if (v < mn) mn = v; this.off = this.off === null ? mn : this.off + (mn - this.off) * 0.1;
       // jitter estimate (RFC3550 style) drives the interpolation delay
       const ia = now - this.lastArrive; this.lastArrive = now; const dv = Math.abs((o - (this._lastO || o))); this._lastO = o; this.jit += (dv - this.jit) / 16;

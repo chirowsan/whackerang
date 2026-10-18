@@ -4,7 +4,7 @@ const TFX = (id) => (TRAILS[id] || TRAILS.none).fx;
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { S, speedCfg } from './save.js';
-import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle, mulberry32 } from './util.js';
+import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle, mulberry32, CD_LEN, CD_PRE } from './util.js';
 import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS } from './data.js';
 import { ArenaEvents } from './events.js';
 import { installRules } from './rules.js';
@@ -122,6 +122,7 @@ class Fighter {
   // returns true when the fighter actually died (bosses / multi-hp fighters just lose hp)
   die(killer, kind, kx, kz) {
     if (!this.alive) return false; const g = this.g;
+    if (g.state === 'intro' && g.mode !== 'attract') return false; // v4.5: invulnerable during the countdown
     if (this.hp > 1 && (kind === 'boom' || kind === 'shatter' || kind === 'meteor' || kind === 'slam')) {
       this.hp--; this.inv = 1.0; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; const l = Math.hypot(kx, kz) || 1; this.vx = kx / l * 9; this.vz = kz / l * 9; this.charging = false; this.chargeT = 0;
       g.onHurt(this, killer, kind); return false;
@@ -204,7 +205,7 @@ export class Game {
     this.mut = o.mutator || null; { const _mr = Math.random; if (o.netSeed != null) Math.random = mulberry32((o.netSeed ^ 0x7a9) >>> 0); try { this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) }); } finally { Math.random = _mr; } }
     const n = o.players.length; this.nHumans = o.players.filter((p) => p.ctrl !== 'bot').length || 1; const order = this.rules.teams && n === 4 ? [0, 3, 1, 2] : n === 1 ? [0] : n === 2 ? [0, 1] : n === 3 ? [0, 1, 3] : [0, 1, 2, 3];
     o.players.forEach((d, i) => { const sp = spawns()[order[i]]; this.fighters.push(new Fighter(this, d, i, [cx(sp[0]), cz(sp[1])])); });
-    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.introT = o.intro === undefined ? 3.2 : o.intro; this.lastCount = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
+    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.cdShort = !!o.cdShort; this.goAt = o.goAt || 0; this.introT = o.intro === undefined ? (this.cdShort ? 0.9 : CD_PRE + CD_LEN) : o.intro; this.lastCount = 9; this.cdDone = this.mode === 'attract'; this.goWall = performance.now() + this.introT * 1000; this._pw = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
     this.puT = 3.5; this.suddenRing = -1; this.suddenT = 0; this.sudden = false; this.crackT = 8; this.result = null; this.koFlash = 0; this.playTime = 0; this.winner = null; this.winTeam = -1;
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
   }
@@ -413,17 +414,33 @@ export class Game {
     sfx('koStinger'); sfx('slowmo');
   }
   // -------- main update
+  // v4.5 countdown: one clock (seconds until GO). Host/offline: introT (real time, ignores Game Speed). Guests: local deadline goAt set from the host's start message (minus half the round trip), so every screen hits GO together.
+  // n = 4 during the short pre-roll (title card), 3,2,1 for exactly 3 s, then GO. Fighters are locked and invulnerable while state === 'intro'.
+  cdTick(rem) {
+    if (this.mode === 'attract' || this.cdDone) return;
+    const n = rem > CD_LEN ? 4 : Math.max(0, Math.ceil(rem - 1e-6));
+    if (this.cdShort) { if (rem <= 0) { this.cdDone = true; sfx('go'); this.onEvent('go'); } return; }
+    if (n !== this.lastCount && n > 0) { this.lastCount = n; if (n <= 3) sfx('beep'); this.onEvent('countdown', { n }); }
+    if (rem <= 0) { this.cdDone = true; sfx('go'); this.onEvent('go'); }
+  }
+  cdGuest() {
+    const rem = (this.goAt - performance.now()) / 1000;
+    if (this.state === 'play' && rem > 0.4) { this.goAt = 0; this.onEvent('cdclear'); return; } // the host is already playing (late join / clock error): never leave the overlay up
+    this.cdTick(rem); if (rem <= 0) { this.goAt = 0; if (this.input && this.input.flush) this.input.flush(); }
+  }
   update(dt) {
-    if (this.guestUpdate) { this.guestUpdate(dt); return; }
+    if (this.guestUpdate) { if (this.goAt) this.cdGuest(); this.guestUpdate(dt); return; }
     if (this.hitstop > 0) { this.hitstop -= dt; this.vis(dt); return; }
     if (this.slowT > 0) { this.slowT -= dt; dt *= 0.4; if (this.mode !== 'attract') gfx.fovHold = 1; } else if (gfx.fovHold && this.mode !== 'attract') gfx.fovHold = 0;
     // v3.1 Game Speed: one global time scale for the whole simulation (the 3-2-1 intro and the round-end pause stay real-time)
     const cfg = this.cfg = this.netCfg || speedCfg(); const rdt = dt; if (this.state !== 'intro' && this.mode !== 'attract') dt *= cfg.ts; else if (this.mode === 'attract') dt *= Math.max(cfg.ts, 0.7);
     this.time += dt;
+    if (this.state !== 'intro' && !this.cdDone) { this.cdDone = true; this.onEvent('cdclear'); } // state forced to play (tests / skip): never leave the overlay up
     if (this.state === 'intro') {
-      this.introT -= rdt; const c = Math.ceil(this.introT);
-      if (c !== this.lastCount) { this.lastCount = c; if (c <= 3 && c > 0 && this.mode !== 'attract') sfx('beep'); this.onEvent('countdown', { n: c }); }
-      if (this.introT <= 0) { this.state = 'play'; if (this.mode !== 'attract') sfx('go'); this.onRulesGo(); this.onEvent('go'); }
+      // the countdown is real time: with slow frames (first-frame shader compile, a hitch) it follows the wall clock (goWall) so online guests, who count from the host's start time, still end together. Paused time is added back to goWall by main.js.
+      this.introT -= rdt; if (this.live) { const wr = (this.goWall - performance.now()) / 1000; if (wr < this.introT) this.introT = wr; } // never later than the wall-clock deadline (slow frames / first-frame hitch); guests count from the same moment
+      this.cdTick(this.introT);
+      if (this.introT <= 0) { this.state = 'play'; this.onRulesGo(); if (this.input && this.input.flush && this.mode !== 'attract') this.input.flush(); } // taps made during the countdown must not fire at GO
     } else if (this.state === 'play' || this.state === 'roundEnd') {
       if (this.state === 'play') { this.playTime += dt; this.puT -= dt; if (this.puT <= 0) { this.puT = (this.rules.puEvery || 6) + Math.random() * 3; if (this.powerups.length < 3) this.spawnPowerup(); } }
       if (this.state === 'roundEnd') { if (!this.celebrated) { this.celebrated = true; this.celebrate(); } this.fwT = (this.fwT || 0) - rdt; if (this.fwT <= 0 && this.endT < 2.2 && this.winner && this.winner.alive) { this.fwT = 0.34; fx.firework(this.winner.x, this.winner.z, [this.winner.color, 0xffd23c, 0xffffff]); }

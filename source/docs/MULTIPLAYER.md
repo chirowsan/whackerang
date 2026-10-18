@@ -128,3 +128,7 @@ All matrix runs used our own relay, which accepts any payload. Testing the deplo
 * **More than 4 players, long sessions (> a few minutes), and many rooms at once** were not tested. Longest run: about 63 s of sim per run, 2 rounds.
 * **Scale / abuse on the public internet:** the host-side limits are unit-tested locally (`net_life`), not attacked by a real hostile client.
 * Android APK: built and signed, but online play inside the APK was not run on a device or emulator (the web build is what the tests drove).
+
+
+## v4.5 countdown sync
+The `round` message now carries `goIn` (seconds until GO). Guests set a local deadline (`goAt`) = now + goIn - rtt/2 and refine it from the `introT` in each snapshot; they run their own 3-2-1-GO overlay/sounds, and the host's `countdown`/`go` events are no longer relayed. See `docs/COUNTDOWN.md`.
