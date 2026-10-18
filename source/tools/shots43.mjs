@@ -1,6 +1,6 @@
 // v4.3 screenshots: lethal traps dormant -> telegraph -> armed, soft traps, legend.
 import { launch, sleep } from './lib.mjs';
-const OUT = '/workspace/out/v4.3-shots/';
+const OUT = '/workspace/out/v4.4-shots/';
 const { browser, page, errors } = await launch({ w: 1100, h: 620, dpr: 1, mobile: false });
 await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2000);
 await page.evaluate(() => { const s = __bg.S(); s.tutorialDone = true; s.settings.events = 'off'; s.settings.camera = 'wide'; s.settings.quality = 'fast'; s.settings.touch = 'off'; __bg.app.reloadSettings(); });

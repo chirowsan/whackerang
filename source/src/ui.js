@@ -128,7 +128,7 @@ export const UI = {
     const segr = (label, key, opts, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([v, t]) => { const b = h('button', s[key] === v ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { s[key] = v; [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); save(); sfx('click'); apply && apply(); }); sg.appendChild(b); }); r.appendChild(sg); grid.appendChild(r); };
     segr('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]);
     slider('Music', 'music', applyVolumes); slider('Sound FX', 'sfx', applyVolumes);
-    toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');
+    toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Edge help (warn near drops, 1 free save)', 'edgeHelp'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');
     segr('Graphics', 'quality', [['sharp', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']], () => setQuality(s.quality));
     toggle('Bloom glow', 'bloom', () => setQuality(s.quality));
     segr('Touch controls', 'touch', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => this.app.applyTouch());

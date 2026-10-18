@@ -27,3 +27,8 @@ worker alive; net_ui 0, net_life 0 on min build; running net_relay43
 net_relay43 42/42 on min build (earlier 7 fails = orphan turn port, harness). Next: APK/AAB
 apk build started (tools/apk43.sh, log /workspace/out/v4.3-results/apk43.log)
 APK/AAB built+signed; verifying
+pages staged (dist+source+screens), not yet pushed
+pushed Pages 4490072; verifying live
+Pages live v4.3-20261017; running net_live43
+live net test 12/12 (forced relay + direct-blocked fallback at 6.3s) on deployed site+Worker; next: copies, zip, GH release
+GH release v4.3 created and downloads verified

@@ -97,10 +97,10 @@ class Fighter {
     // --- hazards
     if (this.dashT <= 0 && !(this.airT > 0)) {
       const t = g.cellType(this.x, this.z); const k = idx(ci(this.x), cj(this.z));
-      if (g.hole[k] < 0) this.die(null, 'fall', 0, 0);
-      else if (t === T.LAVA) this.die(null, 'lava', 0, 0);
+      if (g.hole[k] < 0) { this.edgeT = (this.edgeT || 0) + dt; if (this.edgeT >= g.edgeGrace) g.fallResolve(this); } // v4.4: ledge grace (0.25 s with Edge help), then one free save per match
+      else if ((this.edgeT = 0, t === T.LAVA)) this.die(null, 'lava', 0, 0);
       else if (t === T.SPIKE && g.spk[k] > 0.6) this.die(null, 'spike', 0, 0);
-    }
+    } else this.edgeT = 0;
   }
   release() {
     const g = this.g; this.charging = false; let c = clamp(this.chargeT / 0.7, 0, 1); this.chargeT = 0; if (this.ultKind === 'tako' && this.ultT > 0) c = 1;
@@ -196,6 +196,7 @@ export class Game {
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
     this.layout = genLayout(this.arenaId, o.netSeed); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
     const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
+    this.edgeHelp = o.edgeHelp !== undefined ? !!o.edgeHelp : S().settings.edgeHelp !== false; this.edgeSaves = o.edgeSaves || {}; this.edgeGrace = this.edgeHelp ? 0.25 : 0; this.edgeNear = 0; this.edgeTickT = 0;
     this.hole = new Float32Array(AW * AH); this.spk = new Float32Array(AW * AH); this.spkWarn = new Uint8Array(AW * AH); this.spkPh = new Float32Array(AW * AH);
     this.crateHp = new Uint8Array(AW * AH); this.sol = new Uint8Array(AW * AH);
     for (let k = 0; k < AW * AH; k++) { const t = this.layout.t[k]; if (t === T.CRATE) this.crateHp[k] = 2; this.sol[k] = (t === T.PILLAR || t === T.CRATE) ? 1 : 0; this.spkPh[k] = nrnd() * 4.2; }
@@ -352,6 +353,41 @@ export class Game {
     switch (kind) { case 'extra': f.maxAmmo = Math.min(3, f.maxAmmo + 1); f.ammo = Math.min(f.maxAmmo, f.ammo + 1); break; case 'shield': f.shield = true; break; case 'rune': { const t = pick(['razor', 'frost', 'chain', 'boom', 'phantom']); f.type = t; f.typeT = 16; fx.popup(BOOM_TYPES[t].name.toUpperCase() + ' BOOMERANG', f.x, f.z, 'pop-pu', 2.4); break; } default: f.pu[kind] = d; }
     this.onEvent('pickup', { f, kind });
   }
+  // -------- v4.4 falling: ledge grace, one free save per match, proximity warning
+  safeCell(f) {
+    const ci0 = ci(f.x), cj0 = cj(f.z); let best = null, bd = 1e9;
+    for (let pass = 0; pass < 2 && !best; pass++) for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
+      const k = idx(i, j); if (this.hole[k] !== 0 || this.sol[k] || this.layout.t[k] !== T.FLOOR) continue; const x = cx(i), z = cz(j);
+      if (this.traps && this.traps.danger(x, z) > 0) continue; if (this.fighters.some((o) => o !== f && o.alive && Math.hypot(o.x - x, o.z - z) < 1.1)) continue;
+      if (pass === 0) { let bad = false; for (let dj = -1; dj <= 1 && !bad; dj++) for (let di = -1; di <= 1; di++) { if (inb(i + di, j + dj) && (this.hole[idx(i + di, j + dj)] !== 0 || this.sol[idx(i + di, j + dj)] && !di && !dj)) { bad = true; break; } } if (bad) continue; }
+      const d = Math.hypot(x - f.x, z - f.z); if (d < bd) { bd = d; best = [x, z]; }
+    }
+    return best;
+  }
+  fallResolve(f) {
+    if (this.edgeHelp && this.mode !== 'attract' && !this.edgeSaves[f.idx]) {
+      const c = this.safeCell(f);
+      if (c) {
+        this.edgeSaves[f.idx] = 1; const ox = f.x, oz = f.z; f.x = c[0]; f.z = c[1]; f.vx = f.vz = 0; f.ex = f.ez = 0; f.edgeT = 0; f.charging = false; f.chargeT = 0; f.dashT = 0;
+        f.inv = Math.max(f.inv, 1.8); f.stunT = Math.max(f.stunT, 0.8); f.hitFlash = 0.4; f.savedFall = true;
+        fx.ring(ox, 0.1, oz, 0x8ff6ff, 2.4, 0.4); fx.ring(c[0], 0.1, c[1], 0x8ff6ff, 2.8, 0.5); fx.sparks(c[0], 0.6, c[1], 14, [0x8ff6ff, 0xffffff], { speed: 4, life: 0.5 }); fx.popup('SAVED! ONCE PER MATCH', c[0], c[1], 'pop-cyan', 1.9); sfx('edgesave');
+        return;
+      }
+    }
+    f.die(null, 'fall', 0, 0);
+  }
+  localHuman() { return this.fighters.find((x) => !x.isBot && x.def && x.def.slot === 0); }
+  edgeWatch(dt) {
+    const f = this.localHuman(); let near = 0;
+    if (f && f.alive && !f.show && this.mode !== 'attract' && this.edgeHelp && this.state !== 'intro') {
+      const c0 = ci(f.x), r0 = cj(f.z); let best = 9;
+      for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) { const i = c0 + di, j = r0 + dj; if (!inb(i, j) || this.hole[idx(i, j)] === 0) continue; const x0 = cx(i) - 0.5, z0 = cz(j) - 0.5; const d = Math.hypot(Math.max(x0 - f.x, 0, f.x - x0 - 1), Math.max(z0 - f.z, 0, f.z - z0 - 1)); if (d < best) best = d; }
+      near = best < 1.15 ? clamp(1 - best / 1.15, 0, 1) : 0;
+    }
+    const prev = this.edgeNear; this.edgeNear += (near - this.edgeNear) * Math.min(1, dt * 12); if (this.view) this.view.edgeBoost = this.edgeNear;
+    this.edgeTickT -= dt;
+    if (near > 0.2 && this.edgeTickT <= 0) { this.edgeTickT = 0.55 - 0.3 * near; sfx('edgetick'); if ((prev < 0.2 || near > 0.6) && S().settings.vibrate && navigator.vibrate && !(this.net && this.net.isGuest === undefined && false)) { try { navigator.vibrate(prev < 0.2 ? 18 : 8); } catch (e) {} } }
+  }
   // -------- hazards
   updateHazards(dt) {
     const L = this.layout;
@@ -401,10 +437,12 @@ export class Game {
     this.vis(dt);
   }
   vis(dt) {
-    const t = this.time;
+    const t = this.time; this.edgeWatch(dt);
     for (const f of this.fighters) {
       const m = f.model, r = m.root; r.position.set(f.x, f.alive ? f.hopY + (this.mut && this.mut.grav ? 0.18 + Math.sin(t * 2.2 + f.idx) * 0.1 : 0) : Math.max(f.air, -3), f.z); r.rotation.y = f.vface + (f.stunT > 0 ? Math.sin(t * 30) * 0.25 : 0);
       if (!f.alive) { r.position.y = f.air > -3 ? f.air : -3; if (f.deathKind === 'boom') r.position.y = Math.max(0, f.air); }
+      { const hk = idx(ci(f.x), cj(f.z)); const onVoid = f.alive && !f.show && this.hole[hk] < 0 && !(f.dashT > 0) && !(f.airT > 0); const w0 = f.wobK || 0; f.wobK = onVoid ? Math.min(1, w0 + dt * 10) : Math.max(0, w0 - dt * 8);
+        if (f.wobK > 0) { r.rotation.z = Math.sin(t * 46) * 0.34 * f.wobK; r.rotation.x = Math.cos(t * 39) * 0.2 * f.wobK; r.position.y -= 0.12 * f.wobK; if (onVoid && Math.random() < dt * 24) fx.sparks(f.x, 0.15, f.z, 1, [0xffffff, 0x8ff6ff], { speed: 1.6, life: 0.3, size: 0.07 }); } else if (w0 > 0) { r.rotation.z = 0; r.rotation.x = 0; } }
       const spawnK = f.spawnT; if (f.alive) r.scale.setScalar(f.bs * (gfx.heroZoom || 1) * (0.7 + 0.3 * Math.min(1, spawnK * 1.2) + (f.catchPop > 0 ? f.catchPop * 0.6 : 0)) * (f.ultKind === 'bao' && f.ultT > 0 ? 1.25 : 1)); if (f.catchPop > 0) f.catchPop -= dt;
       let scared = 0; if (f.alive) for (const b of this.booms) { if (b.owner !== f && b.alive && Math.abs(b.x - f.x) < 3.2 && Math.abs(b.z - f.z) < 3.2) { scared = 1; break; } }
       if (f.happyT > 0) f.happyT -= dt;

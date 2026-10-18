@@ -21,7 +21,7 @@ const DK = ['', 'boom', 'shatter', 'meteor', 'slam', 'fall', 'lava', 'spike', 'f
 const ULTK = ['', ...HEROES.map((h) => h.id)];
 const TRAP_F = ['st', 'forced', 'left', 'timer', 'boost', 'hold', 'a', 'bx', 'py', 'cd'];
 const FX_OK = new Set(['flash', 'scorch', 'shockwave', 'confetti', 'burst', 'sparks', 'puff', 'impact', 'catchBurst', 'firework', 'ring', 'popup']);
-const SFX_SKIP = new Set(['hurt', 'ultready', 'combo', 'fanfare', 'win', 'lose', 'click', 'back', 'beep', 'go', 'round', 'deny', 'missionDone', 'koStinger', 'slowmo']);
+const SFX_SKIP = new Set(['hurt', 'ultready', 'combo', 'fanfare', 'win', 'lose', 'click', 'back', 'beep', 'go', 'round', 'deny', 'missionDone', 'koStinger', 'slowmo', 'edgetick']);
 const normA = (a) => { a %= TAU; return a < 0 ? a + TAU : a; };
 const lerpA = (a, b, t) => a + angDiff(a, b) * t;
 

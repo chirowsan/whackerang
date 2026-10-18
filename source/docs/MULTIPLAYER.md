@@ -17,6 +17,8 @@ Friends-only online play for 2-4 players. Everything is free: no accounts, nothi
 * **Tests:** `tools/relay43.mjs <ws url>` (26 checks of the relay itself with real WebSocket clients; run against the deployed Worker and a local wrangler), `tools/net_relay43.mjs <ws url>` (40 checks with real browsers: forced relay, direct blocked -> automatic fallback, direct preferred, mixed room, PeerJS signaling blocked, relay off). The other net tests run with the relay disabled (`rly: ''` in `netlib.mjs`) so they keep testing pure WebRTC.
 * **Privacy:** on the relay path the relay operator (Cloudflare) sees the IP address, room code and traffic volume; frames are forwarded and never stored or logged.
 
+**v4.4 falling:** holes were already synced (fallen bitmap + warning timers). Grace (0.25 s) and the once-per-match save are decided by the host sim (host's Edge help setting; `edgeSaves` lives on the host's match object); rim/abyss rendering, the wobble and the proximity warning are computed on every device from the synced holes. See `docs/FALLING.md`.
+
 (The text below describes the v4.0 direct transport, which is still the fast path.)
 
 ## What the player sees (v4.1)

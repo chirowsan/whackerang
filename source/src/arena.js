@@ -70,12 +70,12 @@ export class ArenaView {
     // floor tiles (instanced, animatable)
     const fm = toon(0xffffff, { }); const floor = new THREE.InstancedMesh(new THREE.BoxGeometry(0.997, 0.5, 0.997), fm, AW * AH); floor.receiveShadow = true;
     floor.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(AW * AH * 3), 3); floor.instanceColor.setUsage(THREE.DynamicDrawUsage); floor.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.floor = floor; this.cA = new THREE.Color(th.a); this.cB = new THREE.Color(th.b); this.cWarn = new THREE.Color(0xff5a4f);
+    this.floor = floor; this.cA = new THREE.Color(th.a); this.cB = new THREE.Color(th.b); this.cWarn = new THREE.Color(0x10e0ff);
     const m4 = new THREE.Matrix4(); const col = new THREE.Color();
     for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { m4.makeTranslation(cx(i), -0.25, cz(j)); floor.setMatrixAt(idx(i, j), m4); col.copy((i + j) % 2 ? this.cA : this.cB); col.offsetHSL(0, 0, this.id === 'ice' ? ((i * 7 + j * 3) % 5) * 0.006 : (((i * 7 + j * 13) % 5) - 2) * 0.008); floor.setColorAt(idx(i, j), col); }
     R.add(floor);
-    // void below
-    const voidM = new THREE.Mesh(new THREE.PlaneGeometry(90 * arenaScale()[0] * 1.2, 70 * arenaScale()[1] * 1.2), new THREE.MeshBasicMaterial({ color: { ice: 0x2a6aa8, jungle: 0x0a1a10, rooftop: 0x040414, volcano: 0x120302, pirate: 0x1a6a9a, space: 0x010208, haunted: 0x0a0618 }[this.id] || 0x6a8a6a })); voidM.rotation.x = -Math.PI / 2; voidM.position.y = -2.2; R.add(voidM);
+    // v4.4 abyss: the same dark, hazy drop under EVERY arena (never floor-coloured), so a missing tile always reads as "drop"
+    this.buildAbyss();
     // rim walls
     const rimM = toon(th.rim), topM = this.id === 'rooftop' ? glowMat(th.rimTop, 0.75) : toon(th.rimTop);
     const wall = (x, z, sx, sz) => { mesh(BOXG, rimM, R, { pos: [x, 0.3, z], scale: [sx, 0.8, sz], outline: 0.03, recv: true }); mesh(BOXG, topM, R, { pos: [x, 0.74, z], scale: [sx * 0.96, 0.1, sz * 0.96], cast: false }); };
@@ -142,10 +142,50 @@ export class ArenaView {
     // plane's texture "up" is +v -> rotate so chevrons point along (dx,dz)
     p.rotation.z = Math.atan2(-dx, -dz); this.convMats.push({ m, dx, dz });
   }
+
+  // ---- v4.4 drop visuals: dark abyss with haze layers (depth gradient) + glowing cyan rim on every ledge + cliff shadow on the void side
+  buildAbyss() {
+    const R = this.root; const W = AW + 12, D = AH + 12; this.haze = [];
+    const layer = (y, c, a) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({ color: c, transparent: a < 1, opacity: a, depthWrite: a >= 1, fog: false })); m.rotation.x = -Math.PI / 2; m.position.y = y; m.renderOrder = a < 1 ? 1 : 0; R.add(m); if (a < 1) { m.visible = false; this.haze.push(m); } return m; };
+    layer(-7, 0x020106, 1);
+    layer(-4.2, 0x12082a, 0.5); layer(-2.6, 0x23124a, 0.42); layer(-1.2, 0x3a2a78, 0.34); layer(-0.62, 0x120a28, 0.3);
+    const gt = (stops) => { const c = document.createElement('canvas'); c.width = 4; c.height = 64; const x = c.getContext('2d'); const gr = x.createLinearGradient(0, 0, 0, 64); stops.forEach(([o, col]) => gr.addColorStop(o, col)); x.fillStyle = gr; x.fillRect(0, 0, 4, 64); const t = new THREE.CanvasTexture(c); return t; };
+    const flat = new THREE.PlaneGeometry(1, 1); flat.rotateX(-Math.PI / 2); const cap = AW * AH * 2;
+    const mk = (mat, ro) => { const im = new THREE.InstancedMesh(flat, mat, cap); im.count = 0; im.frustumCulled = false; im.renderOrder = ro; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); R.add(im); return im; };
+    const bm = (o) => new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, toneMapped: false, ...o });
+    this.rimCore = mk(bm({ color: new THREE.Color(0.35, 1.5, 1.8), opacity: 1 }), 5);
+    this.rimGlow = mk(bm({ color: new THREE.Color(0.2, 0.95, 1.25), map: gt([[0, 'rgba(255,255,255,0.85)'], [1, 'rgba(255,255,255,0)']]), opacity: 0.8 }), 4);
+    this.rimWarn = mk(bm({ color: new THREE.Color(0.5, 1.9, 2.2), opacity: 1 }), 5);
+    this.rimShade = mk(new THREE.MeshBasicMaterial({ color: 0x000000, map: gt([[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]), transparent: true, depthWrite: false, fog: false }), 3);
+    this.edgeBoost = 0; this.edgeSig = -1; this.edgeCount = { void: 0, warn: 0 };
+  }
+  rebuildEdges(st) {
+    const o = this._o || (this._o = new THREE.Object3D()); const sets = { core: [], glow: [], warn: [], shade: [] }; const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const put = (arr, x, z, dx, dz, len, wid, flip) => { const yaw = flip ? Math.atan2(-dx, -dz) : Math.atan2(dx, dz); arr.push([x, z, yaw, len, wid]); };
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
+      const k = idx(i, j), s0 = st[k]; if (!s0) continue;
+      for (const [dx, dz] of D4) {
+        const ni = i + dx, nj = j + dz; if (!inb(ni, nj)) continue; const s1 = st[idx(ni, nj)]; if (s1 === s0) continue;
+        const ex = cx(i) + dx * 0.5, ez = cz(j) + dz * 0.5;
+        if (s0 === 2) { // fallen: bright rim on the floor side, glow on the floor, cliff shadow on the void side
+          if (s1 === 1) continue; // a warning tile next to the void draws its own rim
+          put(sets.core, ex + dx * 0.05, ez + dz * 0.05, dx, dz, 1.04, 0.1); put(sets.glow, ex + dx * 0.3, ez + dz * 0.3, dx, dz, 1.04, 0.55); put(sets.shade, ex - dx * 0.26, ez - dz * 0.26, dx, dz, 1.0, 0.52, true);
+        } else if (s0 === 1) { if (s1 === 2) continue; put(sets.warn, ex - dx * 0.06, ez - dz * 0.06, dx, dz, 1.04, 0.12); }
+      }
+    }
+    const fill = (im, arr, y) => { const n = Math.min(arr.length, im.instanceMatrix.count); for (let q = 0; q < n; q++) { const a = arr[q]; o.position.set(a[0], y, a[1]); o.rotation.set(0, a[2], 0); o.scale.set(a[3], 1, a[4]); o.updateMatrix(); im.setMatrixAt(q, o.matrix); } im.count = n; im.instanceMatrix.needsUpdate = true; };
+    fill(this.rimCore, sets.core, 0.03); fill(this.rimGlow, sets.glow, 0.02); fill(this.rimWarn, sets.warn, 0.03); fill(this.rimShade, sets.shade, -0.02);
+    this.edgeCount = { void: sets.core.length, warn: sets.warn.length };
+  }
   breakCrate(k) { const g = this.crates.get(k); if (g) { this.root.remove(g); this.crates.delete(k); this.aoWait = 0.05; } }
   update(dt, t, game) {
     if (this.aoWait > 0) { this.aoWait -= dt; if (this.aoWait <= 0) this.bakeAO(); }
     updateScenery(this, t, dt);
+    if (game && game.hole && this.rimCore) {
+      let sig = 0; const st = this._st || (this._st = new Uint8Array(AW * AH)); for (let k = 0; k < AW * AH; k++) { const h = game.hole[k], q = h < 0 ? 2 : h > 0 ? 1 : 0; st[k] = q; if (q) sig = (sig * 31 + k * 3 + q) | 0; }
+      if (sig !== this.edgeSig) { this.edgeSig = sig; this.rebuildEdges(st); for (const m of this.haze) m.visible = sig !== 0; }
+      const bo = this.edgeBoost || 0, pul = 0.5 + 0.5 * Math.sin(t * (3.2 + 9 * bo)); this.rimCore.material.opacity = 0.7 + 0.3 * pul; this.rimGlow.material.opacity = 0.45 + (0.35 + 0.4 * bo) * pul; this.rimWarn.material.opacity = Math.sin(t * 22) > 0 ? 1 : 0.25;
+    }
     const f = this.floor; let dirty = false; const m4 = this._m || (this._m = new THREE.Matrix4()), col = this._c || (this._c = new THREE.Color());
     if (game && game.hole) {
       for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
@@ -154,7 +194,7 @@ export class ArenaView {
         dirty = true;
         if (h > 0) { // warning: shake + red tint
           this.shakeT[k] = 1; const s = Math.sin(t * 60 + k) * 0.03; m4.makeTranslation(cx(i) + s, -0.25 + Math.abs(s) * 0.5, cz(j) - s); f.setMatrixAt(k, m4);
-          col.copy((i + j) % 2 ? this.cA : this.cB).lerp(this.cWarn, 0.55 + 0.4 * Math.sin(t * 20)); f.setColorAt(k, col);
+          col.setRGB(0.07, 0.05, 0.14).lerp(this.cWarn, 0.5 + 0.5 * Math.sin(t * 18)); f.setColorAt(k, col); // v4.4: blinks dark <-> cyan-white (never floor-coloured, never red)
         } else if (h < 0) { // falling / fallen
           if (this.fallV[k] === 0) this.fallV[k] = 0.01; this.fallV[k] += dt * 22; this.fall[k] += this.fallV[k] * dt; const y = -0.25 - this.fall[k];
           if (y < -6) { m4.makeScale(0, 0, 0); } else { m4.makeTranslation(cx(i), y, cz(j)); }

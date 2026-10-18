@@ -103,6 +103,8 @@ function sfxInner(name, p, t) {
     case 'crate': noise(t, 0.2, 0.5, { f: 1500, fTo: 200 }); tone(120, t, 0.12, 'square', 0.2, { to: 60 }); break;
     case 'push': noise(t, 0.12, 0.25, { f: 400, fTo: 150 }); break;
     case 'explode': noise(t, 0.6, 0.9, { f: 3200 * r, fTo: 120, q: 0.9 }); tone(120 * r, t, 0.5, 'sine', 0.9, { to: 28 }); break;
+    case 'edgetick': tone(1700, t, 0.045, 'square', 0.05); break;
+    case 'edgesave': tone(520, t, 0.12, 'sine', 0.2, { to: 1040 }); tone(1040, t + 0.1, 0.2, 'triangle', 0.16, { to: 1560 }); break;
     case 'fall': tone(800, t, 0.7, 'sine', 0.25, { to: 80 }); break;
     case 'sizzle': noise(t, 0.4, 0.3, { type: 'highpass', f: 3000 }); tone(300, t, 0.4, 'sawtooth', 0.15, { to: 60, lp: 1200 }); break;
     case 'spike': tone(1200, t, 0.05, 'square', 0.1, { to: 600 }); noise(t, 0.05, 0.2, { type: 'highpass', f: 5000 }); break;

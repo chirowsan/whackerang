@@ -14,6 +14,11 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.4 (falling is clear and forgiving)
+- **Every drop looks the same on every arena:** dark hazy abyss (no more floor-coloured "holes"), a glowing **cyan rim** on every ledge, cracking tiles that blink dark/cyan. Cyan edge = drop.
+- **Edge help (Settings, on by default):** screen-edge glow + `EDGE` chip, a tick and a buzz as you near a drop, a wobble when you stand on nothing, **0.25 s ledge grace**, and your **first fall each match is forgiven once** (put back on safe floor, short stun and shield). After that falling is real. Off = old behaviour.
+- Legend + How to play have a Drops section; details in `docs/FALLING.md`.
+
 ## What's new in v4.3 (online works on strict networks, friendlier traps)
 - **Relay fallback for online play:** the game tries a direct phone-to-phone link for ~5.5 s, then automatically connects through a free Cloudflare Worker relay with the same room code (no extra steps). A small `DIRECT` / `RELAY` tag shows which one you are on; relayed rooms use a low-bandwidth mode. See `docs/MULTIPLAYER.md` and `docs/CLOUDFLARE.md` (resources, limits, free-plan estimate, how to delete or turn it off).
 - **Traps are fair now:** the six **lethal** traps (spike pit, saw, laser grid, trapdoor, fire jet, spike ceiling) are dormant (dim, no red glow) until a player wakes them: step on a pressure plate, hit a switch, or hit the trap with a boomerang. They show a ~0.5 s warning, fire once, then go dormant again. They never run on timers. Bots wake them on purpose when it helps them.
@@ -86,7 +91,7 @@ Feedback from a phone player: "fun, but the controls are too hard and it is way 
 - **Phone friendly:** Sharp / Balanced / Fast graphics tiers; static scenery is merged into few draw calls; adaptive resolution is a last resort.
 
 ## Docs
-`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/MULTIPLAYER.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
+`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
 
 ## Mobile / PWA
 - Installable PWA (`pwa/`): manifest (standalone, landscape, maskable icons, screenshots), versioned offline service worker (`whk-<build>` cache, auto-update), iOS meta + splash images, safe-area insets, pull-to-refresh/zoom/long-press blocked, screen wake lock, landscape lock + fullscreen on first tap, in-game Install button (Android `beforeinstallprompt`) and an iOS Add-to-Home-Screen hint, iOS audio unlock.
