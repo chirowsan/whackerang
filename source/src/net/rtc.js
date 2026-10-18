@@ -40,7 +40,7 @@ export class Signal {
 // ---------------------------------------------------------------- data link: ordered reliable 'rel' (JSON control) + unordered unreliable 'fast' (binary game traffic)
 export class Link {
   constructor(o = {}) {
-    this.o = o; this.pc = new RTCPeerConnection({ iceServers: iceServers(), iceCandidatePoolSize: 0 }); this.up = false; this.dead = false; this.stat = { tx: 0, rx: 0, txN: 0, rxN: 0, drop: 0 }; this.pend = []; this.relTail = 0; this.cand = [];
+    this.o = o; this.pc = new RTCPeerConnection({ iceServers: iceServers(), iceCandidatePoolSize: 0, iceTransportPolicy: netCfg().icePolicy === 'relay' ? 'relay' : 'all' }); this.up = false; this.dead = false; this.stat = { tx: 0, rx: 0, txN: 0, rxN: 0, drop: 0 }; this.pend = []; this.relTail = 0; this.cand = [];
     this.rel = this.pc.createDataChannel('rel', { negotiated: true, id: 1, ordered: true });
     this.fast = this.pc.createDataChannel('fast', { negotiated: true, id: 2, ordered: false, maxRetransmits: 0 });
     this.fast.binaryType = this.rel.binaryType = 'arraybuffer';

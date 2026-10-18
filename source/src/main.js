@@ -275,7 +275,7 @@ const app = {
     t.t += dt;
     if (t.step === 0) { if (Math.hypot(f.vx, f.vz) > 1.5) t.moved += dt; if (t.moved > 0.8) this.tutAdv(); }
     else if (t.step === 2 && f.ammo > 0 && t.t > 0.4) this.tutAdv();
-    else if (t.step === 3 && t.pit) { if (t.pit.up) { t.fired = true; if (!f.alive) t.fired = false; } else if (t.fired && f.alive) this.tutAdv(); if (!f.alive) t.fired = false; }
+    else if (t.step === 3 && t.pit) { if (t.pit.st === 2) { t.fired = true; if (!f.alive) t.fired = false; } else if (t.fired && f.alive) this.tutAdv(); else if (t.pit.st === 0 && t.pit.cd <= 0 && t.t > 0.7 && t.t - (t.armT || -9) > 2.2) { t.armT = t.t; t.pit.arm(null); } if (!f.alive) t.fired = false; } // v4.3: the dummy 'steps on the plate' for you
     if (t.step >= 1 && t.step <= 3 && f.ammo <= 0 && this.game.booms.length === 0) f.ammo = 1;
     if (t.step === 3 && !t.pit && t.t > 1) this.tutSpawnPit();
   },

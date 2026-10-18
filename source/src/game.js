@@ -50,6 +50,7 @@ class Fighter {
     let inp = NOINP;
     if (g.state === 'play' || g.state === 'roundEnd') inp = this.bot ? this.bot.update(dt) : (g.input ? g.input.read(this.def.slot, this) : NOINP);
     if (this.frozenT > 0 || this.stunT > 0) { inp = NOINP; this.charging = false; this.chargeT = 0; }
+    if (this.dizzyT > 0 && inp !== NOINP && (inp.aimX !== 0 || inp.aimZ !== 0)) inp = { ...inp, aimX: -inp.aimX, aimZ: -inp.aimZ }; // v4.3 dizzy: aim is reversed for a moment
     if (inp.ult && this.ult >= 100 && this.alive && g.state === 'play') g.useUlt(this);
     // --- dash
     if (inp.dash && this.dashCd <= 0 && this.dashT <= 0) {

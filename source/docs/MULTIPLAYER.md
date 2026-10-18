@@ -1,6 +1,23 @@
-# Whackerang v4.0 - online multiplayer
+# Whackerang v4.0 - online multiplayer (v4.3: Cloudflare relay fallback)
 
-Friends-only online play for 2-4 players. Everything is free: no server of ours, no accounts, nothing paid.
+Friends-only online play for 2-4 players. Everything is free: no accounts, nothing paid.
+
+## v4.3: direct first, relay automatically
+```
+ guest ──(1) WebRTC direct, tried for ~5.5 s ───────────────► HOST   (fast path, 20 Hz snapshots)
+   └────(2) same room code, WebSocket via Cloudflare relay ──► HOST   (fallback, low-bandwidth mode)
+```
+* **Same two taps.** Create room / Join room are unchanged. The host registers the room code on the PeerJS broker **and** on the relay in parallel. A joining guest starts a direct WebRTC attempt; if no direct link is up after `DIRECT_MS = 5500` ms (or PeerJS signaling is unreachable, or the offer/answer fails) it connects to the relay with the same code. No extra step, no second code. With `forceRelay` it skips the direct attempt (tests only).
+* **Transport abstraction.** `src/net/relay.js` provides `RelayGuestLink` / `RelayHostLink` with exactly the interface of the WebRTC `Link` in `rtc.js` (`send(kind,data)`, `onrel`, `onfast`, `onopen`, `onclose`, `close`, `stat`, `up`, `dead`, plus `relay = true`). The game, lobby, world interpolation and prediction code is unchanged; the host still runs the only simulation. Per guest the link type is independent, so a room can be mixed (some DIRECT, some RELAY).
+* **Chip.** The lobby code card and the in-match ping chip show `DIRECT`, `RELAY` or `DIRECT + RELAY` (host with mixed guests).
+* **Low-bandwidth mode (relayed links only).** Guests send inputs at 15 Hz (6-frame redundancy still covers every frame), the host sends snapshots at 12 Hz instead of 20 Hz (every 5th sim step), and the guest interpolation delay is larger (min 0.17 s). Snapshots are shared by all guests, so while **any** guest is relayed the whole room's snapshots go at 12 Hz (direct guests still send inputs at 30 Hz).
+* **Host broadcast = one frame.** The host sends one relay frame with a bitmask of guests, so the relay cost does not grow with the number of guests.
+* **Limits / cost / deployment:** `docs/CLOUDFLARE.md` (4 clients per room, 16 KiB frames, per-client rate limits, 45 s / 15 min idle timeouts, Origin check, no storage, ~130 two-player full-rate matches/day on the free plan or ~245 in low-bandwidth mode).
+* **Turning it off:** `localStorage.setItem('whk.rly','off')` or `?norelay=1` on one device; `RELAY_URL = ''` in `src/net/relay.js` or deleting the Worker for everyone. Direct WebRTC then works exactly as in v4.2.
+* **Tests:** `tools/relay43.mjs <ws url>` (26 checks of the relay itself with real WebSocket clients; run against the deployed Worker and a local wrangler), `tools/net_relay43.mjs <ws url>` (40 checks with real browsers: forced relay, direct blocked -> automatic fallback, direct preferred, mixed room, PeerJS signaling blocked, relay off). The other net tests run with the relay disabled (`rly: ''` in `netlib.mjs`) so they keep testing pure WebRTC.
+* **Privacy:** on the relay path the relay operator (Cloudflare) sees the IP address, room code and traffic volume; frames are forwarded and never stored or logged.
+
+(The text below describes the v4.0 direct transport, which is still the fast path.)
 
 ## What the player sees (v4.1)
 Main menu > **Play online** > two big buttons. **Create room**: straight to a lobby with a huge 4-letter code, Share (native share sheet, falls back to copying the `?room=CODE` link) and Start. Defaults: Classic, Chill, Medium bots fill empty seats, hero auto-picked (no two players get the same hero), guests auto-ready. A small **Options** button holds name, hero, emotes and the host settings (mode, arena, speed, rounds, add a bot). **Join room**: four big boxes with the keyboard open; the 4th letter joins automatically; a wrong code shows a red error and lets you retype. Opening `https://chirowsan.github.io/whackerang/?room=CODE` auto-joins. Codes are 4 consonants (old 5-letter codes still join).
@@ -12,7 +29,7 @@ After a match: rematch (starts when every connected human, host included, votes)
 ```
  guest ──rel (ordered JSON) + fast (unordered binary)──► HOST ◄── ... ── guest
         (two WebRTC DataChannels per link)               runs the ONLY simulation
- signaling only while connecting:  browser ⇄ PeerJS public broker (wss) ⇄ browser   (or copy/paste codes, or our own relay)
+ signaling only while connecting:  browser ⇄ PeerJS public broker (wss) ⇄ browser   (or copy/paste codes, or the v4.3 Cloudflare relay)
 ```
 * **Star topology, host-authoritative.** The host runs the real game. Guests send inputs (5 bytes/frame, the last 6 frames repeated, 30 Hz) and render host snapshots.
 * **Snapshots:** binary, 20 Hz (every 3rd 60 Hz sim step): fighters, boomerangs, mode state, per-slot input acks, plus a small effects/sfx tail (redundantly repeated so a lost packet does not lose a hit effect). Rarely-changing state (crates, holes, items, traps) is sent on change + a refresh every 24 steps.

@@ -230,7 +230,7 @@ export class GuestWorld {
     const m = Math.hypot(inp.mx, inp.mz); if (m > 1) { inp.mx /= m; inp.mz /= m; }
     this.tk++; this.hist.push({ tick: this.tk, inp }); if (this.hist.length > 90) this.hist.shift();
     this.inFrames.push({ tick: this.tk, inp }); if (this.inFrames.length > 6) this.inFrames.shift();
-    if (++this.sendAcc >= 2) { this.sendAcc = 0; this.sendInput(); }
+    if (++this.sendAcc >= (this.sendEvery || 2)) { this.sendAcc = 0; this.sendInput(); }
     const hostNow = this.off === null ? 0 : (now - this.off) / 1000;
     // 2. predicted own fighter
     const ns = this.newest; const hfN = ns ? ns.f[this.localIdx] : null;
@@ -239,7 +239,7 @@ export class GuestWorld {
     if (hfN && lf.alive) { const was = this._fire; if (was && !inp.fire && hfN.ammo > 0 && !this.busy(hfN)) { lf.throwT = 1; sfx('throw', Math.min(1, lf.chargeT / 0.7)); this.suppress.throw = now + 280; } this._fire = inp.fire && hfN.ammo > 0; }
     // 3. world interpolation at (hostNow - delay)
     if (this.off !== null && this.buf.length) {
-      const delay = clamp(0.085 + this.jit / 1000 * 2.2, 0.085, 0.24); this.interp += (delay - this.interp) * 0.05; const rt = hostNow - this.interp;
+      const lo = this.relay ? 0.17 : 0.085; const delay = clamp(lo + this.jit / 1000 * 2.2, lo, 0.3); this.interp += (delay - this.interp) * 0.05; const rt = hostNow - this.interp;
       this.applyAt(rt, dt);
       while (this.fxQ.length && this.fxQ[0].t <= rt) this.playFx(this.fxQ.shift().list);
       if (this.fxQ.length > 12) this.playFx(this.fxQ.shift().list);

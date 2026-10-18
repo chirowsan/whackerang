@@ -34,6 +34,19 @@ const drawBadge = (x, kind) => {
 };
 const badgeTex = (kind) => TX['b' + kind] || (TX['b' + kind] = asTex(mkCanvas(128, 128, (x) => drawBadge(x, kind))));
 const stripeTex = () => TX.stripe || (TX.stripe = asTex(mkCanvas(64, 64, (x) => { x.fillStyle = '#240606'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#ff2a1a'; for (let i = -1; i < 3; i++) { x.beginPath(); x.moveTo(i * 32, 64); x.lineTo(i * 32 + 16, 64); x.lineTo(i * 32 + 16 + 64, 0); x.lineTo(i * 32 + 64, 0); x.closePath(); x.fill(); } }), true));
+// v4.3: NON-LETHAL traps get a softer look: orange/yellow stripes on brown + a small round yellow icon. Red is reserved for lethal traps.
+export const SOFT = 0xffb020;
+const drawSoft = (x, kind) => {
+  x.clearRect(0, 0, 128, 128); x.lineJoin = 'round'; x.lineCap = 'round';
+  x.beginPath(); x.arc(64, 64, 58, 0, 7); x.fillStyle = '#5a3a00'; x.fill(); x.lineWidth = 9; x.strokeStyle = '#ffb020'; x.stroke(); x.beginPath(); x.arc(64, 64, 49, 0, 7); x.lineWidth = 3; x.strokeStyle = '#ffe9b0'; x.stroke();
+  x.strokeStyle = '#fff3c4'; x.fillStyle = '#fff3c4'; x.lineWidth = 11;
+  if (kind === 'shove') { x.beginPath(); x.moveTo(30, 64); x.lineTo(84, 64); x.stroke(); x.beginPath(); x.moveTo(72, 42); x.lineTo(98, 64); x.lineTo(72, 86); x.closePath(); x.fill(); }
+  else if (kind === 'dizzy') { x.lineWidth = 8; x.beginPath(); for (let t = 0; t < 1; t += 0.03) { const a = t * 11, r = 6 + t * 30; x.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r); } x.stroke(); }
+  else if (kind === 'wave') { x.lineWidth = 9; x.beginPath(); x.moveTo(24, 64); x.bezierCurveTo(40, 30, 54, 30, 64, 64); x.bezierCurveTo(74, 98, 88, 98, 104, 64); x.stroke(); }
+  else if (kind === 'slow') { x.lineWidth = 9; for (const y of [46, 70]) { x.beginPath(); x.moveTo(40, y); x.lineTo(64, y + 18); x.lineTo(88, y); x.stroke(); } }
+};
+const softTex = (kind) => TX['s' + kind] || (TX['s' + kind] = asTex(mkCanvas(128, 128, (x) => drawSoft(x, kind))));
+const softStripeTex = () => TX.sstripe || (TX.sstripe = asTex(mkCanvas(64, 64, (x) => { x.fillStyle = '#3a2606'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#ffb020'; for (let i = -1; i < 3; i++) { x.beginPath(); x.moveTo(i * 32, 64); x.lineTo(i * 32 + 16, 64); x.lineTo(i * 32 + 16 + 64, 0); x.lineTo(i * 32 + 64, 0); x.closePath(); x.fill(); } }), true));
 const PORTAL_COLS = [{ c: 0x3f86ff, css: '#3f86ff', lt: '#bcd8ff', n: '1' }, { c: 0xb046ff, css: '#b046ff', lt: '#ecc8ff', n: '2' }];
 const portalTex = (i) => TX['p' + i] || (TX['p' + i] = asTex(mkCanvas(256, 256, (x) => {
   const P = PORTAL_COLS[i]; x.clearRect(0, 0, 256, 256); const g = x.createRadialGradient(128, 128, 6, 128, 128, 120); g.addColorStop(0, '#ffffff'); g.addColorStop(0.18, P.lt); g.addColorStop(0.55, P.css); g.addColorStop(1, '#10063a'); x.beginPath(); x.arc(128, 128, 120, 0, 7); x.fillStyle = g; x.fill();
@@ -45,33 +58,34 @@ const padTex = () => TX.pad || (TX.pad = asTex(mkCanvas(128, 128, (x) => {
   for (const [y, w] of [[88, 1], [66, 1], [44, 1]]) { x.beginPath(); x.moveTo(34, y); x.lineTo(64, y - 22); x.lineTo(94, y); x.lineWidth = 11; x.strokeStyle = '#1d6a1a'; x.stroke(); x.lineWidth = 6; x.strokeStyle = '#fff25a'; x.stroke(); }
 })));
 // small pictures for the How-to-play legend (data URLs)
-export const legendImages = () => ({ hazard: badgeTex('skull').image.toDataURL(), spikes: badgeTex('spikes').image.toDataURL(), flame: badgeTex('flame').image.toDataURL(), portal1: portalTex(0).image.toDataURL(), portal2: portalTex(1).image.toDataURL(), pad: padTex().image.toDataURL() });
+export const legendImages = () => ({ soft1: softTex('shove').image.toDataURL(), soft2: softTex('dizzy').image.toDataURL(), soft3: softTex('wave').image.toDataURL(), hazard: badgeTex('skull').image.toDataURL(), spikes: badgeTex('spikes').image.toDataURL(), flame: badgeTex('flame').image.toDataURL(), portal1: portalTex(0).image.toDataURL(), portal2: portalTex(1).image.toDataURL(), pad: padTex().image.toDataURL() });
 // hazard decals are attached to traps through tr.haz = { ring, glow, badge, lvl() } and animated in Traps.vis
 const plane = (tex, w, d, x, y, z, parent, opt = {}) => { const m = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: opt.opacity === undefined ? 1 : opt.opacity, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }); const o = new THREE.Mesh(G.plane, m); o.rotation.x = -Math.PI / 2; o.scale.set(w, d, 1); o.position.set(x, y, z); (parent).add(o); o.renderOrder = 2; return o; };
-const stripeFrame = (parent, w, d, th, y = 0.035) => { // four striped bars around a w x d rectangle centred on the parent origin
-  const mats = []; const bar = (bw, bd, x, z) => { const t = stripeTex().clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(Math.max(bw, bd) / th / 2)), 1); if (bw < bd) t.rotation = Math.PI / 2; const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); const o = new THREE.Mesh(G.plane, m); o.rotation.x = -Math.PI / 2; o.scale.set(bw, bd, 1); o.position.set(x, y, z); parent.add(o); mats.push(m); };
+const stripeFrame = (parent, w, d, th, y = 0.035, soft = false) => { // four striped bars around a w x d rectangle centred on the parent origin
+  const mats = []; const bar = (bw, bd, x, z) => { const t = (soft ? softStripeTex() : stripeTex()).clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(Math.max(bw, bd) / th / 2)), 1); if (bw < bd) t.rotation = Math.PI / 2; const m = new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); const o = new THREE.Mesh(G.plane, m); o.rotation.x = -Math.PI / 2; o.scale.set(bw, bd, 1); o.position.set(x, y, z); parent.add(o); mats.push(m); };
   bar(w + th, th, 0, -d / 2); bar(w + th, th, 0, d / 2); bar(th, d - th, -w / 2, 0); bar(th, d - th, w / 2, 0); return mats;
 };
 
 export const TRAP_INFO = {
-  pit: { name: 'Spike pit', tip: 'Flashes red, then spikes pop up.' },
-  saw: { name: 'Saw blade', tip: 'Sweeps along its rail. Dash through or time it.' },
-  hammer: { name: 'Swing hammer', tip: 'Deadly when it is fast. Slip past at the ends of the swing.' },
-  laser: { name: 'Laser grid', tip: 'Thin red line = about to fire. Dash dodges it.' },
-  trapdoor: { name: 'Trapdoor', tip: 'Striped floor drops away after a flash.' },
-  tele: { name: 'Teleport pad', tip: 'Stand on it to zip to its twin.' },
-  jump: { name: 'Jump pad', tip: 'Hop over hazards. You are safe from floor traps in the air.' },
-  bumper: { name: 'Bumper', tip: 'Boing! Bounces fighters and boomerangs.' },
-  goo: { name: 'Sticky goo', tip: 'Slows you down.' },
-  fire: { name: 'Fire jet', tip: 'Warning flame, then a long burst.' },
-  fence: { name: 'Electric fence', tip: 'Switch it on to zap rivals!' },
-  boulder: { name: 'Rolling boulder', tip: 'Watch the glowing lane.' },
-  crusher: { name: 'Spike ceiling', tip: 'A red shadow shows where it lands.' },
-  ice: { name: 'Ice patch', tip: 'Slippery!' },
-  switch: { name: 'Switch', tip: 'Hit it with a boomerang to fire the linked trap at your rivals.' },
+  pit: { lethal: true, name: 'Spike pit', tip: 'Asleep until a switch or boomerang wakes it. 0.5 s flash, then spikes.' },
+  saw: { lethal: true, name: 'Saw blade', tip: 'Parked until armed, then sweeps its rail once.' },
+  hammer: { lethal: false, name: 'Swing hammer', tip: 'Shoves you away and stuns you for half a second. Not deadly.' },
+  laser: { lethal: true, name: 'Laser grid', tip: 'Armed by a switch or boomerang. Thin line = about to fire. Dash dodges it.' },
+  trapdoor: { lethal: true, name: 'Trapdoor', tip: 'Striped floor drops away half a second after it is armed.' },
+  tele: { lethal: false, name: 'Teleport pad', tip: 'Stand on it to zip to its twin.' },
+  jump: { lethal: false, name: 'Jump pad', tip: 'Hop over hazards. You are safe from floor traps in the air.' },
+  bumper: { lethal: false, name: 'Bumper', tip: 'Boing! Bounces fighters and boomerangs.' },
+  goo: { lethal: false, name: 'Sticky goo', tip: 'Slows you down.' },
+  fire: { lethal: true, name: 'Fire jet', tip: 'Armed by a switch or boomerang. Short warning flame, then a burst.' },
+  fence: { lethal: false, name: 'Static fence', tip: 'Zaps you dizzy and slow (aim is reversed for a moment). Not deadly.' },
+  boulder: { lethal: false, name: 'Rolling boulder', tip: 'Knocks you aside and leaves you dizzy. Not deadly.' },
+  crusher: { lethal: true, name: 'Spike ceiling', tip: 'Armed by a switch or boomerang. Red shadow, then it lands.' },
+  ice: { lethal: false, name: 'Ice patch', tip: 'Slippery!' },
+  switch: { lethal: false, name: 'Switch / plate', tip: 'Step on it or hit it with a boomerang to wake the linked red trap.' },
 };
 
 // per-arena trap sets: [type, layout, opts]. layout: c=centre, r2=rotational pair, q4=four mirrored, row=full-width lane pair
+export const LETHAL = ['pit', 'saw', 'laser', 'trapdoor', 'fire', 'crusher'];
 const SETS = {
   dojo: [['hammer', 'r2'], ['saw', 'r2', { len: 7 }], ['jump', 'r2'], ['crusher', 'c'], ['switch', 'r2', { link: 'crusher' }]],
   rooftop: [['laser', 'x2', { axis: 'z' }], ['saw', 'r2', { len: 8 }], ['tele', 'q4'], ['jump', 'r2'], ['switch', 'r2', { link: 'laser' }]],
@@ -134,16 +148,37 @@ export class Traps {
       const made = fn.call(this, layout, o); if (made) { (this.groups[type] = this.groups[type] || []).push(...made); }
     }
     // switches link to the nearest trap of their kind
-    for (const s of this.sw) { const tl = (this.groups[s.link] || []).slice(); if (tl.length) { tl.sort((a, b) => Math.hypot(a.x - s.x, a.z - s.z) - Math.hypot(b.x - s.x, b.z - s.z)); s.targets = tl.slice(0, 2); const c = s.color; s.targets.forEach((t) => t.linkRing && t.linkRing(c)); } }
+    // v4.3: every lethal trap kind that got built needs a switch (placed with relaxed spacing if the normal spot search failed)
+    for (const ty of LETHAL) { if (!(this.groups[ty] || []).length || this.sw.some((q) => q.link === ty)) continue; const n0 = this.sw.length; this.mk_switch('r2', { link: ty, relax: true }); if (this.sw.length === n0) this.mk_switch('c', { link: ty, relax: true }); if (this.sw.length === n0) for (const t of this.groups[ty]) { const at = this.nearSpot(t); if (at) { this.occ.push([at[0][0], at[0][1], 0.5]); this.mk_switch('c', { link: ty, at }); break; } } }
+    // lethal traps: each one is armed by its NEAREST switch of that kind
+    for (const s of this.sw) if (LETHAL.includes(s.link)) s.targets = [];
+    for (const ty of LETHAL) for (const t of (this.groups[ty] || [])) { let best = null, bd = 1e9; for (const s of this.sw) if (s.link === ty) { const d = Math.hypot(s.x - t.x, s.z - t.z); if (d < bd) { bd = d; best = s; } } if (best) best.targets.push(t); }
+    for (const s of this.sw) if (LETHAL.includes(s.link) && !s.targets.length) { const tl = (this.groups[s.link] || []).slice().sort((a, b) => Math.hypot(a.x - s.x, a.z - s.z) - Math.hypot(b.x - s.x, b.z - s.z)); if (tl[0]) s.targets.push(tl[0]); }
+    for (const s of this.sw) if (LETHAL.includes(s.link)) s.targets.forEach((t) => t.linkRing && t.linkRing(s.color));
+    for (const s of this.sw) { if (LETHAL.includes(s.link)) continue; const tl = (this.groups[s.link] || []).slice(); if (tl.length) { tl.sort((a, b) => Math.hypot(a.x - s.x, a.z - s.z) - Math.hypot(b.x - s.x, b.z - s.z)); s.targets = tl.slice(0, 2); const c = s.color; s.targets.forEach((t) => t.linkRing && t.linkRing(c)); } }
     this.list.forEach((t) => t.init && t.init());
   }
-  reg(t) { this.list.push(t); return t; }
+  reg(t) { if (t.lethal) this.mkLethal(t); this.list.push(t); return t; }
+  // v4.3: every LETHAL trap is dormant until a player arms it (switch / pressure plate step / boomerang hit on the trap). st 0 dormant, 1 telegraph (~0.5 s), 2 active, then a short cooldown. Host-authoritative: st/left/cd are synced numbers.
+  mkLethal(t) {
+    t.owner = t.owner || null; t.cd = 0; t.left = 0; t.st = 0; t.warnT = t.warnT || 0.5;
+    t.arm = (owner) => { if (t.st !== 0 || t.cd > 0) return false; t.st = 1; t.left = t.tutW || t.warnT; t.owner = owner || null; warnS(t.x, t.z, 'warn'); t.onWarn && t.onWarn(); return true; };
+    const upd = t.update; const self = this;
+    t.update = (dt, T) => {
+      if (t.cd > 0) t.cd -= dt;
+      if (t.st === 1) { t.left -= dt; if (t.left <= 0) { t.st = 2; t.left = t.act; t.onFire && t.onFire(); } }
+      else if (t.st === 2) { t.left -= dt; if (t.left <= 0) { t.st = 0; t.cd = 1.4; t.owner = null; t.onEnd && t.onEnd(); } }
+      upd && upd.call(t, dt, T);
+    };
+    t.dormant = () => t.st === 0;
+  }
+
   // v4.1 shared hazard decal set: striped warning frame + red badge + pulsing red glow. lvl() -> 0 idle, 1 warning, 2 active
   hazard(tr, parent, w, d, o = {}) {
-    const y = o.y || 0.034; const H = { frame: o.noFrame ? [] : stripeFrame(parent, w, d, o.th || 0.3, y), badge: null, glow: null, ring: null, lvl: o.lvl || (() => 0), bs: o.bs || Math.min(w, d) * 0.55 };
-    if (o.kind) H.badge = plane(badgeTex(o.kind), H.bs, H.bs, o.bx || 0, y + 0.004, o.bz || 0, parent);
-    const gm = new THREE.MeshBasicMaterial({ color: HAZ_RED, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }); const gl = new THREE.Mesh(G.plane, gm); gl.rotation.x = -Math.PI / 2; gl.scale.set(w, d, 1); gl.position.set(0, y - 0.006, 0); parent.add(gl); H.glow = gl; if (o.noGlow) gl.visible = false;
-    if (o.ring) { const rm = new THREE.MeshBasicMaterial({ color: HAZ_RED, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }); const r = new THREE.Mesh(G.ring, rm); r.rotation.x = -Math.PI / 2; r.scale.set(o.ring, o.ring, 1); r.position.set(0, y + 0.002, 0); parent.add(r); H.ring = r; }
+    const y = o.y || 0.034; const H = { soft: !!o.soft, frame: o.noFrame ? [] : stripeFrame(parent, w, d, o.th || 0.3, y, !!o.soft), badge: null, glow: null, ring: null, lvl: o.lvl || (() => 0), bs: o.bs || Math.min(w, d) * 0.55 };
+    if (o.kind) H.badge = plane(o.soft ? softTex(o.kind) : badgeTex(o.kind), H.bs, H.bs, o.bx || 0, y + 0.004, o.bz || 0, parent);
+    const gm = new THREE.MeshBasicMaterial({ color: o.soft ? SOFT : HAZ_RED, transparent: true, opacity: 0.08, depthWrite: false, blending: THREE.AdditiveBlending }); const gl = new THREE.Mesh(G.plane, gm); gl.rotation.x = -Math.PI / 2; gl.scale.set(w, d, 1); gl.position.set(0, y - 0.006, 0); parent.add(gl); H.glow = gl; if (o.noGlow) gl.visible = false;
+    if (o.ring) { const rm = new THREE.MeshBasicMaterial({ color: o.soft ? SOFT : HAZ_RED, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide }); const r = new THREE.Mesh(G.ring, rm); r.rotation.x = -Math.PI / 2; r.scale.set(o.ring, o.ring, 1); r.position.set(0, y + 0.002, 0); parent.add(r); H.ring = r; }
     tr.haz = H; return H;
   }
   hazVis(tr, t) {
@@ -152,6 +187,9 @@ export class Traps {
     if (H.badge) { const k = L === 1 ? 1 + (blink ? 0.22 : 0) : L === 2 ? 1.1 : 1 + 0.04 * Math.sin(t * 3); H.badge.scale.set(H.bs * k, H.bs * k, 1); }
     if (H.ring) { H.ring.material.opacity = L === 2 ? 0.95 : L === 1 ? (blink ? 0.95 : 0.3) : 0.3 + 0.2 * Math.sin(t * 3); }
     for (const m of H.frame) m.opacity = L === 1 ? (blink ? 1 : 0.55) : 1;
+    if (tr.lethal && L === 0) { // DORMANT: dim, no glow - it only wakes up when somebody presses a switch / hits it
+      H.glow.material.opacity = 0.02; for (const m of H.frame) m.opacity = 0.42; if (H.badge) { H.badge.material.opacity = 0.5; H.badge.scale.set(H.bs, H.bs, 1); } if (H.ring) H.ring.material.opacity = 0.12;
+    } else if (H.badge) H.badge.material.opacity = 1;
   }
   // ---------- trap constructors (each returns array of trap objects)
   lamp(x, z, y = 1.2, parent) { const post = this.add(G.cyl, this.mat(0x30323c), x, y / 2, z, 0.06, y, 0.06, parent); const m = this.mat(0xff3030, 0.1); const l = this.add(G.sph, m, x, y + 0.1, z, 0.15, 0.15, 0.15, parent); return { post, l, m, set(on, hot) { this.m.emissiveIntensity = on ? (hot ? 3.2 : 1.8) : 0.05; this.m.color.setHex(on ? (hot ? 0xff2020 : 0xffb030) : 0x552020); this.m.emissive.setHex(on ? (hot ? 0xff2020 : 0xffb030) : 0x330000); } }; }
@@ -164,12 +202,14 @@ export class Traps {
       const cones = new THREE.Group(); grp.add(cones); const sm = this.mat(0xcfd6e6);
       for (let a = -0.5; a <= 0.5; a += 1) for (let b = -0.5; b <= 0.5; b += 1) this.add(G.cone, sm, a * 0.9, 0.35, b * 0.9, 0.3, 0.7, 0.3, cones);
       const lp = this.lamp(x - 1.15, z - 1.15, 0.7);
-      const tr = { type: 'pit', tut0: !!(o && o.tut), tutW: !!(o && o.tut), x, z, ph: (n * 1.7 + rr(0, 1)) , P: 4.6 / this.speed, up: 0, warn: false, lp, cones, fr,
-        update(dt, T) { if (this.tut0) { this.tut0 = false; this.ph = (((this.P - 3.8 - T) % this.P) + this.P) % this.P; } const c = (T + this.ph) % this.P, w0 = this.P - (this.tutW ? 3.4 : 2.2), u0 = this.P - 1.2; const w = c > w0 && c < u0, u = c >= u0; if (w && !this.warn) warnS(x, z); if (u && !this.up) { warnS(x, z, 'spike'); fx.puff(x, 0.2, z, 5, 0xffffff, 0.3); } this.warn = w; this.up = u; },
-        vis(t) { const c = this.up ? 1 : this.warn ? 0.12 + Math.abs(Math.sin(t * 22)) * 0.08 : 0; this.cones.position.y = -0.8 + c * 0.8 + (this.up ? 0 : 0); this.fr.emissive.setHex(this.up ? 0xff2020 : this.warn && Math.sin(t * 24) > 0 ? 0xff2020 : 0xff6a1a); lp.set(this.warn || this.up, this.up || this.warn); },
-        hits(f) { return this.up && Math.abs(f.x - x) < 1.0 && Math.abs(f.z - z) < 1.0 ? 'spike' : null; },
-        danger(px, pz) { const c = (this.g_T + this.ph) % this.P; return Math.abs(px - x) < 1.35 && Math.abs(pz - z) < 1.35 && c > this.P - 2.5 ? 8 : 0; } };
-      this.hazard(tr, grp, 2.5, 2.5, { kind: 'spikes', bs: 1.5, lvl: () => (tr.up ? 2 : tr.warn ? 1 : 0), th: 0.34 });
+      const tr = { type: 'pit', lethal: true, act: 1.7, tutW: (o && o.tut) ? 1.8 : 0, x, z, lp, cones, fr,
+        onFire() { warnS(x, z, 'spike'); fx.puff(x, 0.2, z, 5, 0xffffff, 0.3); },
+        update() { },
+        vis(t) { const up = this.st === 2, warn = this.st === 1; const c = up ? 1 : warn ? 0.12 + Math.abs(Math.sin(t * 22)) * 0.08 : 0; this.cones.position.y = -0.8 + c * 0.8; this.fr.emissive.setHex(up ? 0xff2020 : warn ? (Math.sin(t * 24) > 0 ? 0xff2020 : 0xff6a1a) : 0x4a2a14); lp.set(this.st > 0, this.st === 2); },
+        hits(f) { return this.st === 2 && Math.abs(f.x - x) < 1.0 && Math.abs(f.z - z) < 1.0 ? 'spike' : null; },
+        zone(px, pz, pad = 0) { return Math.abs(px - x) < 1.0 + pad && Math.abs(pz - z) < 1.0 + pad; },
+        danger(px, pz) { return this.st > 0 && Math.abs(px - x) < 1.35 && Math.abs(pz - z) < 1.35 ? 8 : 0; } };
+      this.hazard(tr, grp, 2.5, 2.5, { kind: 'spikes', bs: 1.5, lvl: () => tr.st, th: 0.34 });
       out.push(this.reg(tr));
     }); return out;
   }
@@ -182,13 +222,15 @@ export class Traps {
       const blade = new THREE.Group(); blade.position.set(cxm, 0.55, z); this.root.add(blade); const spin = new THREE.Group(); blade.add(spin);
       this.add(G.teeth, this.mat(0xb8c0d0), 0, 0, 0, 0.62, 0.07, 0.62, spin); this.add(G.saw, this.mat(0xe8eefc), 0, 0.03, 0, 0.58, 0.06, 0.58, spin); this.add(G.cyl, this.mat(0xff3a3a, 1), 0, 0.07, 0, 0.18, 0.08, 0.18, spin);
       this.add(G.box, this.mat(0x2a2d3a), 0, -0.3, 0, 0.3, 0.55, 0.3, blade);
-      const tr = { type: 'saw', x: cxm, z, half, ph: n * Math.PI + rr(0, 1), w: 0.9 * this.speed, blade, spin, bx: cxm, cxm,
-        pos(T) { return this.cxm + Math.sin(T * this.w + this.ph) * this.half; },
-        update(dt, T) { this.bx = this.pos(T); },
-        vis(t) { this.blade.position.x = this.bx; this.spin.rotation.y = t * 22; if (Math.random() < 0.15 * (gfx.density || 1)) fx.sparks(this.bx, 0.4, z, 2, [0xffd060, 0xffffff], { speed: 2.5, life: 0.25, size: 0.06 }); },
-        hits(f) { return Math.hypot(f.x - this.bx, f.z - z) < 0.88 ? 'saw' : null; },
-        danger(px, pz) { if (Math.abs(pz - z) > 1.3) return 0; const a = this.pos(this.g_T), b = this.pos(this.g_T + 0.4); return Math.abs(px - a) < 1.5 || Math.abs(px - b) < 1.4 || (px > Math.min(a, b) && px < Math.max(a, b)) ? 8 : 0; } };
-      { const hg = new THREE.Group(); hg.position.set(cxm, 0, z); this.root.add(hg); this.hazard(tr, hg, half * 2 + 1.4, 1.5, { kind: 'saw', bs: 0.95, bx: -half - 1.15, th: 0.28, lvl: () => 0 }); plane(badgeTex('saw'), 0.95, 0.95, half + 1.15, 0.04, 0, hg); }
+      const tr = { type: 'saw', lethal: true, x: cxm, z, half, w: 0.9 * this.speed, a: 0, blade, spin, bx: cxm + half, cxm, spinK: 0,
+        get act() { return 6.2832 / this.w; },
+        onFire() { this.a = 0; },
+        update(dt) { if (this.st === 2) this.a += dt; else if (this.st === 0) this.a = 0; this.bx = this.cxm + Math.cos(this.a * this.w) * this.half; },
+        vis(t) { this.blade.position.x = this.bx; this.spinK += ((this.st === 2 ? 22 : this.st === 1 ? 10 : 0) - this.spinK) * 0.12; this.spin.rotation.y += this.spinK * 0.016; if (this.st === 2 && Math.random() < 0.15 * (gfx.density || 1)) fx.sparks(this.bx, 0.4, z, 2, [0xffd060, 0xffffff], { speed: 2.5, life: 0.25, size: 0.06 }); },
+        hits(f) { return this.st === 2 && Math.hypot(f.x - this.bx, f.z - z) < 0.88 ? 'saw' : null; },
+        zone(px, pz, pad = 0) { return Math.abs(pz - z) < 0.9 + pad && Math.abs(px - this.cxm) < this.half + 0.7 + pad; },
+        danger(px, pz) { if (this.st === 0 || Math.abs(pz - z) > 1.3) return 0; return Math.abs(px - this.cxm) < this.half + 0.9 ? 8 : 0; } };
+      { const hg = new THREE.Group(); hg.position.set(cxm, 0, z); this.root.add(hg); this.hazard(tr, hg, half * 2 + 1.4, 1.5, { kind: 'saw', bs: 0.95, bx: -half - 1.15, th: 0.28, lvl: () => tr.st }); plane(badgeTex('saw'), 0.95, 0.95, half + 1.15, 0.04, 0, hg); }
       out.push(this.reg(tr));
     }); return out;
   }
@@ -204,9 +246,10 @@ export class Traps {
         arm(owner) { this.boost = 5; this.owner = owner || null; warnS(x, z, 'warn'); },
         update(dt, T) { if (this.boost > 0) { this.boost -= dt; if (this.boost <= 0) this.owner = null; } this.a += dt * this.w * (this.boost > 0 ? 1.9 : 1); const a = this.a; this.th = Math.sin(a) * 2.3; this.v = Math.cos(a) * 2.3 * this.w; const ang = this.th + (n ? Math.PI : 0); this.hx = x + Math.sin(ang) * (L + 0.1); this.hz = z + Math.cos(ang) * (L + 0.1); this.rot = ang; const s = Math.sign(this.v); if (Math.abs(Math.cos(a)) < 0.12 && s !== this.lastS && NEAR(x, z, 3)) { this.lastS = s; sfx('push'); } },
         vis() { this.armG.rotation.y = this.rot || 0; },
-        hits(f) { return Math.abs(this.v) * L > 3.4 && Math.hypot(f.x - this.hx, f.z - this.hz) < 0.95 ? 'hammer' : null; },
-        danger(px, pz) { return Math.hypot(px - x, pz - z) < L + 0.8 && Math.hypot(px - x, pz - z) > 0.8 ? 6 : 0; } };
-      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, 1.5, 1.5, { kind: 'skull', bs: 1.1, noFrame: true, noGlow: true, ring: L + 0.55, lvl: () => 1 }); }
+        hits() { return null; },
+        fighter(f, dt) { f.hamCd = (f.hamCd || 0) - dt; if (f.hamCd > 0 || f.inv > 0 || f.dashT > 0 || f.airT > 0) return; if (Math.abs(this.v) * L > 3.4 && Math.hypot(f.x - this.hx, f.z - this.hz) < 0.95) { const d = this.kdir(); f.vx = d[0] * 11; f.vz = d[1] * 11; f.stunT = Math.max(f.stunT, 0.5); f.charging = false; f.hamCd = 1.2; sfx('hit'); shake(0.12); fx.sparks(f.x, 0.8, f.z, 8, [0xffe9b0, 0xffb020], { speed: 4, life: 0.35 }); fx.popup('BONK!', f.x, f.z, 'pop-cyan'); } },
+        danger(px, pz) { return Math.hypot(px - x, pz - z) < L + 0.8 && Math.hypot(px - x, pz - z) > 0.8 ? 2 : 0; } };
+      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, 1.5, 1.5, { kind: 'shove', soft: true, bs: 1.1, noFrame: true, noGlow: true, ring: L + 0.55, lvl: () => 1 }); }
       tr.kdir = () => [Math.sign(tr.v) * Math.cos(tr.rot || 0), -Math.sign(tr.v) * Math.sin(tr.rot || 0)]; out.push(this.reg(tr));
     }); return out;
   }
@@ -220,11 +263,13 @@ export class Traps {
     xs.forEach((x, n) => {
       const len = HZ * 2; const em = this.mat(0x30323c); [-1, 1].forEach((s) => { this.add(G.box, em, x, 0.6, s * (HZ + 0.1), 0.5, 1.2, 0.5); this.add(G.sph, this.mat(0xff3030, 1.5), x, 0.9, s * (HZ - 0.2), 0.16, 0.16, 0.16); });
       const bm = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending }); const beam = this.add(G.box, bm, x, 0.55, 0, 0.3, 0.12, len); const strip = this.add(G.box, new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.12, depthWrite: false }), x, 0.02, 0, 0.9, 0.01, len);
-      const tr = { type: 'laser', x, z: 0, beam, bm, strip, ph: (n % 2) * 3.1 + Math.floor(n / 2) * 0.7, P: 6.0 / this.speed, st: 0, forced: 0,
-        update(dt, T) { let st; if (this.forced > 0) { this.forced -= dt; st = this.forced > 1.0 ? 1 : this.forced > 0 ? 2 : 0; } else { const c = (T + this.ph) % this.P; st = c > this.P - 1.1 ? 2 : c > this.P - 2.3 ? 1 : 0; } if (st === 1 && this.st === 0) warnS(x, 0); if (st === 2 && this.st !== 2) warnS(x, 0, 'zonepoint'); this.st = st; },
-        arm() { if (this.forced <= 0) this.forced = 2.6; },
-        vis(t) { this.bm.opacity = this.st === 2 ? 0.95 : this.st === 1 ? (Math.sin(t * 40) > 0 ? 0.55 : 0.1) : 0; this.beam.scale.x = this.st === 2 ? 0.34 : 0.05; this.strip.material.opacity = this.st ? 0.4 : 0.1; },
-        hits(f) { return this.st === 2 && Math.abs(f.x - x) < 0.42 ? 'laser' : null; }, danger(px) { return this.st && Math.abs(px - x) < 0.9 ? 8 : 0; } };
+      const tr = { type: 'laser', lethal: true, act: 1.2, x, z: 0, beam, bm, strip,
+        onFire() { warnS(x, 0, 'zonepoint'); },
+        update() { },
+        vis(t) { this.bm.opacity = this.st === 2 ? 0.95 : this.st === 1 ? (Math.sin(t * 40) > 0 ? 0.55 : 0.1) : 0; this.beam.scale.x = this.st === 2 ? 0.34 : 0.05; this.strip.material.opacity = this.st ? 0.4 : 0.08; },
+        hits(f) { return this.st === 2 && Math.abs(f.x - x) < 0.42 ? 'laser' : null; },
+        zone(px, pz, pad = 0) { return Math.abs(px - x) < 0.5 + pad; },
+        danger(px) { return this.st && Math.abs(px - x) < 0.9 ? 8 : 0; } };
       { const hg = new THREE.Group(); hg.position.set(x, 0, 0); this.root.add(hg); this.hazard(tr, hg, 1.0, len, { kind: 'skull', bs: 1.0, bz: len / 2 - 1.3, th: 0.26, lvl: () => tr.st }); plane(badgeTex('skull'), 1.0, 1.0, 0, 0.04, -len / 2 + 1.3, hg); }
       out.push(this.reg(tr));
     }); return out;
@@ -236,12 +281,12 @@ export class Traps {
       const ov = new THREE.Group(); ov.position.set(x, 0.0, z); this.root.add(ov); const stripe = this.mat(0xff3a1a, 0.55), dark = this.mat(0x2a0a0a);
       this.add(G.box, dark, 0, 0.02, 0, 1.96, 0.04, 1.96, ov); for (let s = -3; s <= 3; s++) { const b = this.add(G.box, stripe, s * 0.3, 0.05, 0, 0.12, 0.03, 2.4, ov); b.rotation.y = 0.7; b.scale.z = Math.min(2.6, 2.8 - Math.abs(s) * 0.3); }
       const lp = this.lamp(x + 1.2, z + 1.2, 0.7); const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); const abyss = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ color: 0x1a0006 })); abyss.rotation.x = -Math.PI / 2; abyss.scale.set(2.0, 2.0, 1); abyss.position.y = -0.6; abyss.visible = false; hg.add(abyss);
-      const tr = { type: 'trapdoor', x, z, ph: n * 3.0 + rr(0, 1), P: 7.5 / this.speed, st: 0, ov, lp, cells,
-        update(dt, T) { const c = (T + this.ph) % this.P; // timeline: closed .. warn(1.0) .. open(2.2) .. closed
-          const w0 = this.P - 3.4, o0 = this.P - 2.4, o1 = this.P; let s = 0; if (c > w0 && c <= o0) s = 1; else if (c > o0) s = 2; if (s !== this.st) { if (s === 1) warnS(x, z); if (s === 2) { warnS(x, z, 'fall'); } if (s === 0) { /* close */ } this.st = s; }
+      const tr = { type: 'trapdoor', lethal: true, act: 2.4, x, z, ov, lp, cells,
+        onFire() { warnS(x, z, 'fall'); },
+        update(dt, T) {
           for (const k of this.cells) { if (g.sudden && g.hole[k] !== 0 && this.st === 0) continue; if (this.st === 1) g.hole[k] = 0.4; else if (this.st === 2) { if (g.hole[k] >= 0) g.hole[k] = -1; } else if (g.hole[k] < 0 || g.hole[k] > 0) { if (!g.sudden || this.closed) g.hole[k] = 0; } } },
         vis(t) { this.ov.visible = this.st !== 2; abyss.visible = this.st === 2; if (this.haz && this.haz.badge) this.haz.badge.visible = this.st !== 2; lp.set(this.st > 0, this.st > 0); stripe.emissiveIntensity = this.st === 1 ? 1 + Math.sin(t * 28) * 0.8 : 0.55; },
-        hits() { return null; }, danger(px, pz) { return this.st && Math.abs(px - x) < 1.25 && Math.abs(pz - z) < 1.25 ? 8 : (Math.abs(px - x) < 1.25 && Math.abs(pz - z) < 1.25 && ((this.g_T + this.ph) % this.P) > this.P - 4.4 ? 5 : 0); } };
+        hits() { return null; }, zone(px, pz, pad = 0) { return Math.abs(px - x) < 1.0 + pad && Math.abs(pz - z) < 1.0 + pad; }, danger(px, pz) { return this.st && Math.abs(px - x) < 1.25 && Math.abs(pz - z) < 1.25 ? 8 : 0; } };
       this.hazard(tr, hg, 2.5, 2.5, { kind: 'skull', bs: 1.5, th: 0.34, lvl: () => tr.st });
       out.push(this.reg(tr));
     }); return out;
@@ -320,13 +365,14 @@ export class Traps {
       const fm = new THREE.MeshBasicMaterial({ color: 0xff8a20, transparent: true, opacity: 0.0, depthWrite: false, blending: THREE.AdditiveBlending }); const fl = this.add(G.cone, fm, 0, 0.5, L / 2 + 0.3, 0.6, L, 0.6, grp); fl.rotation.x = Math.PI / 2; fl.position.z = L / 2 + 0.4;
       const lane = this.add(G.box, new THREE.MeshBasicMaterial({ color: 0xff6a20, transparent: true, opacity: 0.0, depthWrite: false }), 0, 0.02, L / 2 + 0.4, 1.0, 0.01, L, grp);
       const lp = this.lamp(x + dz * 0.8, z - dx * 0.8, 0.6);
-      const tr = { type: 'fire', x, z, dx, dz, fl, fm, lane, lp, ph: n * 1.3 + rr(0, 2), P: 5.6 / this.speed, st: 0, forced: -1, L,
-        update(dt, T) { let c = (T + this.ph) % this.P; if (this.forced > 0) { this.forced -= dt; c = this.P - 2.0 + (1.4 - this.forced > 0 ? 1.4 - this.forced : 0); if (this.forced <= 0) this.forced = -1; } const st = c > this.P - 1.15 ? 2 : c > this.P - 2.15 ? 1 : 0; if (st === 1 && this.st === 0) warnS(x, z); if (st === 2 && this.st !== 2) warnS(x, z, 'sizzle'); this.st = st; },
-        arm() { this.forced = 2.4; },
+      const tr = { type: 'fire', lethal: true, act: 1.5, x, z, dx, dz, fl, fm, lane, lp, L,
+        onFire() { warnS(x, z, 'sizzle'); },
+        update() { },
         vis(t) { const on = this.st === 2; this.fm.opacity = on ? 0.85 : this.st === 1 ? (Math.sin(t * 30) > 0 ? 0.25 : 0) : 0; this.fl.scale.set(on ? 0.6 + Math.sin(t * 40) * 0.08 : 0.25, on ? L : L * 0.35, on ? 0.6 : 0.25); this.fl.position.z = (on ? L : L * 0.35) / 2 + 0.4; this.lane.material.opacity = this.st === 1 ? 0.28 + Math.sin(t * 20) * 0.1 : on ? 0.35 : 0; lp.set(this.st > 0, this.st > 0);
           if (on && NEAR(x, z, 3)) { for (let i = 0; i < 2; i++) fx.glow.spawn(x + dx * (0.6 + Math.random() * L), 0.4 + Math.random() * 0.6, z + dz * (0.6 + Math.random() * L), rr(-0.3, 0.3), 1.2, rr(-0.3, 0.3), 0.18, 0.4, Math.random() < 0.5 ? 0xff7a1a : 0xffd060, 0, 0, 0, -0.4); } },
         hits(f) { if (this.st !== 2) return null; const ax = f.x - x, az = f.z - z; const along = ax * dx + az * dz, perp = Math.abs(ax * dz - az * dx); return along > 0.2 && along < L + 0.5 && perp < 0.75 ? 'fire' : null; },
-        danger(px, pz) { if (!this.st && ((this.g_T + this.ph) % this.P) < this.P - 2.8) return 0; const ax = px - x, az = pz - z; const along = ax * dx + az * dz, perp = Math.abs(ax * dz - az * dx); return along > 0 && along < L + 0.6 && perp < 1.0 ? 8 : 0; },
+        zone(px, pz, pad = 0) { const ax = px - x, az = pz - z; const along = ax * dx + az * dz, perp = Math.abs(ax * dz - az * dx); return along > -0.5 - pad && along < L + 0.6 + pad && perp < 0.9 + pad; },
+        danger(px, pz) { if (!this.st) return 0; const ax = px - x, az = pz - z; const along = ax * dx + az * dz, perp = Math.abs(ax * dz - az * dx); return along > 0 && along < L + 0.6 && perp < 1.0 ? 8 : 0; },
         linkRing(c) { const r = this.add(G.ring, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), 0, 0.03, 0, 0.9, 1, 0.9, grp); r.rotation.x = -Math.PI / 2; }, add: (...a) => (this.add(...a)) };
       tr.add = (geo, m, px, py, pz, sx, sy, sz, par) => this.add(geo, m, px, py, pz, sx, sy, sz, par || grp);
       { const hg = new THREE.Group(); hg.position.set(0, 0, L / 2 + 0.4); grp.add(hg); this.hazard(tr, hg, 1.35, L + 0.3, { kind: 'flame', bs: 1.0, th: 0.28, lvl: () => tr.st }); }
@@ -336,18 +382,19 @@ export class Traps {
   mk_fence(layout, o) {
     const ps = this.spots(layout, 2.4, { min: 3.5, edge: 2.6, snap: 'cell' }); if (!ps) return null; const out = []; const half = 2.4;
     ps.forEach(([x, z], n) => {
-      const vert = (n + (this.groups.fence ? 1 : 0)) % 2 === 1; const ex = vert ? 0 : half, ez = vert ? half : 0; const pm = this.mat(0x3a3c4c), om = this.mat(0xff3a1a, 0.3);
+      const vert = (n + (this.groups.fence ? 1 : 0)) % 2 === 1; const ex = vert ? 0 : half, ez = vert ? half : 0; const pm = this.mat(0x3a3c4c), om = this.mat(0xffb020, 0.3);
       [-1, 1].forEach((s) => { this.add(G.cyl, pm, x + ex * s, 0.55, z + ez * s, 0.18, 1.1, 0.18); this.add(G.sph, om, x + ex * s, 1.2, z + ez * s, 0.26, 0.26, 0.26); });
       const am = new THREE.MeshBasicMaterial({ color: 0xffd23c, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }); const arc = this.add(G.box, am, x, 0.8, z, vert ? 0.1 : half * 2, 0.7, vert ? half * 2 : 0.1);
-      const strip = this.add(G.box, new THREE.MeshBasicMaterial({ color: 0xff3a1a, transparent: true, opacity: 0.18, depthWrite: false }), x, 0.02, z, vert ? 0.6 : half * 2, 0.01, vert ? half * 2 : 0.6);
+      const strip = this.add(G.box, new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.18, depthWrite: false }), x, 0.02, z, vert ? 0.6 : half * 2, 0.01, vert ? half * 2 : 0.6);
       const tr = { type: 'fence', x, z, ex, ez, half, arc, am, om, strip, st: 0, timer: rr(5, 9) / this.speed, left: 0, owner: null, sw: null,
         update(dt, T) { if (this.st === 0) { this.timer -= dt; if (this.timer <= 0) this.arm(null, true); } else if (this.st === 1) { this.left -= dt; if (this.left <= 0) { this.st = 2; this.left = 4.5; warnS(x, z, 'zonepoint'); } } else if (this.st === 2) { this.left -= dt; if (this.left <= 0) { this.st = 0; this.timer = rr(10, 15) / (this.sp || 1); this.owner = null; } } },
         arm(owner, auto) { if (this.st !== 0) return; this.st = 1; this.left = 1.0; this.owner = owner || null; warnS(x, z, 'warn'); },
         vis(t) { const on = this.st === 2; this.am.opacity = on ? 0.75 + Math.sin(t * 50) * 0.2 : this.st === 1 ? (Math.sin(t * 36) > 0 ? 0.4 : 0) : 0; this.arc.scale.y = on ? 0.6 + Math.sin(t * 60) * 0.2 : 0.2; this.om.emissiveIntensity = on ? 2.4 : this.st === 1 ? 1.4 : 0.3; this.strip.material.opacity = on ? 0.45 : this.st === 1 ? 0.3 : 0.12; if (on && Math.random() < 0.5 && NEAR(x, z, 3)) fx.sparks(x + rr(-1, 1) * ex + rr(-0.2, 0.2), 0.7, z + rr(-1, 1) * ez, 1, [0xffd23c, 0xffffff], { speed: 2, life: 0.2, size: 0.07 }); },
-        hits(f) { if (this.st !== 2) return null; const dx = Math.abs(f.x - x) - ex, dz2 = Math.abs(f.z - z) - ez; const d = Math.hypot(Math.max(0, dx), Math.max(0, dz2)); return d < 0.62 ? 'zap' : null; },
-        danger(px, pz) { if (this.st === 0 && this.timer > 2.5) return 0; const dx = Math.abs(px - x) - ex, dz2 = Math.abs(pz - z) - ez; return Math.hypot(Math.max(0, dx), Math.max(0, dz2)) < 1.0 ? 8 : 0; },
+        hits() { return null; },
+        fighter(f, dt) { f.fenCd = (f.fenCd || 0) - dt; if (this.st !== 2 || f.fenCd > 0 || f.inv > 0 || f.dashT > 0 || f.airT > 0) return; const dx = Math.abs(f.x - x) - ex, dz2 = Math.abs(f.z - z) - ez; const d = Math.hypot(Math.max(0, dx), Math.max(0, dz2)); if (d < 0.62) { const sd = vert ? (f.x - x >= 0 ? 1 : -1) : (f.z - z >= 0 ? 1 : -1); if (vert) f.vx = sd * 7; else f.vz = sd * 7; f.stunT = Math.max(f.stunT, 0.3); f.gooT = Math.max(f.gooT, 2.2); f.dizzyT = 1.6; f.charging = false; f.fenCd = 1.2; sfx('hit'); fx.sparks(f.x, 0.9, f.z, 10, [0xffe9b0, 0xffb020], { speed: 4, life: 0.35 }); fx.popup('ZAP!', f.x, f.z, 'pop-cyan'); } },
+        danger(px, pz) { if (this.st === 0 && this.timer > 2.5) return 0; const dx = Math.abs(px - x) - ex, dz2 = Math.abs(pz - z) - ez; return Math.hypot(Math.max(0, dx), Math.max(0, dz2)) < 1.0 ? 2 : 0; },
         linkRing(c) { const r = this.add(G.ring, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), x, 0.03, z, 0.7, 1, 0.7); r.rotation.x = -Math.PI / 2; }, add: (...a) => this.add(...a), sp: this.speed };
-      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, vert ? 0.9 : half * 2 + 0.9, vert ? half * 2 + 0.9 : 0.9, { kind: 'bolt', bs: 0.8, th: 0.26, lvl: () => tr.st }); }
+      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, vert ? 0.9 : half * 2 + 0.9, vert ? half * 2 + 0.9 : 0.9, { kind: 'wave', soft: true, bs: 0.8, th: 0.26, lvl: () => tr.st }); }
       tr.owner = null; out.push(this.reg(tr));
     }); return out;
   }
@@ -360,7 +407,7 @@ export class Traps {
     const out = [];
     lanes.forEach((z, n) => {
       const dir = n % 2 ? -1 : 1; const x0 = -dir * (HX - 0.2);
-      const lm = new THREE.MeshBasicMaterial({ color: 0xff7a2a, transparent: true, opacity: 0, depthWrite: false }); const lane = this.add(G.box, lm, 0, 0.022, z, HX * 2, 0.01, 1.8);
+      const lm = new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0, depthWrite: false }); const lane = this.add(G.box, lm, 0, 0.022, z, HX * 2, 0.01, 1.8);
       const body = new THREE.Group(); body.visible = false; this.root.add(body); const rock = this.add(G.ico, this.mat(0x8a7a6a), 0, 0.9, 0, 0.95, 0.95, 0.95, body); const pat = this.add(G.ico, this.mat(0x5a4e44), 0.2, 1.1, 0.5, 0.45, 0.45, 0.45, body);
       const lp = this.lamp(x0 - dir * 0.4, z - 1.2, 1.1);
       const tr = { type: 'boulder', x: 0, z, dir, x0, lane, lm, body, rock, bx: x0, st: 0, left: rr(7, 11) / this.speed, lp, rot: 0,
@@ -370,10 +417,11 @@ export class Traps {
         arm(owner) { if (this.st !== 0) return; this.st = 1; this.left = 1.7; this.owner = owner || null; warnS(this.x0, z, 'rumble'); shake(0.12); },
         end(crash) { if (crash) { fx.burst(this.bx, 0.6, z, 16, [0x8a7a6a, 0x5a4e44], { speed: 5, up: 4, size: 0.2 }); shake(0.3); if (NEAR(this.bx, z, 3)) sfx('explode'); } this.st = 0; this.left = rr(9, 14) / (this.sp || 1); this.bodyOn = false; this.owner = null; },
         vis(t) { this.lm.opacity = this.st === 1 ? 0.18 + Math.abs(Math.sin(t * 14)) * 0.22 : this.st === 2 ? 0.1 : 0; this.body.visible = !!this.bodyOn && this.st === 2; this.body.position.set(this.bx, 0, z); this.rock.rotation.set(0, 0, -this.dir * this.rot); lp.set(this.st === 1, this.st === 1); if (this.st === 2 && Math.random() < 0.5) fx.puff(this.bx - this.dir * 0.6, 0.2, z + rr(-0.5, 0.5), 1, 0xcfc0a0, 0.25); },
-        hits(f) { return this.st === 2 && Math.hypot(f.x - this.bx, f.z - z) < 1.15 ? 'boulder' : null; },
-        danger(px, pz) { if (this.st === 0 && this.left > 3) return 0; return Math.abs(pz - z) < 1.35 && (this.st !== 2 || (px - this.bx) * this.dir > -0.6) ? 8 : 0; },
+        hits() { return null; },
+        fighter(f, dt) { f.bouCd = (f.bouCd || 0) - dt; if (f.bouCd > 0 || f.inv > 0 || f.dashT > 0 || f.airT > 0) return; if (this.st === 2 && Math.hypot(f.x - this.bx, f.z - z) < 1.15) { const sd = (f.z - z) >= 0 ? 1 : -1; f.vx = this.dir * 8; f.vz = sd * 7; f.stunT = Math.max(f.stunT, 0.4); f.dizzyT = 2.2; f.charging = false; f.bouCd = 1.4; sfx('hit'); shake(0.12); fx.sparks(f.x, 0.8, f.z, 8, [0xffe9b0, 0xffb020], { speed: 4, life: 0.35 }); fx.popup('DIZZY!', f.x, f.z, 'pop-cyan'); } },
+        danger(px, pz) { if (this.st === 0 && this.left > 3) return 0; return Math.abs(pz - z) < 1.35 && (this.st !== 2 || (px - this.bx) * this.dir > -0.6) ? 2 : 0; },
         linkRing(c) { const r = this.add(G.ring, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), x0 - dir * 0.4, 0.03, z, 0.7, 1, 0.7); r.rotation.x = -Math.PI / 2; }, add: (...a) => this.add(...a), sp: this.speed, gref: this.g };
-      { const hg = new THREE.Group(); hg.position.set(0, 0, z); this.root.add(hg); this.hazard(tr, hg, HX * 2 - 0.6, 1.9, { kind: 'skull', bs: 1.2, bx: x0 + dir * 1.1, th: 0.27, lvl: () => tr.st }); }
+      { const hg = new THREE.Group(); hg.position.set(0, 0, z); this.root.add(hg); this.hazard(tr, hg, HX * 2 - 0.6, 1.9, { kind: 'dizzy', soft: true, bs: 1.2, bx: x0 + dir * 1.1, th: 0.27, lvl: () => tr.st }); }
       tr.kdir = () => [tr.dir, 0]; out.push(this.reg(tr));
     }); return out;
   }
@@ -385,19 +433,22 @@ export class Traps {
       const plate = new THREE.Group(); plate.position.set(x, 11, z); this.root.add(plate); this.add(G.box, this.mat(0x4a4e60), 0, 0.2, 0, h * 2, 0.4, h * 2, plate); this.add(G.box, this.mat(0xffc02a, 0.5), 0, 0.42, 0, h * 2.02, 0.06, 0.4, plate);
       const sp = this.mat(0xd9dfef); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const c = this.add(G.cone, sp, a * 0.95, -0.35, b * 0.95, 0.3, 0.7, 0.3, plate); c.rotation.x = Math.PI; }
       const lp = this.lamp(x - h - 0.4, z - h - 0.4, 0.8);
-      const tr = { type: 'crusher', x, z, h, shadow, sh, edge, plate, lp, st: 0, ph: n * 3 + rr(0, 2), left: rr(5, 9) / this.speed, py: 11, hold: 0, owner: null, sp: this.speed,
-        update(dt) { if (this.st === 0) { this.left -= dt; if (this.left <= 0) this.arm(null); } else if (this.st === 1) { this.left -= dt; this.py += (4.5 - this.py) * Math.min(1, dt * 3); if (this.left <= 0) { this.st = 2; this.hold = 0.9; this.py = 0.1; warnS(x, z, 'explode'); shake(0.45); fx.puff(x, 0.3, z, 14, 0xffffff, 0.6); fx.shockwave(x, z, 0xffb060, 4); this.landed = true; } } else if (this.st === 2) { this.hold -= dt; if (this.hold <= 0) { this.st = 3; this.landed = false; } } else { this.py += dt * 7; if (this.py >= 11) { this.py = 11; this.st = 0; this.left = rr(9, 14) / this.sp; this.owner = null; } } },
-        arm(owner) { if (this.st !== 0) return; this.st = 1; this.left = 1.4; this.py = 11; this.owner = owner || null; warnS(x, z, 'warn'); },
-        vis(t) { this.plate.position.y = this.py; this.sh.opacity = this.st === 1 ? 0.18 + (1.4 - this.left) * 0.2 + Math.abs(Math.sin(t * 18)) * 0.1 : this.st === 2 ? 0.45 : 0; this.edge.material.opacity = this.st === 1 ? 0.6 : 0; lp.set(this.st === 1, this.st === 1); },
-        hits(f) { return this.st === 2 && this.landed !== undefined && Math.abs(f.x - x) < h + 0.15 && Math.abs(f.z - z) < h + 0.15 ? 'crush' : null; },
-        danger(px, pz) { if (this.st === 0 && this.left > 3.2) return 0; return Math.abs(px - x) < h + 0.5 && Math.abs(pz - z) < h + 0.5 ? (this.st === 0 ? 4 : 8) : 0; },
+      const tr = { type: 'crusher', lethal: true, act: 0.9, x, z, h, shadow, sh, edge, plate, lp, py: 11, hold: 0, landed: false,
+        onFire() { this.py = 0.1; warnS(x, z, 'explode'); shake(0.45); fx.puff(x, 0.3, z, 14, 0xffffff, 0.6); fx.shockwave(x, z, 0xffb060, 4); this.landed = true; },
+        onEnd() { this.landed = false; },
+        update(dt) { if (this.st === 1) this.py += (4.5 - this.py) * Math.min(1, dt * 8); else if (this.st === 0 && this.py < 11) this.py = Math.min(11, this.py + dt * 7); },
+        vis(t) { this.plate.position.y = this.py; this.sh.opacity = this.st === 1 ? 0.3 + Math.abs(Math.sin(t * 18)) * 0.2 : this.st === 2 ? 0.45 : 0; this.edge.material.opacity = this.st === 1 ? 0.6 : 0; lp.set(this.st > 0, this.st === 2); },
+        hits(f) { return this.st === 2 && this.py < 1 && Math.abs(f.x - x) < h + 0.15 && Math.abs(f.z - z) < h + 0.15 ? 'crush' : null; },
+        zone(px, pz, pad = 0) { return Math.abs(px - x) < h + 0.15 + pad && Math.abs(pz - z) < h + 0.15 + pad; },
+        danger(px, pz) { if (this.st === 0) return 0; return Math.abs(px - x) < h + 0.5 && Math.abs(pz - z) < h + 0.5 ? 8 : 0; },
         linkRing(c) { const r = this.add(G.ring, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }), x, 0.04, z, 0.8, 1, 0.8); r.rotation.x = -Math.PI / 2; }, add: (...a) => this.add(...a) };
-      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, h * 2 + 0.5, h * 2 + 0.5, { kind: 'skull', bs: 1.7, th: 0.34, lvl: () => (tr.st === 1 ? 1 : tr.st === 2 ? 2 : 0) }); }
+      { const hg = new THREE.Group(); hg.position.set(x, 0, z); this.root.add(hg); this.hazard(tr, hg, h * 2 + 0.5, h * 2 + 0.5, { kind: 'skull', bs: 1.7, th: 0.34, lvl: () => tr.st }); }
       out.push(this.reg(tr));
     }); return out;
   }
+  nearSpot(t) { for (let r = 2.2; r <= 9; r += 0.7) for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r; if (Math.abs(x) > HX - 1.2 || Math.abs(z) > HZ - 1.2) continue; if (t.zone && t.zone(x, z, 0.9)) continue; if (this.free(x, z, 0.5)) return [[x, z]]; } return null; }
   mk_switch(layout, o) {
-    const ps = this.spots(layout === 'c' ? 'c' : 'r2', 0.8, { min: 3, edge: 1.8 }); if (!ps) return null; const cols = [0xffd23c, 0xffffff, 0xffa030]; const color = cols[this.sw.length % 3];
+    const ps = o.at ? o.at.slice() : this.spots(layout === 'c' ? 'c' : 'r2', o.relax ? 0.5 : 0.8, o.relax ? { min: 1.5, edge: 1.4 } : { min: 3, edge: 1.8 }); if (!ps) return null; const cols = [0xffd23c, 0xffffff, 0xffa030]; const color = cols[this.sw.length % 3];
     ps.forEach(([x, z], n) => {
       const base = this.add(G.cyl, this.mat(0x2a2d3a), x, 0.18, z, 0.6, 0.36); const bm = this.mat(color, 1.2); const cap = this.add(G.cyl, bm, x, 0.42, z, 0.4, 0.14);
       const ring = this.add(G.ring, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }), x, 0.03, z, 0.9, 1, 0.9); ring.rotation.x = -Math.PI / 2;
@@ -412,7 +463,7 @@ export class Traps {
       s.cd -= dt; if (s.cd > 0 || !s.targets.length) continue;
       let by = null; for (const b of g.booms) if (b.alive && Math.hypot(b.x - s.x, b.z - s.z) < 0.75) { by = b.owner; break; }
       if (!by) for (const f of g.fighters) if (f.alive && !f.show && f.airT <= 0 && Math.hypot(f.x - s.x, f.z - s.z) < 0.6) { by = f; break; }
-      if (by) { s.cd = 9; this.fire(s, by); }
+      if (by) { s.cd = 6; this.fire(s, by); }
     }
   }
   fire(s, by) {
@@ -427,6 +478,7 @@ export class Traps {
     if (g.state === 'play') {
       for (const t of this.list) t.update(dt, this.t);
       this.tickSwitches(dt);
+      for (const t of this.list) { if (!t.lethal || t.st !== 0 || t.cd > 0) continue; for (const b of g.booms) if (b.alive && t.zone(b.x, b.z, 0.1)) { t.arm(b.owner); break; } }
       for (const f of g.fighters) {
         if (!f.alive || f.show || f.boss || f.inv > 0 || f.dashT > 0 || f.airT > 0) continue;
         for (const t of this.list) { const k = t.hits(f); if (k) { this.kill(f, k, t); break; } }
@@ -439,10 +491,19 @@ export class Traps {
   }
   danger(x, z) { if (!this.on) return 0; let m = 0; for (const t of this.list) { const d = t.danger(x, z); if (d > m) { m = d; if (m >= 8) break; } } return m; }
   fighterTick(f, dt) {
-    if (!this.on) return; f.gooT = Math.max(0, (f.gooT || 0) - dt); f.iceT = Math.max(0, (f.iceT || 0) - dt); f.tpCd = (f.tpCd || 0) - dt;
+    if (!this.on) return; f.gooT = Math.max(0, (f.gooT || 0) - dt); f.dizzyT = Math.max(0, (f.dizzyT || 0) - dt); if (f.dizzyT > 0 && f.alive && Math.random() < dt * 9) fx.sparks(f.x + rr(-0.3, 0.3), 1.5, f.z + rr(-0.3, 0.3), 1, [0xffe9b0, 0xffb020], { speed: 1.2, life: 0.5, size: 0.08 }); f.iceT = Math.max(0, (f.iceT || 0) - dt); f.tpCd = (f.tpCd || 0) - dt;
     if (f.airT > 0) { f.airT -= dt; f.ex += f.hopV[0]; f.ez += f.hopV[1]; f.hopY = Math.sin(Math.PI * (1 - Math.max(0, f.airT) / f.airMax)) * 1.5; if (f.airT <= 0) { f.hopY = 0; fx.puff(f.x, 0.1, f.z, 4, 0xffffff, 0.25); } } else f.hopY = 0;
     if (!f.alive) return;
     for (const t of this.list) if (t.fighter) t.fighter(f, dt, this.g);
+  }
+  // v4.3: a bot walks onto a switch when a foe is standing inside a dormant lethal trap that switch would arm (never when the bot itself is near that trap, or a teammate is in it)
+  botPlan(f) {
+    if (!this.on || !this.sw.length) return null; const g = this.g; let best = null, bs = 1e9;
+    for (const s of this.sw) { if (s.cd > 0) continue; const ds = Math.hypot(s.x - f.x, s.z - f.z); if (ds > 10 || ds >= bs) continue;
+      for (const t of s.targets) { if (!t.lethal || t.st !== 0 || t.cd > 0 || t.zone(f.x, f.z, 1.6)) continue;
+        if (g.fighters.some((e) => e !== f && e.alive && !g.isFoe(f, e) && t.zone(e.x, e.z, 0.6))) continue;
+        if (g.fighters.some((e) => e.alive && !e.show && g.isFoe(f, e) && t.zone(e.x, e.z, 0.1))) { bs = ds; best = s; break; } } }
+    return best;
   }
   bumpBoom(b) { if (!this.on) return false; for (const t of this.list) if (t.boom && t.boom(b)) return true; return false; }
   onIce(f) { return f.iceT > 0; }

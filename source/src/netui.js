@@ -32,6 +32,7 @@ let optsOpen = false; // host/guest lobby Options overlay
 
 const copyText = async (t) => { try { await navigator.clipboard.writeText(t); return true; } catch (e) { try { const ta = h('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch (x) { return false; } } };
 const shareRoom = async () => { const url = shareLink(Net.code); try { if (navigator.share) { await navigator.share({ title: 'Whackerang', text: `Join my Whackerang room ${Net.code}`, url }); return; } } catch (e) { if (e && e.name === 'AbortError') return; } UI.toast((await copyText(url)) ? 'Link copied! Send it to your friends.' : url, 2400); };
+const ctLabel = (t) => (t === 'relay' ? 'RELAY' : t === 'mixed' ? 'DIRECT + RELAY' : t === 'direct' ? 'DIRECT' : '');
 const bars = (ms) => { const n = ms <= 0 ? 4 : ms < 60 ? 4 : ms < 110 ? 3 : ms < 190 ? 2 : 1; return `<span class="pbars q${n}" title="${Math.round(ms)} ms"><i></i><i></i><i></i><i></i></span>`; };
 const nameRow = (el) => {
   const st = S().settings; if (!st.onlineName) { st.onlineName = randomPreset(); save(); }
@@ -101,7 +102,7 @@ Object.assign(UI, {
     const el = h('div', 'screen page netscr netlobby nl2' + (optsOpen ? ' opts' : '')); const hd = h('header'); const bk = this.backBtn(() => this.show('netLeave')); bk.id = 'net-leave'; hd.appendChild(bk); hd.appendChild(h('h2', '', isHost ? 'Your room' : 'Room')); hd.appendChild(this.btn('⚙ Options', 'small', () => { optsOpen = true; this.show('netLobby'); }, { id: 'net-options' })); el.appendChild(hd);
     const main = h('div', 'nl2-main');
     if (Net.code !== 'MANUAL') {
-      const cc = h('div', 'nl2-code'); cc.innerHTML = `<small>${isHost ? 'FRIENDS TYPE THIS CODE' : 'ROOM'}</small><b id="lobby-code">${esc(Net.code)}</b>`; main.appendChild(cc);
+      const cc = h('div', 'nl2-code'); cc.innerHTML = `<small>${isHost ? 'FRIENDS TYPE THIS CODE' : 'ROOM'}</small><b id="lobby-code">${esc(Net.code)}</b><span class="ctype ct-${Net.conType || 'none'}" id="lobby-ct" title="How players are connected: DIRECT = phone to phone, RELAY = through a free relay server (slightly slower, works on strict networks)">${ctLabel(Net.conType)}</span>`; main.appendChild(cc);
       if (isHost) main.appendChild(this.btn('📤 Share', 'gold big nl2-share', () => shareRoom(), { id: 'net-share' }));
     } else main.appendChild(h('div', 'nl2-nocode', 'No room service reachable.<br>Tap <b>Options</b> &gt; <b>Add friend by code</b>.'));
     const list = h('div', 'nl2-players'); const teamy = TEAM_MODES.includes(set.mode);
@@ -210,6 +211,8 @@ Net.onUpdate = () => {
 };
 // lobby ping chips are refreshed in place (no re-render)
 setInterval(() => { if (!Net.active) return; if (UI.cur === 'netLobby') { document.querySelectorAll('[data-ping]').forEach((e) => { const sl = +e.dataset.ping; const p = Net.lobby.players.find((q) => q.slot === sl); const ms = Net.pings && Net.pings[sl] !== undefined ? Net.pings[sl] : (p ? p.ping : 0); e.innerHTML = bars(p && p.host ? 0 : ms); }); } }, 1000);
+// v4.3: keep the lobby connection chip current (the link type can change after the lobby is drawn, e.g. direct -> relay fallback)
+setInterval(() => { const e = document.getElementById('lobby-ct'); if (!e) return; const t = Net.conType || ''; const c = `ctype ct-${t || 'none'}`; if (e.className !== c) e.className = c; const l = ctLabel(t); if (e.textContent !== l) e.textContent = l; }, 400);
 // in-match ping chip
 const origHud = UI.hudUpdate;
 UI.hudUpdate = function (game) {
@@ -219,6 +222,6 @@ UI.hudUpdate = function (game) {
     if (!c) { c = h('div', '', '', { id: 'netping' }); const hud = document.getElementById('hud'); hud && hud.appendChild(c); }
     const ms = Net.isGuest ? Net.rtt : Math.max(0, ...Object.values(Net.pings || { 0: 0 }));
     const lab = Net.isGuest ? `${Math.round(Net.rtt)} ms` : (Object.keys(Net.pings || {}).length > 1 ? `${Math.round(ms)} ms (worst)` : 'host');
-    const q = ms < 60 ? 4 : ms < 110 ? 3 : ms < 190 ? 2 : 1; const html = `${bars(Net.isHost && !Object.keys(Net.pings || {}).length ? 0 : ms)}<span>${esc(Net.isHost ? 'HOST' : 'PING')} ${lab}</span>`; if (c.dataset.h !== html) { c.dataset.h = html; c.innerHTML = html; }
+    const q = ms < 60 ? 4 : ms < 110 ? 3 : ms < 190 ? 2 : 1; const html = `${bars(Net.isHost && !Object.keys(Net.pings || {}).length ? 0 : ms)}<span>${esc(Net.isHost ? 'HOST' : 'PING')} ${lab}</span>${Net.conType ? `<em class="ctype ct-${Net.conType}">${ctLabel(Net.conType)}</em>` : ''}`; if (c.dataset.h !== html) { c.dataset.h = html; c.innerHTML = html; }
   } else if (c) c.remove();
 };

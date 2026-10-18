@@ -12,3 +12,6 @@ final suites: layout 9/9, tut 18/18, smoke31/touch31/v33 0 fail, net_life 25/25,
 apk build started
 shots done (catch step screenshot sometimes dark in harness only; real render ok)
 README v4.2 done; staging pages
+pages pushed c067c38
+release v4.2 created, downloads verified; pages live
+live verified: tut42 18/18 on Pages, host+guest via real broker ok. DONE

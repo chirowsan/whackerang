@@ -131,7 +131,9 @@ export class Bot {
     let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < this.pm.pu) { pd = dist; pu = p; } }
     if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = 0.8 + Math.random() * 1.6; }
     const ob = g.objective ? g.objective(f) : null;
+    const tp = (g.traps && g.traps.botPlan && Math.random() < 0.7) ? g.traps.botPlan(f) : null;
     if (ob && (ob.force || !tg || bd > (ob.yield || 3.2))) { gx = ob.x - f.x; gz = ob.z - f.z; const od = Math.hypot(gx, gz); if (od < 0.5) { gx = 0; gz = 0; } if (tg && !ob.force && bd < 7) { gx += -(tg.z - f.z) / (bd || 1) * this.strafe * 0.3; } }
+    else if (tp && (!tg || bd > 2.6)) { gx = tp.x - f.x; gz = tp.z - f.z; }
     else if (pu && (!tg || bd > 3.2)) { gx = pu.x - f.x; gz = pu.z - f.z; }
     else if (tg) {
       const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; let pref = (f.ammo > 0 ? 6.2 : 8.5) * this.pm.pref; if (R.type === 'bomb') pref = g.mst.holder === f ? 3.5 : 9; if (f.boss) pref = 4.6;

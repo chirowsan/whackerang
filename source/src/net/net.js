@@ -1,7 +1,8 @@
 // Online session: room codes, lobby, host-authoritative match flow, guest mirror, disconnect handling, validation and rate limits.
 // Topology: star. The host's device runs the only real simulation; guests send inputs and render snapshots.
 import { PROTO, MAX_PLAYERS, ID_PREFIX, GUEST_PREFIX, makeCode, normCode, validCode, rid, safeName, shareLink, ONLINE_MODES, TEAM_MODES, LOBBY_EMOJI } from './proto.js';
-import { Signal, Link, rtcSupported, relayUrl } from './rtc.js';
+import { Signal, Link, rtcSupported, relayUrl, netCfg } from './rtc.js';
+import { RelayHub, RelayConn, RelayGuestLink, relayOn } from './relay.js';
 import { BinWriter, BinReader, enc, dec } from './bin.js';
 import { PK, STEP, FxRecorder, GuestWorld, encodeFast, encodeCrates, encodeHoles, encodeItems, encodeTraps, slowSig } from './world.js';
 import { HEROES, HATS, ARENAS, MODES, TRAILS, SKINS, EMOTES, PERSONAS, PLAYER_COLORS } from '../data.js';
@@ -15,6 +16,8 @@ import { track, addCoins, addXp, levelInfo } from '../progress.js';
 import { shuffle, pick } from '../util.js';
 
 const SNAP_N = 3;                    // sim steps per snapshot: 3 -> 20 Hz
+const SNAP_N_RELAY = 5;              // v4.3 low-bandwidth mode when anybody is on the relay: 12 Hz (guests also send inputs at 15 Hz)
+const DIRECT_MS = 5500;              // v4.3: how long a guest tries a direct WebRTC link before falling back to the relay
 export const ONLINE_COIN_CAP = 60, ONLINE_XP_CAP = 100, ONLINE_DAY_CAP = 300, ONLINE_MIN_TIME = 25;
 const IN_MAX = 64;                   // fast packet max bytes accepted from a guest
 const now = () => performance.now();
@@ -45,13 +48,19 @@ export const Net = {
     const me = { pid: 'host', slot: 0, cid: this.cid, name, ...pr, ready: true, team: 0, ping: 0, isHost: true, conn: true };
     H.slots[0] = me; H.peers.set('host', me); this.mySlot = 0;
     // make a room code on the signaling server (retry if taken); if the broker is unreachable the room still works through manual codes
-    let ok = false, lastErr = null;
+    let ok = false, lastErr = null; const useRly = relayOn() && !opts.noRelay && !(netCfg().noRelayHost);
+    const bindSig = (sig) => { H.sig = sig; sig.onmsg = (m) => this.hostSignal(m); sig.onclose = () => { H.sig = null; if (!H.closed) { this.signalOk = !!H.rly; this.setStatus(H.rly ? '' : 'Room link service dropped: friends already here stay connected. Reopen the lobby to invite more.'); this.emit(); } }; };
+    const bindRly = (hub) => { H.rly = hub; hub.onjoin = (g) => this.hostRelayJoin(g); hub.onclose = () => { H.rly = null; if (!H.closed) { this.signalOk = !!H.sig; this.emit(); } }; };
     for (let i = 0; i < 6 && !ok; i++) {
-      const code = opts.code || makeCode(); const sig = new Signal(ID_PREFIX + code, opts.relay);
-      try { await sig.connect(); H.sig = sig; this.code = code; ok = true; } catch (e) { lastErr = e; if (e.message !== 'id-taken') break; if (opts.code) break; }
+      const code = opts.code || makeCode(); const sig = new Signal(ID_PREFIX + code, opts.relay); const hub = useRly ? new RelayHub(code) : null;
+      let sOk = false, rOk = false, taken = false, sDone = false, rDone = !hub; const late = { sig: false, rly: false };
+      sig.connect().then(() => { sOk = true; if (late.sig && !H.closed && this.code === code) bindSig(sig); }).catch((e) => { lastErr = e; if (e.message === 'id-taken') taken = true; }).finally(() => { sDone = true; });
+      if (hub) hub.connect(6500).then(() => { rOk = true; if (late.rly && !H.closed && this.code === code) bindRly(hub); }).catch((e) => { if (e.message === 'taken') taken = true; }).finally(() => { rDone = true; });
+      const t0 = now(); while (!(sDone && rDone) && !taken && !((sOk || rOk) && now() - t0 > 1800)) await new Promise((r) => setTimeout(r, 40));
+      if (taken || !(sOk || rOk)) { sig.close(); hub && hub.close(); if (!taken || opts.code) break; continue; }
+      ok = true; this.code = code; if (sOk) bindSig(sig); else late.sig = true; if (hub) { if (rOk) bindRly(hub); else late.rly = true; }
     }
     this.signalOk = ok; if (!ok) { this.code = 'MANUAL'; this.error = null; this.setStatus('Relay unreachable: share codes manually (see "Add friend by code")'); }
-    else { H.sig.onmsg = (m) => this.hostSignal(m); H.sig.onclose = () => { this.signalOk = false; this.setStatus('Room link service dropped: friends already here stay connected. Reopen the lobby to invite more.'); this.emit(); }; }
     this.syncLobby(); this.hostTimers(); this.emit();
     return { code: this.code, signal: ok, err: lastErr && lastErr.message };
   },
@@ -60,6 +69,22 @@ export const Net = {
     H.timers.push(setInterval(() => { if (!this.isHost) return; const t = now(); for (const p of [...H.peers.values()]) { if (p.isHost || !p.link) continue; if (p.conn && t - p.lastRx > 6500) this.dropPeer(p, 'timeout'); else if (p.conn) { const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(t) >>> 0); p.link.send('fast', w.out()); } } this.pingTable(); }, 1000));
   },
   pingTable() { const H = this.H; const t = {}; for (const p of H.peers.values()) if (p.conn) t[p.slot] = p.isHost ? 0 : Math.round(p.ping); this.pings = t; if (this.phase !== 'lobby' || true) this.sendAll({ t: 'pings', p: t }); },
+  // v4.3: a guest arrived through the Cloudflare relay (it could not, or did not, connect directly)
+  hostRelayJoin(g) {
+    const H = this.H; if (!H || H.closed || !H.rly) return; const pid = 'rl-' + g + '-' + rid(4);
+    const rec = { pid, link: null, conn: false, lastRx: now(), acc: null, manual: false, relay: true };
+    rec.link = H.rly.link(g, { onrel: (d) => this.hostRel(rec, d), onfast: (d) => this.hostFast(rec, d), onclose: (why) => { H.pend.delete(pid); this.dropPeer(rec, why); } });
+    rec.opened = true; H.pend.set(pid, rec); setTimeout(() => { if (!rec.conn && H.pend.get(pid) === rec) { H.pend.delete(pid); rec.link.close(); } }, 15000);
+  },
+  fanout(kind, data, pred) { // one frame per relay room (bitmask of guests), one send per direct link
+    const H = this.H; if (!H) return; let mask = 0;
+    for (const p of H.peers.values()) { if (p.isHost || !p.conn || !p.link || (pred && !pred(p))) continue; if (p.link.relay) mask |= 1 << p.link.gid; else p.link.send(kind, data); }
+    if (mask && H.rly) H.rly.sendMask(mask, kind, data);
+  },
+  relayPeers() { const H = this.H; if (!H) return false; for (const p of H.peers.values()) if (p.conn && p.link && p.link.relay) return true; return false; },
+  get conType() { // 'direct' | 'relay' | 'mixed' | '' (host alone)
+    if (this.G) return this.G.via || ''; const H = this.H; if (!H) return ''; let d = 0, r = 0; for (const p of H.peers.values()) { if (p.isHost || !p.conn || !p.link) continue; if (p.link.relay) r++; else d++; } return r && d ? 'mixed' : r ? 'relay' : d ? 'direct' : '';
+  },
   hostSignal(m) {
     const H = this.H; if (!H || H.closed) return; const src = m.src;
     if (m.type === 'OFFER') {
@@ -198,7 +223,7 @@ export const Net = {
   },
   afterStep() {
     const H = this.H; if (!H || this.phase !== 'match') return; const g = this.app.game; if (!g || g.mode === 'attract') return; H.tick++; this.stat.steps++;
-    if (++H.snapN % SNAP_N !== 0) return;
+    const SN = this.relayPeers() ? SNAP_N_RELAY : SNAP_N; if (++H.snapN % SN !== 0) return;
     const acks = {}; for (const p of H.peers.values()) if (!p.isHost && p.conn && p.rq) acks[p.slot] = p.rq.ack;
     const batch = H.rec.take(); const cur = batch.length ? { s: ++H.fxSeq & 0xffff, t: H.tick, l: batch.map(([n, a]) => [n, Array.isArray(a) ? a.map((v) => (typeof v === 'number' ? Math.round(v * 100) / 100 : v)) : a]) } : null;
     const bs = []; if (H.fxPrev) bs.push(H.fxPrev); if (cur) bs.push(cur); H.fxPrev = cur;
@@ -206,15 +231,15 @@ export const Net = {
     const st = { seq: ++H.seq & 0xffff, tick: H.tick, acks, fxList: bs.length ? bs : null, wind, bid: H.ids.bid, pid: H.ids.pid, cid: H.ids.cid };
     const buf = encodeFast(g, st); H.ids.bid = st.bid; H.ids.pid = st.pid; H.ids.cid = st.cid;
     this.stat.snaps++; this.stat.snapBytes += buf.byteLength; let sent = 0;
-    for (const p of H.peers.values()) if (!p.isHost && p.conn && p.link && p.joinedMatch) { if (p.link.send('fast', buf)) sent += buf.byteLength; }
+    this.fanout('fast', buf, (p) => p.joinedMatch);
     // slow state: only when it changed, plus a periodic refresh (covers packet loss)
-    const per = H.snapN % (SNAP_N * 8) === 0;
+    const per = H.snapN % (SN * 8) === 0;
     for (const k of ['crates', 'holes', 'items', 'traps']) { const sig = slowSig[k](g); if (sig !== H.sigLast[k] || per) { H.sigLast[k] = sig; this.sendSlow(k, g); } }
     if (this.stat.t0 === 0) this.stat.t0 = now();
   },
   sendSlow(k, g, only) {
     const H = this.H; const seq = ++H.sigSeq[k] & 0xffff; let buf; if (k === 'crates') buf = encodeCrates(g, seq); else if (k === 'holes') buf = encodeHoles(g, seq); else if (k === 'items') buf = encodeItems(g, seq, H.ids); else buf = encodeTraps(g, seq);
-    for (const p of H.peers.values()) if (!p.isHost && p.conn && p.link && p.joinedMatch && (!only || only === p)) p.link.send('fast', buf);
+    this.fanout('fast', buf, (p) => p.joinedMatch && (!only || only === p));
   },
   resendSlow(all) { const g = this.app.game; if (!g || !this.H) return; for (const k of ['crates', 'holes', 'items', 'traps']) this.sendSlow(k, g); },
   // ---- host: lobby state
@@ -328,30 +353,43 @@ export const Net = {
     if (coins > 0) addCoins(coins, 'online'); const ups = addXp(xp); save();
     this.reward = { won, coins, xp, kos, capped, time, ups }; return this.reward;
   },
-  sendAll(o) { const H = this.H; if (!H) return; const s = JSON.stringify(o); for (const p of H.peers.values()) if (!p.isHost && p.conn && p.link) p.link.send('rel', s); },
+  sendAll(o) { const H = this.H; if (!H) return; this.fanout('rel', JSON.stringify(o)); },
   sendTo(p, o) { if (p && p.link) p.link.send('rel', JSON.stringify(o)); },
 
   // ================================================================== GUEST
   async join(codeIn, opts = {}) {
     if (this.active) return; if (!rtcSupported()) throw new Error('no-webrtc'); const code = normCode(codeIn); if (!validCode(code)) throw new Error('bad-code');
     this.reset(); this.lastCode = code; this.last = code; this.active = true; this.role = 'guest'; this.phase = 'joining'; this.code = code; this.app.net = this; this.error = null; this.setStatus('Connecting to the room service...');
-    const G = this.G = { sig: null, link: null, welcomed: false, closed: false, tm: [] }; const gid = GUEST_PREFIX + rid(10);
+    const G = this.G = { sig: null, link: null, welcomed: false, closed: false, tm: [], via: 'direct', canRelay: relayOn() && !opts.noRelay }; const gid = GUEST_PREFIX + rid(10);
+    if (netCfg().forceRelay && G.canRelay) { this.guestRelay(); return; }
     try {
       const sig = G.sig = new Signal(gid, opts.relay); await sig.connect();
       this.setStatus(`Looking for room ${code}...`);
       const link = G.link = this.makeGuestLink(); const offer = await link.createOffer(); const cid = rid(6); G.conn = cid; const queue = []; G.cand = (c) => { if (G.haveAns) link.addCandidate(c); else queue.push(c); };
       link.o.onice = (c) => sig.send('CANDIDATE', ID_PREFIX + code, { candidate: c, cid });
       let answered = false;
-      sig.onmsg = (m) => { if (G.closed) return; if (m.type === 'ANSWER' && m.payload && m.payload.cid === cid) { answered = true; link.setAnswer(m.payload.sdp).then(() => { G.haveAns = true; queue.forEach((c) => link.addCandidate(c)); queue.length = 0; this.setStatus('Room found. Connecting directly to the host...'); }); } else if (m.type === 'CANDIDATE' && m.payload && m.payload.cid === cid) G.cand(m.payload.candidate); else if (m.type === 'EXPIRE' || m.type === 'LEAVE') { if (!answered) this.fail('no-room'); } };
+      sig.onmsg = (m) => { if (G.closed) return; if (m.type === 'ANSWER' && m.payload && m.payload.cid === cid) { answered = true; link.setAnswer(m.payload.sdp).then(() => { G.haveAns = true; queue.forEach((c) => link.addCandidate(c)); queue.length = 0; this.setStatus('Room found. Connecting directly to the host...'); }); } else if (m.type === 'CANDIDATE' && m.payload && m.payload.cid === cid) G.cand(m.payload.candidate); else if (m.type === 'EXPIRE' || m.type === 'LEAVE') { if (!answered) this.dfail('no-room'); } };
       sig.send('OFFER', ID_PREFIX + code, { sdp: offer, cid, proto: PROTO });
-      G.tm.push(setTimeout(() => { if (!answered && !G.closed) this.fail('no-room'); }, 9000));
-      G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed && answered) this.fail('nat'); }, 24000));
-    } catch (e) { this.fail(e.message === 'signaling-unavailable' || e.message === 'signaling-timeout' ? 'no-signal' : 'error', e); }
+      G.tm.push(setTimeout(() => { if (!answered && !G.closed) this.dfail('no-room'); }, G.canRelay ? DIRECT_MS : 9000));
+      G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed && answered) this.dfail('nat'); }, G.canRelay ? DIRECT_MS : 24000));
+    } catch (e) { this.dfail(e.message === 'signaling-unavailable' || e.message === 'signaling-timeout' ? 'no-signal' : 'error', e); }
+  },
+  // v4.3: a failed direct attempt falls back to the Cloudflare relay with the same code (no extra steps for the player)
+  dfail(code, err) { const G = this.G; if (G && !G.closed && !G.welcomed && G.via === 'direct' && G.canRelay && !G.relayTried && !G.manual) return this.guestRelay(); this.fail(code, err); },
+  guestRelay() {
+    const G = this.G; if (!G || G.closed || G.relayTried) return; G.relayTried = true; G.via = 'relay'; const code = this.code;
+    try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} G.link = null; G.sig = null; G.tm.forEach((t) => { clearTimeout(t); clearInterval(t); }); G.tm = [];
+    this.setStatus('Direct link blocked or slow. Connecting through the relay...'); const conn = G.rconn = new RelayConn(code, 'guest');
+    conn.connect(7000).then(() => {
+      if (G.closed) { conn.close(); return; }
+      const link = G.link = new RelayGuestLink(conn, { onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d), onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.fail('no-room'); else this.lost('conn'); } });
+      this.setStatus('Relay connected. Joining the room...'); this.guestHello(); G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed) this.fail('no-room'); }, 9000));
+    }).catch((e) => { if (G.closed) return; this.fail(e.message === 'nohost' ? 'no-room' : e.message === 'full' ? 'reject:full' : 'no-signal', e); });
   },
   makeGuestLink() {
     const G = this.G; const link = new Link({
       onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d),
-      onopen: () => { this.guestHello(); }, onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.fail(why === 'ice-failed' ? 'nat' : 'no-room'); else this.lost('conn'); },
+      onopen: () => { this.guestHello(); }, onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.dfail(why === 'ice-failed' ? 'nat' : 'no-room'); else this.lost('conn'); },
     }); return link;
   },
   async joinManual(offerOnly) { // guest side of the copy/paste flow, step 1: produce the offer code
@@ -400,6 +438,7 @@ export const Net = {
   onGuestGame(g, cfg) {
     const localIdx = g.fighters.findIndex((f) => !f.isBot && f.def.slot === 0);
     this.world = new GuestWorld(g, { slotOf: null, localIdx, mySlot: this.mySlot, speed: cfg.speed, send: (buf) => { this.G && this.G.link && this.G.link.send('fast', buf); } });
+    if (this.G && this.G.link && this.G.link.relay) { this.world.sendEvery = 4; this.world.relay = true; }
     g.guestUpdate = (dt) => this.world.update(dt);
     for (const f of g.fighters) { if (!f.isBot && f.model.setMarker) { const own = f.def.slot === 0; const pl = this.lobby.players.find((p) => p.slot === (own ? this.mySlot : (f.def.slot === this.mySlot ? 0 : f.def.slot))); f.model.setMarker(f.color, own ? 'YOU' : tag((cfg.players[g.fighters.indexOf(f)] || {}).name), own); } }
   },
@@ -418,8 +457,8 @@ export const Net = {
   teardown(delay = 0) {
     const wasActive = this.active; this.active = false; const H = this.H, G = this.G; this.phase = 'ended';
     const later = (fn) => { if (delay) setTimeout(fn, delay); else fn(); };
-    if (H) { H.closed = true; H.timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); H.rec.stop(); later(() => { for (const p of H.peers.values()) { try { p.link && p.link.close(); } catch (e) {} } for (const p of H.pend.values()) { try { p.link && p.link.close(); } catch (e) {} } try { H.sig && H.sig.close(); } catch (e) {} }); }
-    if (G) { G.closed = true; G.tm.forEach((t) => { clearInterval(t); clearTimeout(t); }); later(() => { try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} }); }
+    if (H) { H.closed = true; H.timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); H.rec.stop(); later(() => { for (const p of H.peers.values()) { try { p.link && p.link.close(); } catch (e) {} } for (const p of H.pend.values()) { try { p.link && p.link.close(); } catch (e) {} } try { H.sig && H.sig.close(); } catch (e) {} try { H.rly && H.rly.close(); } catch (e) {} }); }
+    if (G) { G.closed = true; G.tm.forEach((t) => { clearInterval(t); clearTimeout(t); }); later(() => { try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} try { G.rconn && G.rconn.close(); } catch (e) {} }); }
     if (this.app) { this.app.net = null; const g = this.app.game; if (g) { g.guestUpdate = null; g.netRec = null; } }
     this.H = null; this.G = null; this.world = null; this.input = null;
     if (wasActive && this.app && this.app.netClosed) this.app.netClosed();

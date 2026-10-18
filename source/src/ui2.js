@@ -76,7 +76,7 @@ Object.assign(UI, {
     const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
     left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? a.startTutorial() : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
-    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.2';
+    const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.3';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
     g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
@@ -84,7 +84,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
-    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.2'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.3'; save(); this.show('howto', { new: 1 }); }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -350,20 +350,21 @@ const _howto = UI.howto;
 UI.howto = function (p) {
   const el = _howto.call(this, p); const pn = el.querySelector('.howto'); if (!pn) return el;
   const mm = Object.entries(MODES).filter(([k]) => k !== 'campaign').map(([, v]) => `<li><b>${v.icon} ${v.name}</b> <small>${v.blurb}</small></li>`).join('');
-  const tt = Object.entries(TRAP_INFO).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
+  const tl = (k) => Object.entries(TRAP_INFO).filter(([, v]) => v.lethal === k).map(([, v]) => `<li><b>${v.name}</b> <small>${v.tip}</small></li>`).join('');
+  const tt = `<li><b>DEADLY (red):</b></li>${tl(true)}<li><b>NOT deadly (yellow/colour):</b></li>${tl(false)}`;
   const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
   const LG = legendImages();
   const wn41 = h('div', 'hw-new', `<div class="hw-top"><button class="btn primary" id="hw-replay">&#9654; Replay tutorial</button></div>
-    <div class="hw-legend"><div><img src="${LG.hazard}" alt="danger"><b>DANGER</b></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b></div></div>
+    <div class="hw-legend"><div><img src="${LG.hazard}" alt="deadly"><b>DEADLY (red)</b><small>asleep until armed</small></div><div><span class="two"><img src="${LG.soft1}" alt="shove"><img src="${LG.soft2}" alt="dizzy"></span><b>ANNOYING (yellow)</b><small>never kills</small></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b></div></div>
     <div class="hw-keys"><span><i>&#128073;</i> Left thumb: <b>MOVE</b></span><span><i>&#129667;</i> Right thumb: <b>THROW</b> (drag to aim)</span><span><i>&#10148;</i> <b>DASH</b> / <b>DEFLECT</b> buttons</span></div>`);
   wn41.style.gridColumn = '1 / -1'; pn.insertBefore(wn41, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);
   { const rb = wn41.querySelector('#hw-replay'); rb.addEventListener('click', () => { sfx('click'); this.app.startTutorial(); }); }
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
-    <h4 style="margin-top:1em">Traps</h4><p>Traps warn you first: flashing lights, a thin line, a shadow, a beep. Set them to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment. <b>Hit a switch with your boomerang</b> to fire a nearby trap at your rivals.</p><ul>${tt}</ul>
+    <h4 style="margin-top:1em">Traps</h4><p><b>Red traps are deadly, but they sleep until a player wakes them:</b> step on a switch plate, hit a switch with your boomerang, or hit the trap itself. You get about half a second of flashing warning. <b>Yellow traps never kill</b>: they slow, shove, stun for half a second or make your aim go dizzy. Set traps to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment.</p><ul>${tt}</ul>
     <h4 style="margin-top:1em">Daily twist</h4><p>Setup has a <b>Daily twist</b> option: one of these every day.</p><ul>${mu}</ul>
     <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>
-    <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device, directly between phones; nothing is stored on a server.</p>
+    <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device. Phones connect directly when they can; on strict networks the game automatically passes the same data through a small free relay server that only forwards it and stores nothing. A DIRECT or RELAY tag shows which one you are using.</p>
     <p><b>Can\u2019t connect?</b> Switch Wi-Fi and mobile data, use a phone hotspot, or let another friend host. As a last resort use <b>Connect without server</b> to swap two codes by hand.</p>
     <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged. Gold buys looks and conveniences, never power.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
