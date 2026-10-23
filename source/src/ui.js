@@ -5,6 +5,8 @@ import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx } from './gfx.js';
 import { Input } from './input.js';
 import { portrait } from './portraits.js';
+import { KIDS, PRIVACY_URL } from './flags.js';
+import { adultGate } from './kids.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -127,7 +129,9 @@ export const UI = {
     const toggle = (label, key, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1 }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', s[key]); save(); sfx('click'); apply && apply(); }); r.appendChild(t); grid.appendChild(r); };
     const segr = (label, key, opts, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([v, t]) => { const b = h('button', s[key] === v ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { s[key] = v; [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); save(); sfx('click'); apply && apply(); }); sg.appendChild(b); }); r.appendChild(sg); grid.appendChild(r); };
     segr('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]);
-    toggle('Auto match (online with other players)', 'autoMatch'); grid.appendChild(h('div', 'note-line', 'Auto match pairs you with other players who are searching at the same time. They only see a friendly preset name; no chat, emotes only. Turn it off to keep online play to friends\u2019 room codes.'));
+    if (KIDS) { const r = h('div', 'row', '<span>Auto match (online with other players)</span>'); const t = h('button', 'tog' + (s.autoMatch ? ' on' : ''), null, { 'data-nav': 1, id: 'set-automatch' }); const setAM = (v) => { s.autoMatch = v; t.classList.toggle('on', v); save(); }; t.addEventListener('click', () => { sfx('click'); if (s.autoMatch) setAM(false); else adultGate(() => setAM(true)); }); r.appendChild(t); grid.appendChild(r); }
+    else toggle('Auto match (online with other players)', 'autoMatch');
+    grid.appendChild(h('div', 'note-line', (KIDS ? 'Off unless a grown-up turns it on. ' : '') + 'Auto match pairs you with other players who are searching at the same time. They only see a friendly preset name; no chat, emotes only. Turn it off to keep online play to friends\u2019 room codes.'));
     slider('Music', 'music', applyVolumes); slider('Sound FX', 'sfx', applyVolumes);
     toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Edge help (warn near drops, 1 free save)', 'edgeHelp'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');
     segr('Graphics', 'quality', [['sharp', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']], () => setQuality(s.quality));
@@ -140,6 +144,7 @@ export const UI = {
     if (!IS_APP && !IS_IOS && this.app.isTouchDevice()) toggle('Fullscreen on first tap', 'autoFs');
     if (canInstall()) { const ir = h('div', 'row', '<span>App</span>'); ir.appendChild(this.btn(IS_IOS ? 'How to install' : 'Install app', 'small', () => promptInstall(this))); grid.appendChild(ir); }
     const hr = h('div', 'row', '<span>Install</span>'); hr.appendChild(h('span', '', 'Chrome ⋮ → <b>Add to Home screen</b> for a full-screen app', { style: 'font-size:calc(var(--u)*.9);opacity:.8;text-align:right' })); grid.appendChild(hr);
+    { const pr = h('div', 'row', '<span>Privacy</span>'); pr.appendChild(h('a', 'set-link', 'Privacy policy', { href: PRIVACY_URL, target: '_blank', rel: 'noopener', id: 'set-privacy', 'data-nav': 1 })); grid.appendChild(pr); }
     const br = h('div', 'row', '<span>Build</span>'); br.appendChild(h('span', '', this.app.BUILD + ' · ' + gfx.tier + ' ' + gfx.dpr + 'x', { style: 'font-size:calc(var(--u)*.9);opacity:.8' })); grid.appendChild(br);
     el.appendChild(grid); return el;
   },

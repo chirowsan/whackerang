@@ -3,6 +3,7 @@ import { UI, h, $ } from './ui.js';
 import { S, save, resetSave } from './save.js';
 import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, MODES, ACHIEVEMENTS, PERSONA_INFO } from './data.js';
 import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
+import { STORE } from './flags.js';
 import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
 import { todayMutator, MUTATORS } from './mutators.js';
 import { TRAP_INFO, legendImages } from './traps.js';
@@ -34,8 +35,8 @@ Object.assign(UI, {
   coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
   // ================= Gold Store =================
   goldstore(p) {
-    const s = S(); const tab = p.tab || 'earn'; const el = h('div', 'screen page gold-store'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(p.ret || 'menu'))); hd.appendChild(h('h2', '', 'Gold Store')); hd.appendChild(h('div', 'chip', `<span class="coin"></span><span id="coinval">${s.coins}</span>`)); el.appendChild(hd);
-    const tabs = h('div', 'tabs'); [['earn', 'Earn free'], ['buy', 'Buy gold']].forEach(([id, t]) => { const b = h('button', 'tab' + (id === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: id, ret: p.ret }); }); tabs.appendChild(b); }); el.appendChild(tabs);
+    const s = S(); const tab = STORE ? 'earn' : p.tab || 'earn'; const el = h('div', 'screen page gold-store'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(p.ret || 'menu'))); hd.appendChild(h('h2', '', 'Gold Store')); hd.appendChild(h('div', 'chip', `<span class="coin"></span><span id="coinval">${s.coins}</span>`)); el.appendChild(hd);
+    const tabs = h('div', 'tabs'); (STORE ? [['earn', 'Earn free']] : [['earn', 'Earn free'], ['buy', 'Buy gold']]).forEach(([id, t]) => { const b = h('button', 'tab' + (id === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: id, ret: p.ret }); }); tabs.appendChild(b); }); el.appendChild(tabs);
     const body = h('div', 'gs-body scroll'); const again = () => this.show('goldstore', { tab, ret: p.ret });
     if (tab === 'earn') {
       const e = earnToday(); const st = streakInfo(); const d = ensureDaily();
@@ -46,7 +47,7 @@ Object.assign(UI, {
       // daily challenges
       const dc = h('div', 'gs-card', '<h4>Today\u2019s challenges</h4>'); d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} gold</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); again(); } })); dc.appendChild(row); }); body.appendChild(dc);
       // bonus placeholder
-      const bn = h('div', 'gs-card', `<h4>Bonus gold <span class="tag">placeholder</span></h4><small>A rewarded-bonus slot. No ad is shown in this version. ${bonusLeft()} of ${EARN.bonusPerDay} left today.</small>`); bn.appendChild(this.btn(bonusLeft() ? `Collect +${EARN.bonus} gold` : 'Come back tomorrow', 'small ' + (bonusLeft() ? 'gold' : 'locked'), () => { if (claimBonus()) { sfx('buy'); again(); } })); body.appendChild(bn);
+      const bn = h('div', 'gs-card', (STORE ? `<h4>Bonus gold</h4><small>A little free extra gold, a few times a day. ${bonusLeft()}` : `<h4>Bonus gold <span class="tag">placeholder</span></h4><small>A rewarded-bonus slot. No ad is shown in this version. ${bonusLeft()}`) + ` of ${EARN.bonusPerDay} left today.</small>`); bn.appendChild(this.btn(bonusLeft() ? `Collect +${EARN.bonus} gold` : 'Come back tomorrow', 'small ' + (bonusLeft() ? 'gold' : 'locked'), () => { if (claimBonus()) { sfx('buy'); again(); } })); body.appendChild(bn);
       // play to earn
       body.appendChild(h('div', 'gs-card', `<h4>Earn by playing</h4><ul class="earnlist"><li><b>+${EARN.win}</b> win a match <i>(+${EARN.play} just for playing)</i></li><li><b>+${EARN.ko}</b> every KO</li><li><b>+${EARN.catchStar}</b> per campaign star, <b>+${EARN.firstClear}</b> first clear</li><li><b>+${EARN.bossRushBoss}</b> per Boss Rush boss, <b>+${EARN.bossRushClear}</b> for clearing it</li><li><b>+50…200</b> achievements · <b>+${EARN.level(5)}…</b> every level up</li></ul>`));
       const near = ACHIEVEMENTS.filter((a) => !s.ach[a.id]).map((a) => ({ a, f: Math.min(1, (s.stats[a.stat] || 0) / a.n) })).sort((x, y) => y.f - x.f).slice(0, 3);
@@ -57,7 +58,7 @@ Object.assign(UI, {
       g.appendChild(h('small', '', 'You can keep earning gold for free in the Earn free tab — nothing in the game needs a purchase.')); body.appendChild(g);
     } else {
       const prov = getProvider(); const first = isFirstPurchase();
-      if (TEST_MODE) body.appendChild(h('div', 'gs-test', '<b>TEST MODE</b> — no real money is charged. These are fake purchases that just add gold so we can test the store.'));
+      if (!STORE && TEST_MODE) body.appendChild(h('div', 'gs-test', '<b>TEST MODE</b> — no real money is charged. These are fake purchases that just add gold so we can test the store.'));
       if (first) body.appendChild(h('div', 'gs-note', `First purchase bonus: <b>+${Math.round(FIRST_BUY_BONUS * 100)}% extra gold</b> on your first pack (one time).`));
       const grid = h('div', 'pack-grid'); const buyPack = async (pack) => { try { const r = await prov.purchase(pack); sfx('buy'); this.toast(`+${r.gold} gold added${TEST_MODE ? ' (TEST)' : ''}`); again(); } catch (err) { sfx('deny'); this.toast(String(err.message || err)); } };
       if (!s.starterBought) { const c = h('div', 'pack starter', `<div class="pi">${STARTER.icon}</div><h4>${STARTER.name}</h4><b class="pg">${packTotal(STARTER, first)} gold</b><small>+ Cosmic trail + Aurora skin</small><em>one-time offer</em>`); c.appendChild(this.btn(`${fmtPrice(STARTER)}${TEST_MODE ? ' · TEST' : ''}`, 'small primary', () => buyPack(STARTER))); grid.appendChild(c); }
@@ -366,7 +367,7 @@ UI.howto = function (p) {
     <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>
     <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device. Phones connect directly when they can; on strict networks the game automatically passes the same data through a small free relay server that only forwards it and stores nothing. A DIRECT or RELAY tag shows which one you are using.</p>
     <p><b>Can\u2019t connect?</b> Switch Wi-Fi and mobile data, use a phone hotspot, or let another friend host. As a last resort use <b>Connect without server</b> to swap two codes by hand.</p>
-    <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged. Gold buys looks and conveniences, never power.</p></div>`);
+    <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). ${STORE ? 'There is nothing to buy with real money in this version.' : 'The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged.'} Gold buys looks and conveniences, never power.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
 };
 UI.pause = ((orig) => function () { const el = orig.call(this); return el; })(UI.pause);

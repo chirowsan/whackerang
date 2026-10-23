@@ -1,8 +1,9 @@
 // v4.3: Cloudflare relay transport. Same interface as rtc.js Link (send(kind,data) / onrel / onfast / onopen / onclose / close / stat), carried over ONE WebSocket per player.
 // Wire format: see server/cf-relay/worker.js. kind byte 0 = reliable JSON control, 1 = fast binary.
 import { netCfg } from './rtc.js';
+import { STORE } from '../flags.js';
 export const RELAY_URL = 'wss://whackerang-relay.chirowsan-backyard.workers.dev';
-export const relayBase = () => { const c = netCfg(); try { const q = new URLSearchParams(location.search); if (q.get('norelay') === '1') localStorage.setItem('whk.rly', 'off'); else if (q.get('norelay') === '0') localStorage.removeItem('whk.rly'); } catch (e) {} if (c.rly !== undefined) return c.rly || ''; try { const u = localStorage.getItem('whk.rly'); if (u === 'off') return ''; if (u && /^wss?:\/\//.test(u)) return u.replace(/\/$/, ''); } catch (e) {} return RELAY_URL; };
+export const relayBase = () => { if (STORE) return RELAY_URL; const c = netCfg(); try { const q = new URLSearchParams(location.search); if (q.get('norelay') === '1') localStorage.setItem('whk.rly', 'off'); else if (q.get('norelay') === '0') localStorage.removeItem('whk.rly'); } catch (e) {} if (c.rly !== undefined) return c.rly || ''; try { const u = localStorage.getItem('whk.rly'); if (u === 'off') return ''; if (u && /^wss?:\/\//.test(u)) return u.replace(/\/$/, ''); } catch (e) {} return RELAY_URL; };
 export const relayOn = () => !!relayBase();
 const te = new TextEncoder(), td = new TextDecoder();
 

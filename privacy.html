@@ -1,0 +1,65 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whackerang Privacy Policy</title><meta name="robots" content="index,follow"><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:760px;margin:0 auto;padding:24px 18px 60px;line-height:1.55;color:#1d1530;background:#fbf9ff}
+h1{color:#4a1fa8;font-size:1.9em;margin-bottom:.2em}h2{color:#4a1fa8;margin-top:1.6em;border-bottom:2px solid #e6dcff;padding-bottom:.2em}h3{color:#5b2fc0}
+code{background:#efe9ff;padding:1px 5px;border-radius:4px;font-size:.92em;word-break:break-all}li{margin:.3em 0}a{color:#5b2fc0}
+.top{display:flex;align-items:center;gap:12px}.top img{width:56px;height:56px;border-radius:14px}</style></head><body>
+<div class="top"><img src="icon-192.png" alt=""><div><a href="./">Whackerang</a></div></div>
+<h1>Whackerang Privacy Policy</h1>
+<p><em>Effective: October 23, 2026. Applies to the Whackerang Android app (version 4.6.1 and later) and the web version at chirowsan.github.io/whackerang.</em></p>
+<p>Whackerang is a cartoon party game made by Chirow H, an independent developer ("we", "us"). This page explains in plain words what happens to information when you or your child play.</p>
+<h2>The short version</h2>
+<ul>
+<li><strong>No accounts.</strong> We never ask for a name, email address, phone number, birthday, photo, location or contacts.</li>
+<li><strong>No ads, no analytics, no tracking.</strong> The app contains no advertising, analytics or crash-reporting software and does not use the advertising ID.</li>
+<li><strong>No chat.</strong> Online players can only use preset names and a fixed set of emoji emotes. Nobody can type messages to anyone.</li>
+<li><strong>No real-money purchases.</strong> All gold is earned by playing. Nothing in this version can be bought with real money.</li>
+<li><strong>Your progress stays on your device.</strong> We have no server that stores players' data.</li>
+</ul>
+<h2>What is stored on your device</h2>
+<p>Your progress (fighters, gold, unlocked looks, scores, achievements, daily challenges), your settings and your online display name are saved <strong>only on your device</strong>, in the app's private storage. We cannot see this information. Uninstalling the app, or clearing its storage in Android settings, deletes it for good.</p>
+<h2>Permissions</h2>
+<p>The Android app asks for only two permissions: <strong>Internet</strong> (for optional online play) and <strong>Vibrate</strong> (for vibration feedback, which can be turned off in Settings). It does not use the camera, microphone, location, contacts, files or the advertising ID.</p>
+<h2>Playing offline</h2>
+<p>Single player, the campaign and matches against bots work without sending anything off your device.</p>
+<h2>Online play (optional)</h2>
+<p>There are two ways to play online:</p>
+<ol>
+<li><strong>Friend rooms:</strong> one player creates a room and shares a short room code (or link) with friends, who enter it to join.</li>
+<li><strong>Auto match:</strong> the game finds other players who are searching at the same time and fills empty seats with bots. <strong>In the Android app, Auto match is off by default.</strong> A grown-up has to enter their year of birth in Settings to turn it on, and can turn it off again at any time.</li>
+</ol>
+<p>During an online match the players' devices exchange only what the game needs: button and joystick inputs, the game state, the fighter and looks each player picked, the player's display name, and emotes from a fixed list. There is <strong>no text chat, no voice, no photos and no way to send free text</strong>. In the Android app, display names are chosen from a list of preset names (like "Zippy Fox"). In Auto match, other players always see a preset name.</p>
+<h3>Anonymous matchmaking</h3>
+<p>When you tap Auto match, the game connects to our small matchmaking service, which runs on Cloudflare Workers. The game sends only the game mode you picked and a version number. The service gives the search a random, temporary ID, keeps the waiting list in memory only, and forgets it as soon as the search ends or a match starts. To stop one device from flooding the queue, the service turns your IP address into a short scrambled code (a salted hash) that is kept in memory only while you are connected. We never store or log it, and it is never linked to who you are. No permanent device ID or advertising ID is used.</p>
+<h3>How the connection works</h3>
+<ul>
+<li>Players usually connect <strong>directly to each other</strong> (peer-to-peer, using WebRTC). As in any peer-to-peer game, the other players' devices in the same match can technically see your device's IP address. The connection is encrypted.</li>
+<li>To set up that connection, the game uses a free public connection service (PeerJS, <code>0.peerjs.com</code>), public "STUN" servers run by Google and Cloudflare, and, as a backup, the PeerJS community "TURN" relay. These services see your IP address and the room code while connecting. They are run by other organizations under their own privacy policies, and we do not control their logs.</li>
+<li>If a direct connection cannot be made, the game sends the same game data through a small relay we run on Cloudflare Workers (<code>whackerang-relay.chirowsan-backyard.workers.dev</code>). The relay only passes game data between the players of one room. It stores nothing and logs no game content. Cloudflare, as the hosting company, processes connection details such as IP addresses to run its network (see Cloudflare's privacy policy).</li>
+</ul>
+<p>We keep no record of online matches. Nothing about online play is stored by us.</p>
+<h2>Gold and the Gold Store</h2>
+<p>Gold is earned by playing (wins, knockouts, daily challenges, login streaks, achievements) and is spent on cosmetic items inside the game. <strong>The Android app contains no real-money purchases.</strong> The web version has a "Buy gold" screen that is clearly marked TEST MODE: it charges nothing and contacts no payment service. If we ever add real purchases, we will update this policy first, and purchases will stay behind a grown-up check.</p>
+<h2>Children's privacy</h2>
+<p>Whackerang is made to be fun and safe for families, including children. We do not knowingly collect personal information from children (or from anyone):</p>
+<ul>
+<li>no accounts, names, email addresses, photos, location or contact details are collected;</li>
+<li>there is no chat or free-text messaging, and online names are presets;</li>
+<li>there are no ads, no analytics and no third-party tracking;</li>
+<li>IP addresses are used only for the moment needed to connect players and run the online features (as described above), are not stored by us, and are never used to identify, contact, profile or advertise to anyone.</li>
+</ul>
+<p>We designed the game to follow the U.S. Children's Online Privacy Protection Act (COPPA) and similar laws such as the GDPR by not collecting personal information from children. Parents and guardians can keep play fully offline by not using <strong>Play online</strong>, keep <strong>Auto match</strong> off (the default in the Android app), and remove all saved data by uninstalling the app. If you believe a child has sent us personal information in any way, contact us and we will delete it.</p>
+<h2>Web version</h2>
+<p>The web version is hosted on GitHub Pages. Like any web host, GitHub may log visitors' IP addresses (see GitHub's privacy statement). The web version stores progress in your browser's storage on your device only.</p>
+<h2>Keeping data safe</h2>
+<p>Online connections use encrypted channels (secure WebSockets and encrypted WebRTC). Because we store no personal data on servers, there is no player database that could leak.</p>
+<h2>Your choices</h2>
+<ul>
+<li>Stay offline: don't use Play online, and keep Auto match off in Settings.</li>
+<li>Turn vibration off: Settings.</li>
+<li>Delete everything: uninstall the app or clear its storage. There is no copy anywhere else.</li>
+</ul>
+<h2>Changes to this policy</h2>
+<p>If the game changes in a way that affects privacy (for example, adding purchases), we will update this page and the date at the top before the change goes live.</p>
+<h2>Contact</h2>
+<p>Questions or requests: <strong>[CONTACT EMAIL – Chirow adds this before store launch]</strong></p>
+</body></html>

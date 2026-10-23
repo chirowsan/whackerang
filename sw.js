@@ -1,5 +1,5 @@
-/* Whackerang service worker - build v4.6-20261023. Whole game is one HTML file, so precache is tiny. */
-const VERSION = 'v4.6-20261023';
+/* Whackerang service worker - build v4.6.1-20261023. Whole game is one HTML file, so precache is tiny. */
+const VERSION = 'v4.6.1-20261023';
 const CACHE = 'whk-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png', './screenshots/play.png', './screenshots/menu.png'];
 self.addEventListener('install', (e) => {
@@ -15,7 +15,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('message', (e) => { if (e.data === 'skipWaiting') self.skipWaiting(); if (e.data === 'version') e.source && e.source.postMessage({ type: 'version', version: VERSION }); });
 self.addEventListener('fetch', (e) => {
   const req = e.request; if (req.method !== 'GET') return; const url = new URL(req.url); if (url.origin !== location.origin) return;
-  if (req.mode === 'navigate') { // app shell: cache first so it opens instantly offline; new version arrives through SW update
+  if (/\.html$/.test(url.pathname) && !/\/index\.html$/.test(url.pathname)) return; // other pages (privacy.html, source/) always come from the network
+  if (req.mode === 'navigate' && !/\/source\//.test(url.pathname)) { // app shell: cache first so it opens instantly offline; new version arrives through SW update
     e.respondWith(caches.open(CACHE).then(async (c) => (await c.match('./index.html')) || (await c.match('./')) || fetch(req)));
     return;
   }

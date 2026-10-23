@@ -1,7 +1,7 @@
 import { build } from 'esbuild';
 import fs from 'fs';
 const alias = { three: new URL('./vendor/three/three.module.js', import.meta.url).pathname };
-await build({ entryPoints: ['src/main.js'], bundle: true, format: 'iife', outfile: 'bb.bundle.js', alias, minify: process.argv.includes('--min'), legalComments: 'none', define: { __BUILD__: JSON.stringify(process.env.BUILD || ('v1.0-' + new Date().toISOString().slice(0,16).replace(/[-:T]/g,''))) }, target: ['chrome90'], sourcemap: false });
+await build({ entryPoints: ['src/main.js'], bundle: true, format: 'iife', outfile: 'bb.bundle.js', alias, minify: process.argv.includes('--min'), legalComments: 'none', define: { __STORE__: JSON.stringify(process.env.STORE === '1'), __KIDS__: JSON.stringify(process.env.KIDS === '1'), __BUILD__: JSON.stringify(process.env.BUILD || ('v1.0-' + new Date().toISOString().slice(0,16).replace(/[-:T]/g,''))) }, target: ['chrome90'], sourcemap: false });
 const js = fs.readFileSync('bb.bundle.js', 'utf8').replace(/<\/script/gi, '<\\/script');
 const css = fs.readFileSync('assets/font.css', 'utf8') + fs.readFileSync('style.css', 'utf8');
 let html = fs.readFileSync('index.html', 'utf8');
@@ -14,7 +14,7 @@ if (process.argv.includes('--dist')) {
   fs.rmSync('dist', { recursive: true, force: true }); fs.mkdirSync('dist/screenshots', { recursive: true }); fs.mkdirSync('dist/splash', { recursive: true });
   fs.copyFileSync('Whackerang.html', 'dist/index.html');
   fs.writeFileSync('dist/sw.js', fs.readFileSync('pwa/sw.template.js', 'utf8').replace(/__BUILD__/g, BUILDTAG));
-  for (const f of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png', 'apple-touch-icon.png']) fs.copyFileSync('pwa/' + f, 'dist/' + f);
+  for (const f of ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-192.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'privacy.html']) fs.copyFileSync('pwa/' + f, 'dist/' + f);
   for (const f of fs.readdirSync('pwa/splash')) fs.copyFileSync('pwa/splash/' + f, 'dist/splash/' + f);
   for (const f of fs.readdirSync('pwa/screenshots')) fs.copyFileSync('pwa/screenshots/' + f, 'dist/screenshots/' + f);
   console.log('dist ready', BUILDTAG);

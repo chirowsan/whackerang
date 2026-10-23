@@ -8,3 +8,4 @@ v4.5.1 shipped; starting v4.6
 - 2026-10-23 11:23:32 docs written (MATCHMAKING, CLOUDFLARE, MULTIPLAYER, README). Next: version bump + min build + suites + APK
 - 2026-10-23 11:23:49 version bumped 47/4.6, min build tag v4.6-20261023; suites running (tools/fin46.sh -> /workspace/out/v4.6-results)
 - 2026-10-23 11:57:18 suites on v4.6 min build: cd45 falls44 smoke31 touch31 v33test traps43 tut42 leak45 layout42 net_cd45 relay43_local net_match PASS; net_ui/net_life/net_relay43 same direct-WebRTC failures as v4.5.1 (net_ui count check updated to 3 buttons). APK build started
+- 2026-10-23 12:02:37 SHIPPED v4.6: Pages de16734, release https://github.com/chirowsan/whackerang/releases/tag/v4.6 (APK/AAB/debug/source zip 15.6MB, downloads cmp-identical, cert 6e59e14a…); live site + live worker: solo/pair/cancel/four pass (tools/live46.mjs, logs /workspace/out/v4.6-live)

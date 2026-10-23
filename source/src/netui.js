@@ -5,10 +5,11 @@ import { HEROES, MODES, ARENAS, EMOTES } from './data.js';
 import { sfx } from './audio.js';
 import { Net, ONLINE_COIN_CAP, ONLINE_DAY_CAP } from './net/net.js';
 import { packCode, unpackCode, rtcSupported } from './net/rtc.js';
-import { normCode, validCode, shareLink, safeName, cleanName, randomPreset, ONLINE_MODES, TEAM_MODES, LOBBY_EMOJI, CODE_LEN } from './net/proto.js';
+import { normCode, validCode, shareLink, safeName, cleanName, randomPreset, PRESET_NAMES, ONLINE_MODES, TEAM_MODES, LOBBY_EMOJI, CODE_LEN } from './net/proto.js';
 import { todayMutator } from './mutators.js';
 import { portrait } from './portraits.js';
 import { Match } from './net/match.js';
+import { KIDS } from './flags.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -38,7 +39,8 @@ const bars = (ms) => { const n = ms <= 0 ? 4 : ms < 60 ? 4 : ms < 110 ? 3 : ms <
 const nameRow = (el) => {
   const st = S().settings; if (!st.onlineName) { st.onlineName = randomPreset(); save(); }
   const r = h('div', 'row nm', '<span>Your name</span>'); const w = h('div', 'nmw');
-  const inp = h('input', 'nm-in', null, { type: 'text', maxlength: 10, value: st.onlineName, autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': 'Your name', id: 'net-name' });
+  if (KIDS && !PRESET_NAMES.includes(st.onlineName)) { st.onlineName = randomPreset(); save(); } // Kids mode: preset names only (tap the dice)
+  const inp = h('input', 'nm-in', null, { type: 'text', maxlength: 10, value: st.onlineName, ...(KIDS ? { readonly: 'readonly' } : {}), autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', 'aria-label': 'Your name', id: 'net-name' });
   const commit = () => { const v = safeName(inp.value); st.onlineName = v; inp.value = v; save(); }; inp.addEventListener('change', commit); inp.addEventListener('blur', commit);
   const dice = UI.btn('🎲', 'small sq', () => { st.onlineName = randomPreset(); inp.value = st.onlineName; save(); }); dice.title = 'Random name'; w.appendChild(inp); w.appendChild(dice); r.appendChild(w); return { row: r, commit };
 };
@@ -73,7 +75,7 @@ Object.assign(UI, {
       const mr = h('div', 'modechips nm2-modes', '', { id: 'net-am-modes' }); const cur = ONLINE_MODES.includes(S().settings.autoMode) ? S().settings.autoMode : 'classic';
       ONLINE_MODES.forEach((m) => { const M = MODES[m]; const b = h('button', 'mchip' + (cur === m ? ' on' : ''), `${M.icon} ${M.name}`, { 'data-nav': 1, 'data-mode': m }); b.addEventListener('click', () => { S().settings.autoMode = m; save(); sfx('click'); mr.querySelectorAll('.mchip').forEach((x) => x.classList.toggle('on', x.dataset.mode === m)); }); mr.appendChild(b); });
       pn.appendChild(mr);
-    }
+    } else if (KIDS) pn.appendChild(h('div', 'note-line', 'Auto match is off. Play with friends using a room code. A grown-up can turn Auto match on in Settings.', { id: 'net-kids-note' }));
     row.appendChild(this.btn('<i class="nm2-ic">➕</i><b>Create room</b>', 'primary nm2-btn', () => startHost(), { id: 'net-create' }));
     row.appendChild(this.btn('<i class="nm2-ic">🔑</i><b>Join room</b>', 'nm2-btn nm2-join', () => this.show('netJoin'), { id: 'net-joinroom' }));
     pn.appendChild(row); pn.appendChild(h('div', 'nm2-priv', autoOn ? '🔒 Auto match: random players, anonymous, no chat. Rooms: friends only.' : '🔒 Friends only. No chat, no strangers.')); el.appendChild(pn);

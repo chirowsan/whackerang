@@ -1,3 +1,5 @@
+> **Superseded:** the final policy is `docs/PRIVACY-POLICY.md`, published at https://chirowsan.github.io/whackerang/privacy.html (Oct 23, 2026). This draft is kept for history only.
+
 # Whackerang Privacy Policy (DRAFT TEMPLATE)
 
 > **Generic draft, not legal advice.** Replace the [BRACKETS], review with a lawyer before publishing, and update if the app starts collecting more.

@@ -6,6 +6,7 @@ import { relayBase } from './relay.js';
 import { netCfg } from './rtc.js';
 import { ONLINE_MODES, PRESET_NAMES, normCode, validCode } from './proto.js';
 import { S } from '../save.js';
+import { STORE } from '../flags.js';
 
 const now = () => Date.now();
 export const FILL_DEFAULT = 120, HOST_WAIT_MS = 12000, FULL_PAUSE_MS = 1500;
@@ -14,7 +15,7 @@ export const Match = {
   get active() { return this.state !== 'idle' && this.state !== 'offline'; },
   available() { return typeof WebSocket !== 'undefined' && !!relayBase(); },
   // search length in seconds: 120 by default; tests/live checks can shorten it with window.__bbNet.mmFill or ?mmfill= (the server clamps to 5..120 s)
-  fillSec() { let v = Number(netCfg().mmFill); try { const q = new URLSearchParams(location.search).get('mmfill'); if (q) v = Number(q); } catch (e) {} return Number.isFinite(v) && v > 0 ? Math.max(5, Math.min(FILL_DEFAULT, v)) : FILL_DEFAULT; },
+  fillSec() { let v = Number(netCfg().mmFill); try { const q = STORE ? null : new URLSearchParams(location.search).get('mmfill'); if (q) v = Number(q); } catch (e) {} return Number.isFinite(v) && v > 0 ? Math.max(5, Math.min(FILL_DEFAULT, v)) : FILL_DEFAULT; },
   emit() { this.onChange && this.onChange(this.state); },
   set(st, note) { this.state = st; if (note !== undefined) this.note = note; this.emit(); },
   tx(o) { try { this.ws && this.ws.readyState === 1 && this.ws.send(JSON.stringify(o)); } catch (e) {} },

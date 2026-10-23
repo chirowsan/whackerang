@@ -519,3 +519,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .ms-dots { display: flex; align-items: center; gap: calc(var(--u)*.6); font-size: calc(var(--u)*3); } .ms-dots span { opacity: .3; } .ms-dots span.on { opacity: 1; } .ms-dots em { font-style: normal; font-size: calc(var(--u)*1.6); font-weight: 900; margin-left: calc(var(--u)*.8); }
 .ms-line { font-size: calc(var(--u)*1.8); font-weight: 900; } .ms-bots { color: #ffd23c; min-height: 1.2em; }
 @media (prefers-reduced-motion: reduce) { .radar i { animation: none; opacity: .5; } }
+/* v4.6.1 Kids mode grown-up gate */
+.kgate{position:fixed;inset:0;z-index:9000;background:rgba(10,14,30,.72);display:flex;align-items:center;justify-content:center;padding:16px}
+.kgate-box{max-width:520px;width:100%;padding:18px 20px;text-align:left}
+.kgate-box h3{margin:0 0 .4em}.kgate-box p{margin:.3em 0 .7em}.kg-small{font-size:.85em;opacity:.85}
+.kg-in{font:inherit;font-size:1.4em;width:7em;text-align:center;padding:.3em;border-radius:10px;border:2px solid #fff3;background:#0006;color:#fff;letter-spacing:.15em}
+.kg-row{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+.set-link{color:#ffd76a;text-decoration:underline}

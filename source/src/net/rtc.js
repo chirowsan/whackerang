@@ -1,14 +1,15 @@
 // WebRTC plumbing: a signaling client (PeerJS-cloud wire protocol, also spoken by server/relay.mjs), a 2-channel data link, and the
 // zero-server manual code exchange. No third-party libraries; all browsers' built-in RTCPeerConnection.
 import { ICE_DEFAULT, DEFAULT_RELAY } from './proto.js';
+import { STORE } from '../flags.js';
 
-export const netCfg = () => (typeof window !== 'undefined' && window.__bbNet) || {};
-export const iceServers = () => { const c = netCfg(); if (c.ice) return c.ice; try { const j = JSON.parse(localStorage.getItem('whk.ice') || 'null'); if (Array.isArray(j) && j.length) return j; } catch (e) {} return ICE_DEFAULT; };
-export const relayUrl = () => { const c = netCfg(); if (c.relay) return c.relay; try { const u = localStorage.getItem('whk.relay'); if (u && /^wss?:\/\//.test(u)) return u; } catch (e) {} return DEFAULT_RELAY; };
+export const netCfg = () => (!STORE && typeof window !== 'undefined' && window.__bbNet) || {};
+export const iceServers = () => { if (STORE) return ICE_DEFAULT; const c = netCfg(); if (c.ice) return c.ice; try { const j = JSON.parse(localStorage.getItem('whk.ice') || 'null'); if (Array.isArray(j) && j.length) return j; } catch (e) {} return ICE_DEFAULT; };
+export const relayUrl = () => { if (STORE) return DEFAULT_RELAY; const c = netCfg(); if (c.relay) return c.relay; try { const u = localStorage.getItem('whk.relay'); if (u && /^wss?:\/\//.test(u)) return u; } catch (e) {} return DEFAULT_RELAY; };
 export const rtcSupported = () => typeof RTCPeerConnection !== 'undefined';
 
 // ---------------------------------------------------------------- test hook: simulated latency / jitter / loss (only active when a test sets window.__bbNetShim)
-const shimOf = () => (typeof window !== 'undefined' && window.__bbNetShim) || null;
+const shimOf = () => (!STORE && typeof window !== 'undefined' && window.__bbNetShim) || null;
 
 // ---------------------------------------------------------------- signaling (PeerJS-cloud protocol: OPEN / OFFER / ANSWER / CANDIDATE / LEAVE / EXPIRE / ID-TAKEN / HEARTBEAT)
 export class Signal {

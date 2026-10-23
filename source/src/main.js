@@ -18,6 +18,7 @@ import { Net } from './net/net.js';
 import { SPEEDS } from './save.js';
 import './netui.js';
 import { Match } from './net/match.js';
+import { STORE } from './flags.js';
 import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
 const HXc = () => _HX, HZc = () => _HZ;
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
@@ -343,6 +344,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  window.__bg = { net: Net, Match, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { net: Net, Match, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

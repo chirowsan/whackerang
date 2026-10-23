@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Builds web assets -> Capacitor sync -> debug + release-signed APK into ../android/
-# Needs: JDK 17 (JAVA_HOME), Android SDK 34 + build-tools 34.0.0 (ANDROID_HOME).
+# Needs: JDK 17 (JAVA_HOME), Android SDK 36 + build-tools 36.0.0 (ANDROID_HOME).
 # Release signing: KEYSTORE (default ~/dev/keys/bb-release.jks), alias boomerangbrawl, password in $KSPW.
 # Create a local keystore once:  keytool -genkeypair -keystore bb-release.jks -alias boomerangbrawl -keyalg RSA -keysize 2048 -validity 10000
 set -euo pipefail
 export PATH="$JAVA_HOME/bin:$PATH"
 cd "$(dirname "$0")"
 : "${JAVA_HOME:?set JAVA_HOME to a JDK 17}"; : "${ANDROID_HOME:?set ANDROID_HOME}"
-BT="$ANDROID_HOME/build-tools/34.0.0"; KEYSTORE="${KEYSTORE:-$HOME/dev/keys/bb-release.jks}"
-export BUILD="${BUILD:-v4.6-$(date +%Y%m%d-%H%M)}"
+BT="$ANDROID_HOME/build-tools/36.0.0"; [ -d "$BT" ] || BT="$ANDROID_HOME/build-tools/34.0.0"; KEYSTORE="${KEYSTORE:-$HOME/dev/keys/bb-release.jks}"
+export STORE="${STORE:-1}" KIDS="${KIDS:-1}"  # Play launch build: no paid-store UI, no test hooks, Kids mode on
+export BUILD="${BUILD:-v4.6.1-$(date +%Y%m%d-%H%M)}"
 npm install --no-audit --no-fund
 (cd .. && node build.mjs --min --app)
 npx cap sync android
