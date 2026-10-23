@@ -36,7 +36,7 @@ export const Net = {
   emit() { this.onUpdate && this.onUpdate(); },
   setStatus(s) { this.status = s; this.onStatus && this.onStatus(s); },
   me() { return this.lobby.players.find((p) => p.slot === this.mySlot) || null; },
-  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail }; },
+  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail }; },
   defaultSettings() { return { mode: 'classic', arena: 'random', size: 'small', traps: 'some', events: 'some', speed: 'chill', rounds: 3, bots: true, diff: 1, mutator: 'off' }; },
 
   // ================================================================== HOST

@@ -14,6 +14,10 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.6 (Auto match)
+- **Auto match** (big gold button above Create room / Join room in the Online menu): tap it and the game pairs you with other players who are searching at the same time (per mode). A full room (4) starts at once; with 2+ players it starts about 25 s after the second joins. If nobody comes, bots fill the empty seats after at most 2 minutes. You see a search screen with the time, "Players found n/4", a Cancel button and "Play vs bots now". If the matchmaker can't be reached you get a clear message and can play against bots right away.
+- Privacy: strangers only see a preset name (no custom name, no chat); the matchmaker only sees a random anonymous id while you search and keeps nothing afterwards; Settings has an "Auto match" switch. See `docs/MATCHMAKING.md`.
+
 ## What's new in v4.5.1 (memory fix)
 - Fixed a GPU memory leak: every round/restart/rematch left the previous arena's geometry and textures allocated (about +60 geometries and +6 textures per round), so long sessions slowly got heavier. They are now released when a round ends. Min build, per round: geometries +41..81 -> ~0, textures +6..7 -> ~0 (details in docs/PROGRESS-v45.md). No gameplay or look change.
 
@@ -97,7 +101,7 @@ Feedback from a phone player: "fun, but the controls are too hard and it is way 
 - **Phone friendly:** Sharp / Balanced / Fast graphics tiers; static scenery is merged into few draw calls; adaptive resolution is a last resort.
 
 ## Docs
-`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
+`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/MATCHMAKING.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
 
 ## Mobile / PWA
 - Installable PWA (`pwa/`): manifest (standalone, landscape, maskable icons, screenshots), versioned offline service worker (`whk-<build>` cache, auto-update), iOS meta + splash images, safe-area insets, pull-to-refresh/zoom/long-press blocked, screen wake lock, landscape lock + fullscreen on first tap, in-game Install button (Android `beforeinstallprompt`) and an iOS Add-to-Home-Screen hint, iOS audio unlock.

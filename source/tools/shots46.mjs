@@ -1,0 +1,10 @@
+import http from 'node:http'; import fs from 'node:fs'; import { startRelay, openN, ev, sleep, waitFor } from './netlib.mjs';
+const PORT = 8300 + (process.pid % 50); const srv = http.createServer((q, r) => { if (q.url !== '/') { r.writeHead(200, { 'content-type': 'text/javascript' }); return r.end(''); } r.writeHead(200, { 'content-type': 'text/html' }); r.end(fs.readFileSync('/tmp/v46_final.html')); }).listen(PORT);
+const sig = await startRelay(9114); const D = '/workspace/out/v4.6-shots'; fs.mkdirSync(D, { recursive: true });
+const T = await openN(2, { relay: sig.url, rly: 'ws://localhost:8799', url: `http://localhost:${PORT}/`, w: 915, h: 412, extra: { mmFill: 60, forceRelay: true } });
+const [A, B] = T.pages; const click = (p, id) => ev(p, (id) => document.getElementById(id).click(), id);
+await ev(A, () => __bg.UI.show('netMenu')); await sleep(800); await A.page.screenshot({ path: D + '/menu.png' });
+await click(A, 'net-auto'); await sleep(2500); await A.page.screenshot({ path: D + '/search1.png' });
+await ev(B, () => __bg.UI.show('netMenu')); await sleep(500); await click(B, 'net-auto'); await sleep(2500); await A.page.screenshot({ path: D + '/search2.png' });
+await waitFor(async () => ev(A, () => __bg.net.phase === 'lobby'), 40000); await sleep(800); await A.page.screenshot({ path: D + '/lobby.png' });
+await T.close(); sig.stop(); srv.close(); process.exit(0);

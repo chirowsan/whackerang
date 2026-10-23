@@ -1,6 +1,6 @@
-# Whackerang relay on Cloudflare (v4.3)
+# Whackerang relay on Cloudflare (v4.3, Auto match added in v4.6)
 
-Everything here is on the **Workers Free plan**. Nothing paid, no custom domain, no other Cloudflare product (no KV, R2, D1, Queues, Pages, DNS, ...) was created. The account was already connected by the owner; only the two items below were added.
+Everything here is on the **Workers Free plan**. Nothing paid, no custom domain, no other Cloudflare product (no KV, R2, D1, Queues, Pages, DNS, ...) was created. The account was already connected by the owner; only the items below were added (v4.3: the Worker + `Room`; v4.6: the `Matchmaker` class inside the same Worker).
 
 ## What exists (created 2026-10-17)
 | Item | Value |
@@ -8,13 +8,16 @@ Everything here is on the **Workers Free plan**. Nothing paid, no custom domain,
 | Account id | `22a9493ab45eaf1f37232982e7196d42` |
 | Worker script | `whackerang-relay` (module worker, compat date 2026-04-01) |
 | Durable Object class | `Room` (binding `ROOMS`), **SQLite-backed**, migration tag `v1` = `new_sqlite_classes: ["Room"]`. One object per room code (created lazily by name, no storage is ever written) |
+| Durable Object class (v4.6) | `Matchmaker` (binding `MATCH`), **SQLite-backed**, migration tag `v2` = `new_sqlite_classes: ["Matchmaker"]`, namespace id `79672c346c4b4dab96f1ad408eba057c` (name `whackerang-relay_Matchmaker`), created 2026-10-23. **One** global object (`idFromName('q1')`); it holds the Auto match queue as hibernating WebSockets and writes no storage |
 | URL | `https://whackerang-relay.chirowsan-backyard.workers.dev` (workers.dev route enabled for this script only; uses the account's existing workers.dev subdomain `chirowsan-backyard`, no new subdomain was registered) |
-| Source | `server/cf-relay/worker.js`, `server/cf-relay/wrangler.toml` |
+| Routes added in v4.6 | `GET /m` (WebSocket only) on the same workers.dev URL. No new route, domain, subdomain or secret |
+| Source | `server/cf-relay/worker.js`, `server/cf-relay/matchplan.js`, `server/cf-relay/wrangler.toml` |
 
 Not touched: the other Worker in the account (`backyard-private-rooms`), its Durable Object namespace, its routes, and the account subdomain.
 
 ## How to delete everything
-Dashboard: Workers & Pages > `whackerang-relay` > Settings > Delete (this also deletes the `Room` Durable Object namespace and any objects).
+Dashboard: Workers & Pages > `whackerang-relay` > Settings > Delete (this also deletes the `Room` and `Matchmaker` Durable Object namespaces and any objects).
+To remove **only Auto match** (keep the relay): redeploy the previous v4.5 `worker.js` with a migration `{"old_tag":"v2","new_tag":"v3","deleted_classes":["Matchmaker"]}`, or ship a build with `autoMatch` defaulting to false (`src/save.js`) / `Match.available()` false. Without the queue the game shows "Can't reach Auto match" and offers bots. Nothing else needs cleaning up: the queue is memory only.
 API (needs a token with Workers Scripts:Edit):
 ```
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
@@ -23,7 +26,7 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" \
 Do **not** delete the workers.dev subdomain: the other Worker uses it. After deleting, the game keeps working over direct WebRTC (see "Turning it off").
 
 ## Redeploying from source
-`cd server/cf-relay && npx wrangler deploy` (needs `wrangler login`), or upload `worker.js` as a multipart module with metadata `{"main_module":"worker.js","compatibility_date":"2026-04-01","bindings":[{"type":"durable_object_namespace","name":"ROOMS","class_name":"Room"}]}`. The first deploy must include the migration `{"new_sqlite_classes":["Room"],"tag":"v1"}`; later uploads keep it.
+`cd server/cf-relay && npx wrangler deploy` (needs `wrangler login`), or upload `worker.js` as a multipart module (plus the module `matchplan.js`) with metadata `{"main_module":"worker.js","compatibility_date":"2026-04-01","bindings":[{"type":"durable_object_namespace","name":"ROOMS","class_name":"Room"},{"type":"durable_object_namespace","name":"MATCH","class_name":"Matchmaker"}]}`. Migrations: `v1` = `new_sqlite_classes:["Room"]`, `v2` = `new_sqlite_classes:["Matchmaker"]` (the v4.6 deploy sent `{"old_tag":"v1","new_tag":"v2","new_sqlite_classes":["Matchmaker"]}`); later uploads keep them.
 
 ## Protocol (opaque, game-agnostic)
 `wss://<worker>/r/<CODE>?role=host|guest` (CODE = 4-5 letters). The Worker checks the `Origin` header (must be `https://chirowsan.github.io`, `capacitor://localhost`, `https://localhost`, `http://localhost`, or `http(s)://localhost|127.0.0.1:<port>` for development), then forwards the socket to the Durable Object for that code.
@@ -51,6 +54,9 @@ Inbound messages per second = guests x input rate + host snapshot rate. Full rat
 | 4 players, low-bandwidth | 855 | ~115 |
 
 Duration is not the binding limit (a 5-minute active room is about 38 GB-s at 128 MB, so ~340 rooms/day). Only players whose direct connection fails use the relay, so real usage should be far below these numbers. These are calculations from the limits above, **not** measurements from the Cloudflare dashboard; check Workers > Metrics after real use.
+
+## Auto match budget (v4.6)
+The matchmaker uses the same two daily pools (Workers requests and Durable Object requests). A search costs roughly: 1 Worker request + 1 Durable Object request for the WebSocket upgrade, about 2 more for the client messages (queue request + open; they count 20:1, the 20 s keep-alive "ping" is answered by an automatic response and does not wake the object), and about 1-3 alarm invocations shared by everyone in the queue. That is **about 6-7 requests per 2-minute search**, so ~14,000 searches/day fit in 100,000, leaving the rest for rooms. The room that follows is a normal relay room only if the direct connection fails (table above). Duration: one object is awake while someone is searching (128 MB x elapsed); 24 h of constant searching would be about 11,000 GB-s of the 13,000 GB-s/day, but a queue that is never empty all day is not a realistic load (and the object sleeps whenever nobody waits). These are calculations, not dashboard measurements. If the daily limit is hit, `/m` fails, the game shows "Can't reach Auto match" with "Play vs bots now", and Create/Join room keep working over direct WebRTC.
 
 ## Turning it off
 * Per device: `localStorage.setItem('whk.rly','off')`, or open the game with `?norelay=1` (and `?norelay=0` to re-enable). The game then behaves like v4.2 (direct WebRTC only).

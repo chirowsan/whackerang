@@ -34,3 +34,4 @@ min leak after (v4.5.1): geos slope ~0 all 6 arenas, tex ~0; random arena x12 fl
 visual compare min v4.5 vs v4.5.1 (8 arenas x first/afterRestarts): differences only particle/ember sprites (<=7k px, 0 in ice); no blank/garbled geometry or textures. suites running (fin451.sh)
 suites on v4.5.1 min: cd45 falls44 smoke31 touch31 v33test traps43 tut42 leak45 layout42 net_cd45 relay43_local PASS. net_ui/net_life/net_relay43(direct parts) FAIL on this box: Chrome managed policy /etc/chromium/policies/managed/sand-webrtc.json (disable_non_proxied_udp) blocks all WebRTC UDP candidates; identical failure on the v4.5 build => environmental, not regression. Not circumventing policy. Relay-path checks (net_relay43 38 PASS) fine.
 APK/AAB built+verified: versionCode 46 / 4.5.1, cert SHA-256 6e59e14a..., apksigner v1/v2/v3 OK, AAB jar verified. Pushing Pages.
+v4.5.1 SHIPPED: Pages 14bf701, release v4.5.1, downloads cmp identical, live tag v4.5.1-20261023, live45 PASS

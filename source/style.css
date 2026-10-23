@@ -507,3 +507,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 @keyframes cdpop { 0% { transform: scale(2.4); opacity: 0; } 18% { transform: scale(.92); opacity: 1; } 32% { transform: scale(1.08); } 46% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(.82); opacity: 0; } }
 @keyframes cdgo { 0% { transform: scale(.4); opacity: 0; } 22% { transform: scale(1.25); opacity: 1; } 45% { transform: scale(1); } 80% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #countdown .cdnum.pop, #countdown .cdnum.go { animation-duration: .01s; } }
+
+/* v4.6 Auto match */
+.nm2-auto { width: 100%; min-height: calc(var(--u)*11) !important; } .nm2-auto small { font-size: calc(var(--u)*1.05); font-weight: 800; opacity: .85; letter-spacing: .02em; }
+.nm2-modes { justify-content: center; width: 100%; }
+.net-search { width: min(calc(var(--u)*46), 92%); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u)*.9); }
+.radar { position: relative; width: calc(var(--u)*13); height: calc(var(--u)*13); display: grid; place-items: center; }
+.radar b { font-size: calc(var(--u)*5); z-index: 1; } .radar i { position: absolute; inset: 0; border-radius: 50%; border: calc(var(--u)*.35) solid rgba(255,210,60,.7); opacity: 0; animation: radarp 2.4s ease-out infinite; }
+.radar i:nth-child(2) { animation-delay: .8s; } .radar i:nth-child(3) { animation-delay: 1.6s; } .radar.found i { border-color: rgba(120,255,160,.8); animation-duration: 1s; }
+@keyframes radarp { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.15); opacity: 0; } }
+.ms-dots { display: flex; align-items: center; gap: calc(var(--u)*.6); font-size: calc(var(--u)*3); } .ms-dots span { opacity: .3; } .ms-dots span.on { opacity: 1; } .ms-dots em { font-style: normal; font-size: calc(var(--u)*1.6); font-weight: 900; margin-left: calc(var(--u)*.8); }
+.ms-line { font-size: calc(var(--u)*1.8); font-weight: 900; } .ms-bots { color: #ffd23c; min-height: 1.2em; }
+@media (prefers-reduced-motion: reduce) { .radar i { animation: none; opacity: .5; } }

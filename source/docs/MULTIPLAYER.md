@@ -132,3 +132,6 @@ All matrix runs used our own relay, which accepts any payload. Testing the deplo
 
 ## v4.5 countdown sync
 The `round` message now carries `goIn` (seconds until GO). Guests set a local deadline (`goAt`) = now + goIn - rtt/2 and refine it from the `introT` in each snapshot; they run their own 3-2-1-GO overlay/sounds, and the host's `countdown`/`go` events are no longer relayed. See `docs/COUNTDOWN.md`.
+
+## v4.6 Auto match
+Auto match sits in front of the existing room flow: a global matchmaker (Durable Object `Matchmaker`, `wss://whackerang-relay.../m`) hands the oldest searcher a fresh 5-letter room code and the role "host"; the others get the same code after the host has opened the room. From then on it is the normal flow (host-authoritative, direct WebRTC first, relay fallback, 3-2-1-GO countdown); the host fills the empty seats with bots. Full description, protocol, limits and test status: `docs/MATCHMAKING.md`.

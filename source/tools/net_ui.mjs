@@ -7,7 +7,7 @@ const clickId = (p, id) => ev(p, (id) => { const e = document.getElementById(id)
 const has = (p, t) => ev(p, (t) => document.body.innerText.toLowerCase().includes(t.toLowerCase()), t);
 ok('main menu has Play online', await has(A, 'Play online'));
 await clickText(A, 'Play online'); await sleep(500);
-ok('online screen: exactly two big buttons (Create room, Join room), no inputs', (await ev(A, () => [...document.querySelectorAll('#ui .nm2-btn')].map((b) => b.innerText.replace(/\W+/g, ' ').trim().toLowerCase()).join('|'))).includes('create room') && (await ev(A, () => document.querySelectorAll('#ui .nm2-btn').length)) === 2 && (await ev(A, () => document.querySelectorAll('#ui input, #ui textarea').length)) === 0);
+ok('online screen: Create room + Join room buttons and the v4.6 Auto match button, no inputs', (await ev(A, () => [...document.querySelectorAll('#ui .nm2-btn')].map((b) => b.innerText.replace(/\W+/g, ' ').trim().toLowerCase()).join('|'))).includes('create room') && (await ev(A, () => document.querySelectorAll('#ui .nm2-btn').length)) === 3 && !!(await ev(A, () => document.getElementById('net-auto'))) && (await ev(A, () => document.querySelectorAll('#ui input, #ui textarea').length)) === 0);
 await A.page.screenshot({ path: OUT + 'ui-online-menu.png' });
 await clickId(A, 'net-create'); await waitFor(() => has(A, 'FRIENDS TYPE THIS CODE'), 15000); await sleep(500);
 const code = await ev(A, () => document.getElementById('lobby-code').textContent); ok('Create room goes straight to a lobby with a 4-letter code', /^[BCDFGHJKLMNPQRSTVWXZ]{4}$/.test(code), code);

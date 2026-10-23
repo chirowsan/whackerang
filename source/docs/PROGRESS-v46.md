@@ -1,0 +1,10 @@
+# v4.6 Auto match progress (Fri Oct 23 11:02:25 PDT 2026)
+v4.5.1 shipped; starting v4.6
+- 2026-10-23 11:05:36 design set; wrote server/cf-relay/matchplan.js (pure queue logic) + Matchmaker DO in worker.js + wrangler.toml v2 migration; next: local wrangler test
+- 2026-10-23 11:13:05 Matchmaker DO tested locally (wrangler dev --local): tools/mm_do_test.mjs 33 pass / 0 fail (queue logic, 2-pair, 4-full, host fail/timeout re-form, cancel, modes, abuse limits). Known local-workerd quirk: server-initiated close of a socket that never sent a frame hangs. Next: client src/net/match.js + UI
+- 2026-10-23 11:15:57 client written: src/net/match.js, netui.js (Auto match button, mode chips, netSearch screen, offline fallback), ui.js settings toggle, main.js hook, style.css; dev build ok. Next: check Cloudflare state, e2e test tools/net_match.mjs
+- 2026-10-23 11:20:58 e2e tools/net_match.mjs (relay-forced, local wrangler): solo/pair/cancel/four/rematch/offline all pass (27 checks); fixed console noise in Match.closeWs. Next: deploy to Cloudflare (existing: scripts backyard-private-rooms, whackerang-relay; DO ns Room, BackyardRoom; no Matchmaker yet)
+- 2026-10-23 11:22:49 DEPLOYED whackerang-relay to Cloudflare (migration v2, DO ns whackerang-relay_Matchmaker 79672c346c4b4dab96f1ad408eba057c, binding MATCH). Live mm_do_test: 32/33; the only fail is the per-IP cap which cannot be tested from this box (rotating egress IPs); verified locally. Next: docs, version bump, release
+- 2026-10-23 11:23:32 docs written (MATCHMAKING, CLOUDFLARE, MULTIPLAYER, README). Next: version bump + min build + suites + APK
+- 2026-10-23 11:23:49 version bumped 47/4.6, min build tag v4.6-20261023; suites running (tools/fin46.sh -> /workspace/out/v4.6-results)
+- 2026-10-23 11:57:18 suites on v4.6 min build: cd45 falls44 smoke31 touch31 v33test traps43 tut42 leak45 layout42 net_cd45 relay43_local net_match PASS; net_ui/net_life/net_relay43 same direct-WebRTC failures as v4.5.1 (net_ui count check updated to 3 buttons). APK build started

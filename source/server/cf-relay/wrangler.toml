@@ -6,6 +6,14 @@ compatibility_date = "2026-04-01"
 name = "ROOMS"
 class_name = "Room"
 
+[[durable_objects.bindings]]
+name = "MATCH"
+class_name = "Matchmaker"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Matchmaker"]
