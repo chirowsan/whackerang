@@ -14,6 +14,34 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.5.1 (memory fix)
+- Fixed a GPU memory leak: every round/restart/rematch left the previous arena's geometry and textures allocated (about +60 geometries and +6 textures per round), so long sessions slowly got heavier. They are now released when a round ends. Min build, per round: geometries +41..81 -> ~0, textures +6..7 -> ~0 (details in docs/PROGRESS-v45.md). No gameplay or look change.
+
+## What's new in v4.5 (3-2-1-GO countdown)
+Every round now starts with a big **3-2-1-GO** (3 s real time, independent of Game Speed): numbers pop in with a beep, a higher chime and a stronger buzz on GO. Nobody can move, throw or use traps, no clock or hazard has started and nobody can be hurt until GO. Works for every mode, offline vs bots, restart/rematch and online (the host's start time is shared; guests end with the host within a fraction of a second). Training uses a short version. Details and tests: `docs/COUNTDOWN.md`.
+
+## What's new in v4.4 (falling is clear and forgiving)
+- **Every drop looks the same on every arena:** dark hazy abyss (no more floor-coloured "holes"), a glowing **cyan rim** on every ledge, cracking tiles that blink dark/cyan. Cyan edge = drop.
+- **Edge help (Settings, on by default):** screen-edge glow + `EDGE` chip, a tick and a buzz as you near a drop, a wobble when you stand on nothing, **0.25 s ledge grace**, and your **first fall each match is forgiven once** (put back on safe floor, short stun and shield). After that falling is real. Off = old behaviour.
+- Legend + How to play have a Drops section; details in `docs/FALLING.md`.
+
+## What's new in v4.3 (online works on strict networks, friendlier traps)
+- **Relay fallback for online play:** the game tries a direct phone-to-phone link for ~5.5 s, then automatically connects through a free Cloudflare Worker relay with the same room code (no extra steps). A small `DIRECT` / `RELAY` tag shows which one you are on; relayed rooms use a low-bandwidth mode. See `docs/MULTIPLAYER.md` and `docs/CLOUDFLARE.md` (resources, limits, free-plan estimate, how to delete or turn it off).
+- **Traps are fair now:** the six **lethal** traps (spike pit, saw, laser grid, trapdoor, fire jet, spike ceiling) are dormant (dim, no red glow) until a player wakes them: step on a pressure plate, hit a switch, or hit the trap with a boomerang. They show a ~0.5 s warning, fire once, then go dormant again. They never run on timers. Bots wake them on purpose when it helps them.
+- **Non-lethal traps** (orange/yellow stripes with a round icon, never red): swing hammer (shove + 0.5 s stun), static fence (dizzy: reversed aim + slow), rolling boulder (knock aside + dizzy), sticky goo (slow), ice (slide), bumper, jump pad, teleport pad.
+
+## What's new in v4.2 (full-screen play, 40-second tutorial, nicer arenas)
+- **The arena fills the screen:** on phone landscape the floor now covers ~87-100% of the viewport (was ~11-41%). The camera is tighter and follows you, the HUD is a thin strip, and the touch controls are smaller, semi-transparent (brighter when touched), tucked into the bottom corners. Off-screen rivals still get edge arrows. Settings > Camera > Wide restores the old zoomed-out view.
+- **Hands-on tutorial (first run, 30-45 s):** MOVE, THROW, CATCH, DODGE (a real spike pit with a red warning), done. 1-3 words per step, a ghost thumb shows the gesture, each step advances only when you really do it, Skip is always visible. Replay it from How to play.
+- **Graphics:** baked ambient occlusion on the floor (soft contact shadows around crates/walls, zero extra draw calls), tile variation on every arena, crates with lids/grooves/studs, stronger rim light, impact stars on hits and deflects, crisper HUD type. Sharp tier stays shadow-free; draw calls and render CPU are lower than v4.1.
+- Tests: tools/layout42.mjs (arena coverage >= 85% at 915x412, 740x340, 640x320), tools/tut42.mjs (18 tutorial checks).
+- Android versionCode 42 / versionName 4.2.0 (same signing key).
+
+## What's new in v4.1 (easier online, clearer traps)
+- **Online in two taps:** Play online shows just *Create room* and *Join room*. Create goes straight to a lobby with a huge 4-letter code, **Share** (native share sheet, or copy link) and **Start**. Defaults: Classic, Chill, Medium bots fill empty slots, heroes auto-picked, guests auto-ready. Mode, arena, speed, hero and emotes live behind a small **Options** button. Join shows four big boxes, opens the keyboard, and joins by itself on the 4th letter (clear error if the room isn't found). `?room=CODE` links still auto-join; old 5-letter codes still work.
+- **Traps you can read at a glance:** every harmful trap now shares one look: red/orange stripes, a skull/spikes/flame badge, a ground decal, and a blinking warning before it fires. Teleporters are upright blue/violet swirling portals with a number (1/2) and are never red or striped. Jump pads are green/yellow with chevrons. A small legend is at the top of How to play.
+- Android versionCode 41 / versionName 4.1.0 (same signing key).
+
 ## What's new in v4.0 (online play with friends)
 - **Play online (2-4 players):** main menu > Play online > *Create room* (you get a 5-letter code and a share link `...?room=CODE`) or *Join with code*. Friends who open the link join automatically. No account, no chat, no voice, no public matchmaking.
 - **Lobby:** player list with ping bars, hero pick, ready-up, host picks mode / arena / speed / rounds, bots fill empty slots, quick emotes (6 presets). Modes online: Classic, Team, Capture the Flag, Coin Rush, Boomerang Ball, King of the Hill, Bomb Tag, Crumble. Rematch and back-to-lobby after a match.
@@ -69,7 +97,7 @@ Feedback from a phone player: "fun, but the controls are too hard and it is way 
 - **Phone friendly:** Sharp / Balanced / Fast graphics tiers; static scenery is merged into few draw calls; adaptive resolution is a last resort.
 
 ## Docs
-`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
+`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
 
 ## Mobile / PWA
 - Installable PWA (`pwa/`): manifest (standalone, landscape, maskable icons, screenshots), versioned offline service worker (`whk-<build>` cache, auto-update), iOS meta + splash images, safe-area insets, pull-to-refresh/zoom/long-press blocked, screen wake lock, landscape lock + fullscreen on first tap, in-game Install button (Android `beforeinstallprompt`) and an iOS Add-to-Home-Screen hint, iOS audio unlock.

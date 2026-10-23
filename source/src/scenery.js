@@ -235,7 +235,7 @@ export function floorPattern(view, id, layout, rd) {
   t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 export function patchFloor(mat, tex, ao) {
-  const prev = mat.onBeforeCompile; const u = { value: tex }, ua = { value: ao };
+  const prev = mat.onBeforeCompile; const u = { value: tex }, ua = { value: ao }; mat.userData.tex = [tex, ao]; // so disposeTree can free them (they only live in this closure)
   mat.onBeforeCompile = (sh, r) => {
     prev && prev(sh, r); sh.uniforms.uPat = u; sh.uniforms.uAO = ua;
     sh.vertexShader = 'varying vec2 vPatUv;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n vec4 pw = modelMatrix * instanceMatrix * vec4(position, 1.0); vPatUv = vec2((pw.x + ${HX.toFixed(1)}) / ${AW.toFixed(1)}, 1.0 - (pw.z + ${HZ.toFixed(1)}) / ${AH.toFixed(1)});`);

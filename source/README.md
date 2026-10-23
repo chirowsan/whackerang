@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.5.1 (memory fix)
+- Fixed a GPU memory leak: every round/restart/rematch left the previous arena's geometry and textures allocated (about +60 geometries and +6 textures per round), so long sessions slowly got heavier. They are now released when a round ends. Min build, per round: geometries +41..81 -> ~0, textures +6..7 -> ~0 (details in docs/PROGRESS-v45.md). No gameplay or look change.
+
 ## What's new in v4.5 (3-2-1-GO countdown)
 Every round now starts with a big **3-2-1-GO** (3 s real time, independent of Game Speed): numbers pop in with a beep, a higher chime and a stronger buzz on GO. Nobody can move, throw or use traps, no clock or hazard has started and nobody can be hurt until GO. Works for every mode, offline vs bots, restart/rematch and online (the host's start time is shared; guests end with the host within a fraction of a second). Training uses a short version. Details and tests: `docs/COUNTDOWN.md`.
 

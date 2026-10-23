@@ -1,5 +1,5 @@
 // Core simulation: fighters, boomerangs, crates, hazards, power-ups, rounds.
-import { THREE, gfx, shake, pulseFov, punch } from './gfx.js';
+import { THREE, gfx, shake, pulseFov, punch, disposeTree } from './gfx.js';
 const TFX = (id) => (TRAILS[id] || TRAILS.none).fx;
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
@@ -193,7 +193,7 @@ class Boom {
 
 export class Game {
   constructor(o) {
-    this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this.arenaId = o.arenaId; this.round = o.round || 1;
+    this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this._base = new Set(gfx.scene.children); this.arenaId = o.arenaId; this.round = o.round || 1;
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
     this.layout = genLayout(this.arenaId, o.netSeed); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
     const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
@@ -210,6 +210,7 @@ export class Game {
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
   }
   dispose() {
+    if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c)) disposeTree(c); // v4.5.1: free this round's GPU memory (was leaking ~60 geometries + 6 textures per round)
     for (const f of this.fighters) this.scene.remove(f.model.root); for (const b of this.booms) { this.scene.remove(b.mesh); b.ribbon.dispose(); } for (const p of this.powerups) this.scene.remove(p.mesh);
     this.events.dispose(); this.traps.dispose(); this.disposeRules(); this.view.dispose(); this.booms.length = 0; fx.clear();
   }

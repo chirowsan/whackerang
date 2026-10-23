@@ -14,6 +14,17 @@ export const gfx = {
 };
 
 let GRAD = null;
+// v4.5.1: free the GPU resources of everything under `root` (geometries, materials, textures used by materials). Shared/cached resources are safe to dispose: three.js re-uploads them on next use.
+export function disposeTree(root) {
+  // Materials are NOT disposed on purpose: disposing the shared/patched toon, rim and particle materials forced a recompile that changed how fog/particles looked (checked with pixel diffs), and materials do not hold GPU memory (programs are cached by key).
+  const D = window.__dp || { geo: 1, inst: 1, tex: 1 };
+  root.traverse((o) => {
+    if (D.geo && o.geometry && o.geometry.dispose) o.geometry.dispose();
+    if (D.inst && o.isInstancedMesh && o.dispose) o.dispose();
+    const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of ms) { if (D.tex) { if (m.userData && m.userData.tex) m.userData.tex.forEach((t) => t && t.dispose && t.dispose()); for (const k in m) { const v = m[k]; if (v && v.isTexture && v.dispose) v.dispose(); } } }
+  });
+}
 export function gradMap() {
   if (GRAD) return GRAD;
   GRAD = new THREE.DataTexture(new Uint8Array([80, 140, 205, 255]), 4, 1, THREE.RedFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.needsUpdate = true; return GRAD;
