@@ -137,6 +137,8 @@ export const Net = {
     const send = (o) => p.link.send('rel', JSON.stringify(o));
     if (m.proto !== PROTO) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
     const cid = String(m.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) || rid(10); p.cid = cid;
+    // v4.6.2: the same client (random per-tab id, never an IP) is back on a new link (e.g. direct -> relay) before its old link timed out: retire the old one so it is never counted twice
+    { const old = H.slots.find((q, i) => i > 0 && q && q !== p && q.cid === cid && q.conn); if (old) this.dropPeer(old, 'replaced'); }
     // rejoin? same client id as a seat that dropped during the match
     let seat = H.slots.find((q, i) => i > 0 && q && q.cid === cid && !q.conn);
     if (seat && this.phase !== 'idle') { Object.assign(p, { slot: seat.slot, name: seat.name, hero: seat.hero, hat: seat.hat, skin: seat.skin, trail: seat.trail, team: seat.team, ready: seat.ready }); p.rejoin = true; H.slots[seat.slot] = p; H.peers.delete(seat.pid); }
@@ -362,10 +364,10 @@ export const Net = {
   async join(codeIn, opts = {}) {
     if (this.active) return; if (!rtcSupported()) throw new Error('no-webrtc'); const code = normCode(codeIn); if (!validCode(code)) throw new Error('bad-code');
     this.reset(); this.lastCode = code; this.last = code; this.active = true; this.role = 'guest'; this.phase = 'joining'; this.code = code; this.app.net = this; this.error = null; this.setStatus('Connecting to the room service...');
-    const G = this.G = { sig: null, link: null, welcomed: false, closed: false, tm: [], via: 'direct', canRelay: relayOn() && !opts.noRelay }; const gid = GUEST_PREFIX + rid(10);
-    if (netCfg().forceRelay && G.canRelay) { this.guestRelay(); return; }
+    const G = this.G = { sig: null, link: null, welcomed: false, closed: false, tm: [], via: 'direct', canRelay: relayOn() && !opts.noRelay, auto: !!opts.auto }; const gid = GUEST_PREFIX + rid(10);
+    if ((netCfg().forceRelay || opts.relayFirst) && G.canRelay) { this.guestRelay(); return; }
     try {
-      const sig = G.sig = new Signal(gid, opts.relay); await sig.connect();
+      const sig = G.sig = new Signal(gid, opts.relay); await sig.connect(G.auto && G.canRelay ? 4500 : 8000); if (G.closed || G.via !== 'direct') { try { sig.close(); } catch (e) {} return; }
       this.setStatus(`Looking for room ${code}...`);
       const link = G.link = this.makeGuestLink(); const offer = await link.createOffer(); const cid = rid(6); G.conn = cid; const queue = []; G.cand = (c) => { if (G.haveAns) link.addCandidate(c); else queue.push(c); };
       link.o.onice = (c) => sig.send('CANDIDATE', ID_PREFIX + code, { candidate: c, cid });
@@ -382,10 +384,10 @@ export const Net = {
     const G = this.G; if (!G || G.closed || G.relayTried) return; G.relayTried = true; G.via = 'relay'; const code = this.code;
     try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} G.link = null; G.sig = null; G.tm.forEach((t) => { clearTimeout(t); clearInterval(t); }); G.tm = [];
     this.setStatus('Direct link blocked or slow. Connecting through the relay...'); const conn = G.rconn = new RelayConn(code, 'guest');
-    conn.connect(7000).then(() => {
+    conn.connect(G.auto ? 10000 : 7000).then(() => {
       if (G.closed) { conn.close(); return; }
       const link = G.link = new RelayGuestLink(conn, { onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d), onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.fail('no-room'); else this.lost('conn'); } });
-      this.setStatus('Relay connected. Joining the room...'); this.guestHello(); G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed) this.fail('no-room'); }, 9000));
+      this.setStatus('Relay connected. Joining the room...'); this.guestHello(); G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed) this.fail('no-room'); }, G.auto ? 15000 : 9000));
     }).catch((e) => { if (G.closed) return; this.fail(e.message === 'nohost' ? 'no-room' : e.message === 'full' ? 'reject:full' : 'no-signal', e); });
   },
   makeGuestLink() {
@@ -452,7 +454,7 @@ export const Net = {
     if (m.n === 'botin') { this.note(`${m.name} left: a bot takes over`); this.UI.toast(`${m.name} left. A bot takes over.`, 2200); return; }
     this.app.gameEvent(m.n, { f: F(m.f), killer: F(m.k), from: F(m.from), kind: m.kind, winner: F(m.w), winTeam: m.wt, draw: m.draw, team: m.team, n: m.num, name: m.name });
   },
-  fail(code, err) { if (!this.active || this.phase === 'ended') return; this.error = { code, msg: err && err.message }; const wasJoin = this.phase === 'joining'; this.teardown(); this.onError && this.onError(this.error, wasJoin); },
+  fail(code, err) { if (!this.active || this.phase === 'ended') return; this.error = { code, msg: err && err.message }; this.lastErr = code; const wasJoin = this.phase === 'joining'; this.teardown(); this.onError && this.onError(this.error, wasJoin); },
   lost(why) { if (!this.active) return; const inMatch = this.phase === 'match' || this.phase === 'results'; this.end(inMatch ? 'Lost connection to the host.' : 'Lost connection to the room.', true); },
   // ================================================================== common teardown
   end(msg, canRejoin) { if (!this.active) return; this.teardown(); this.error = { code: 'ended', msg, canRejoin: !!canRejoin && this.role === 'guest' }; this.onError && this.onError(this.error, false); },

@@ -58,6 +58,16 @@ const startAuto = () => {
   Match.start(mode); UI.show('netSearch');
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const searchKind = () => { const st = Match.state; return st === 'offline' ? 'off' + (Match.note === 'nowebrtc' ? 'n' : '') : ['found', 'hosting', 'joining', 'joined'].includes(st) ? 'found' : 'search'; };
+// v4.6.2 anonymous connection details (role, room code, link type, last error, recent handoff steps). No names, ids or network addresses.
+export const diagText = () => {
+  const M = Match; const role = Net.active ? (Net.isHost ? 'host' : 'guest') : (M.role || '-'); const path = Net.active ? (Net.conType || (Net.isHost ? 'alone' : 'connecting')) : '-';
+  const hum = Net.isHost && Net.H ? Net.H.slots.filter((p) => p && p.conn).length : (Net.lobby && Net.lobby.players ? Net.lobby.players.filter((p) => p.conn !== false).length : 0);
+  const t0 = M.diag.length ? M.diag[0].t : Date.now(); const ev = M.diag.slice(-6).map((e) => `${((e.t - t0) / 1000).toFixed(1)}s ${e.ev}${e.d ? ' ' + e.d : ''}`).join('\n');
+  return `Role: ${role}   Room: ${Net.active ? Net.code : (M.code || '-')}   Path: ${path}\nAuto match: ${M.state}${M.role === 'guest' ? ' (try ' + (M.joinTry + 1) + ')' : ''}   Players: ${hum || '-'}   Phase: ${Net.phase || '-'}\nLast error: ${Net.lastErr || M.lastErr || 'none'}${ev ? '\n' + ev : ''}`;
+};
+const diagBox = () => h('pre', 'net-diag', esc(diagText()), { id: 'net-diag' });
+const longPress = (el, fn) => { let tm = 0; const go = () => { clearTimeout(tm); tm = setTimeout(fn, 700); }; const stop = () => clearTimeout(tm); el.addEventListener('pointerdown', go); ['pointerup', 'pointerleave', 'pointercancel'].forEach((k) => el.addEventListener(k, stop)); el.addEventListener('contextmenu', (e) => e.preventDefault()); };
 const startJoin = async (raw) => {
   Match.cancel();
   const code = normCode(raw); if (!validCode(code)) { sfx('deny'); return UI.show('netJoin', { err: { code: 'bad-code' } }); }
@@ -99,7 +109,7 @@ Object.assign(UI, {
     return el;
   },
   netSearch() {
-    const M = Match; const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-search'); const off = M.state === 'offline'; const found = ['found', 'hosting', 'joining', 'joined'].includes(M.state);
+    const M = Match; const el = h('div', 'screen center', null, { 'data-kind': searchKind() }); const d = h('div', 'panel dialog net-search'); const off = M.state === 'offline'; const found = ['found', 'hosting', 'joining', 'joined'].includes(M.state);
     if (off) {
       const nw = M.note === 'nowebrtc';
       d.appendChild(h('h2', '', nw ? 'Online play isn\u2019t supported here' : 'Can\u2019t reach Auto match'));
@@ -113,6 +123,8 @@ Object.assign(UI, {
     const dots = h('div', 'ms-dots', '', { id: 'ms-found' }); d.appendChild(dots);
     d.appendChild(h('div', 'ms-line', '', { id: 'ms-time' })); d.appendChild(h('div', 'ms-line ms-bots', '', { id: 'ms-bots' }));
     d.appendChild(h('div', 'net-st', esc(M.note || (found ? 'Getting the room ready...' : `${(MODES[M.mode] || {}).name || ''} mode`)), { id: 'ms-note' }));
+    d.appendChild(h('div', 'net-st ms-sub', esc(M.state === 'joining' ? (Net.status || '') : ''), { id: 'net-status' }));
+    if (S().settings.netDiag) d.appendChild(diagBox());
     const b = h('div', 'btns'); b.appendChild(this.btn('Cancel', 'back', () => { M.cancel(); this.show('netMenu'); }, { 'data-back': 1, id: 'net-search-cancel' }));
     if (!found) b.appendChild(this.btn('🤖 Play vs bots now', 'small', () => { M.cancel(); this.app.quickPlay(); }, { id: 'net-search-bots' }));
     d.appendChild(b); el.appendChild(d); setTimeout(() => this.searchTick(), 0); return el;
@@ -125,7 +137,7 @@ Object.assign(UI, {
   },
   netConnect(p) {
     const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-conn'); d.appendChild(h('h2', '', esc(p.title || 'Connecting...'))); d.appendChild(h('div', 'spin')); d.appendChild(h('div', 'net-st', esc(Net.status || ''), { id: 'net-status' }));
-    d.appendChild(this.btn('Cancel', 'back', () => { Net.leave(); this.show('netMenu'); }, { 'data-back': 1 })); el.appendChild(d); return el;
+    d.appendChild(this.btn('Cancel', 'back', () => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); }, { 'data-back': 1 })); el.appendChild(d); return el;
   },
   netMsg(p) {
     const e = p.err || { code: 'error' }; const [t, m] = ERR[e.code] || ERR.error; const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-msg');
@@ -159,7 +171,8 @@ Object.assign(UI, {
       } else row.appendChild(h('div', 'pinfo', '<b>' + (set.bots ? 'Bot' : 'Empty') + '</b><small>' + (set.bots ? 'fills this seat' : 'waiting') + '</small>'));
       list.appendChild(row);
     }
-    main.appendChild(list); main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); el.appendChild(main);
+    main.appendChild(list); main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); if (s.settings.netDiag) main.appendChild(diagBox()); el.appendChild(main);
+    { const cc = main.querySelector('.nl2-code'); if (cc) longPress(cc, () => { s.settings.netDiag = !s.settings.netDiag; save(); UI.toast(s.settings.netDiag ? 'Connection details on' : 'Connection details off', 1200); this.show('netLobby'); }); }
     const ft = h('div', 'netfoot nl2-foot');
     if (isHost) { const can = Net.canStart(); ft.appendChild(this.btn('▶ START', 'primary big nl2-start' + (can ? '' : ' locked'), () => { if (!Net.canStart()) { sfx('deny'); return UI.toast('Need at least 2 players, or turn bots on in Options', 1800); } Net.startMatch(); }, { id: 'net-start' })); }
     else ft.appendChild(h('div', 'nl2-wait', 'Waiting for the host to start<i>.</i><i>.</i><i>.</i>', { id: 'net-wait' }));
@@ -186,6 +199,7 @@ Object.assign(UI, {
       { const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt'); [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', set.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id] || ARENA_SW.random}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); Net.setSetting('arena', A.id); }); ao.appendChild(b); }); ar.appendChild(ao); body.appendChild(ar); }
       body.appendChild(this.btn('➕ Add friend by code (no server)', 'small', () => this.show('netManual', { host: true }), { id: 'net-addman' }));
     } else body.appendChild(h('div', 'note-line', 'The host picks the mode and settings.'));
+    body.appendChild(this.btn(`🔧 Connection details: ${s.settings.netDiag ? 'ON' : 'OFF'}`, 'small', () => { s.settings.netDiag = !s.settings.netDiag; save(); this.show('netLobby'); }, { id: 'net-diag-toggle' }));
     body.appendChild(h('div', 'net-priv', '🔒 ' + esc(PRIVACY))); box.appendChild(body); ov.appendChild(box); el.appendChild(ov);
     setTimeout(() => { for (const k in emoRecent) if (performance.now() - emoRecent[k].t < 1500) flash(+k, emoRecent[k].e); }, 0);
     return el;
@@ -246,7 +260,7 @@ Net.onStatus = (t) => { const e = document.getElementById('net-status') || docum
 Net.onNote = (t) => { const e = document.getElementById('net-notes'); if (e) e.textContent = t; };
 Net.onUpdate = () => {
   Match.syncNet(); const cur = UI.cur; if (!Net.active) return;
-  if (Net.phase === 'lobby' && (cur === 'netConnect' || cur === 'netManual' || (cur === 'netMenu'))) { UI.show('netLobby'); return; }
+  if (Net.phase === 'lobby' && (cur === 'netConnect' || cur === 'netManual' || cur === 'netMenu' || (cur === 'netSearch' && Net.isGuest && Match.state === 'joined'))) { UI.show('netLobby'); return; }
   if (cur === 'netLobby' && Net.phase === 'lobby') { const sc = document.querySelector('.netset'); const t = sc ? sc.scrollTop : 0; UI.show('netLobby'); const n = document.querySelector('.netset'); if (n) n.scrollTop = t; }
   else if (cur === 'netLobby' && (Net.phase === 'results')) UI.show('netResults');
   else if (cur === 'netResults') UI.show('netResults');
@@ -269,6 +283,15 @@ UI.hudUpdate = function (game) {
 };
 
 // ---- v4.6 Auto match glue
-Match.ui = { afterRoom: () => { if (['netSearch', 'netConnect'].includes(UI.cur) && Net.active) UI.show('netLobby'); }, afterGo: () => { if (UI.cur === 'netSearch') UI.show('netConnect', { title: 'Match found! Joining...' }); }, botsToast: (n) => UI.toast(`🤖 ${n} bot${n > 1 ? 's' : ''} joined`, 2600) };
-Match.onChange = (st) => { if (UI.cur === 'netSearch' && st !== 'idle') UI.show('netSearch'); };
+// v4.6.2: the guest stays on the search screen ("Match found! Joining the room...") until the host has really let it in, then goes straight to the lobby
+Match.ui = { afterRoom: () => { if (['netSearch', 'netConnect'].includes(UI.cur) && Net.active) UI.show('netLobby'); }, afterGo: () => {}, botsToast: (n) => UI.toast(`🤖 ${n} bot${n > 1 ? 's' : ''} joined`, 2600) };
+// redraw the search screen only when its layout changes (searching / found / offline); otherwise update the text in place (no flicker)
+Match.onChange = (st) => {
+  if (UI.cur !== 'netSearch' || st === 'idle') return; const el = document.querySelector('.screen[data-kind]');
+  if (!el || el.dataset.kind !== searchKind()) return UI.show('netSearch');
+  const M = Match; const found = ['found', 'hosting', 'joining', 'joined'].includes(M.state); const t = el.querySelector('h2'); const tt = found ? 'Match found!' : M.state === 'connecting' ? 'Connecting...' : 'Searching for players...'; if (t && t.textContent !== tt) t.textContent = tt;
+  const n = document.getElementById('ms-note'); const nt = M.note || (found ? 'Getting the room ready...' : `${(MODES[M.mode] || {}).name || ''} mode`); if (n && n.textContent !== nt) n.textContent = nt;
+  const sub = document.getElementById('net-status'); if (sub && M.state !== 'joining' && sub.textContent) sub.textContent = '';
+};
+setInterval(() => { const e = document.getElementById('net-diag'); if (e) { const t = diagText(); if (e.textContent !== t) e.textContent = t; } }, 400);
 setInterval(() => { if (UI.cur === 'netSearch') UI.searchTick(); }, 250);

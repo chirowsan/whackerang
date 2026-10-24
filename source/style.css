@@ -17,6 +17,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .panel { background: var(--bg); border: 1px solid var(--line); border-radius: calc(var(--u)*1.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 calc(var(--u)*1) calc(var(--u)*3) rgba(0,0,0,.45); }
 h1, h2, h3 { margin: 0; }
 .screen { position: absolute; inset: 0; display: flex; padding: calc(var(--u)*1.4); animation: fadeIn .25s ease; }
+.screen.still { animation: none; }
+.net-diag { margin: calc(var(--u)*.4) 0 0; padding: calc(var(--u)*.5) calc(var(--u)*.7); background: rgba(0,0,0,.35); color: #cfe; border-radius: 8px; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; text-align: left; max-height: 30vh; overflow: auto; user-select: text; }
+.ms-sub { opacity: .8; font-size: .9em; min-height: 1.2em; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .title { font-weight: 1000; font-size: calc(var(--u)*4.7); line-height: .94; white-space: nowrap; display: inline-block; padding-right: .1em; letter-spacing: .02em; background: linear-gradient(180deg, #fff6c8 0%, #ffd23c 45%, #ff7a3a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 calc(var(--u)*.3) 0 #1a0f4a) drop-shadow(0 0 calc(var(--u)*1.2) rgba(0,229,255,.55)); font-style: italic; }
 .sub { text-shadow: 0 1px 4px rgba(0,0,20,.9), 0 0 8px rgba(0,0,20,.7); color: #c9d6f5; font-size: calc(var(--u)*1.05); letter-spacing: .2em; text-transform: uppercase; font-weight: 700; }

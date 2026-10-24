@@ -58,6 +58,9 @@ Duration is not the binding limit (a 5-minute active room is about 38 GB-s at 12
 ## Auto match budget (v4.6)
 The matchmaker uses the same two daily pools (Workers requests and Durable Object requests). A search costs roughly: 1 Worker request + 1 Durable Object request for the WebSocket upgrade, about 2 more for the client messages (queue request + open; they count 20:1, the 20 s keep-alive "ping" is answered by an automatic response and does not wake the object), and about 1-3 alarm invocations shared by everyone in the queue. That is **about 6-7 requests per 2-minute search**, so ~14,000 searches/day fit in 100,000, leaving the rest for rooms. The room that follows is a normal relay room only if the direct connection fails (table above). Duration: one object is awake while someone is searching (128 MB x elapsed); 24 h of constant searching would be about 11,000 GB-s of the 13,000 GB-s/day, but a queue that is never empty all day is not a realistic load (and the object sleeps whenever nobody waits). These are calculations, not dashboard measurements. If the daily limit is hit, `/m` fails, the game shows "Can't reach Auto match" with "Play vs bots now", and Create/Join room keep working over direct WebRTC.
 
+## Change log
+* 2026-10-23 (v4.6.2): redeployed script `whackerang-relay` only (same bindings MATCH/ROOMS, same migrations, compat 2026-04-01). `matchplan.js`: HOST_OPEN_MS 10000 -> 25000 (slow phones were aborted as host), PER_IP 4 -> 8. No new resources; `backyard-private-rooms` untouched.
+
 ## Turning it off
 * Per device: `localStorage.setItem('whk.rly','off')`, or open the game with `?norelay=1` (and `?norelay=0` to re-enable). The game then behaves like v4.2 (direct WebRTC only).
 * For everyone: ship a build with `RELAY_URL = ''` in `src/net/relay.js`, or delete the Worker (see above). Old builds then fail the relay step quickly and keep using direct WebRTC.

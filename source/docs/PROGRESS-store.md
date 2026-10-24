@@ -5,3 +5,4 @@
 - 16:16 box was replaced mid-session; re-applied lost rtc.js STORE edit, recreated tools/apk461.sh
 16:26 store/LISTING.md, PLAY-CONSOLE-ANSWERS.md, CHECKLIST.md written; phone shots, icon, feature graphic composed (tools/store_assets.py); tablet raw capture running
 16:31 APK/AAB rebuilt (48/4.6.1, target 36, cert ok); store461 ALL PASS; tablet shots composed; store_check ALL PASS; web dist rebuilt, regressions running
+16:39 regressions: cd45 falls44 smoke31 touch31 v33test traps43 tut42 layout42 pass; net_ui fails at friend-room join on this new box (v4.6 fails the same way, environment); Pages fdd9e46 pushed, privacy.html live 200 + SW check ok; release v4.6.1 created, 4 assets cmp-verified; play-store-pack.zip 14.7 MB

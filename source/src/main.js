@@ -321,7 +321,7 @@ function boot() {
   initHead(); initHardening(); initWakeLock(); initFullscreenFirstTap(app); initInstall(UI); initSW(app, UI); pwa.onChange = () => { if (UI.cur === 'menu') UI.show('menu'); };
   $('#loading').remove(); app.ready = true;
   if (IS_IOS && !isStandalone() && !IS_APP && !S().settings.a2hs) { setTimeout(() => { if (app.mode === 'menu') { showIosHint(); S().settings.a2hs = true; save(); } }, 2600); }
-  Net.init(app, UI); Net.onError = (e, j) => { if (Match.netError(e, j)) { app.mode = 'menu'; app.match = null; UI.show('netSearch'); } else app.netFailed(e, j); };
+  Net.init(app, UI); Net.onError = (e, j) => { if (Match.netError(e, j)) { app.mode = 'menu'; app.match = null; if (UI.cur !== 'netSearch') UI.show('netSearch'); } else app.netFailed(e, j); };
   try { const q = new URLSearchParams(location.search); const rc = q.get('room'); if (rc) { history.replaceState(null, '', location.pathname); setTimeout(() => UI.show('netMenu', { auto: rc }), 300); } } catch (e) {}
   console.log('Whackerang', BUILD, gfx.quality, 'dpr', gfx.dprCur);
   // loop

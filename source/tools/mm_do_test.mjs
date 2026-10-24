@@ -51,13 +51,13 @@ try {
     a.ws.close(); c.ws.close(); await sleep(300); }
   // 5. host never opens its room -> 10 s timeout, guest re-queued
   { const a = await mk(); a.q('classic', 60); const b = await mk(); b.q('classic', 60); const c = await mk(); c.q('classic', 60); const d = await mk(); d.q('classic', 60);
-    await a.wait('host', 2000); const t0 = Date.now(); await sleep(11500); ok(a.closed === 1000 && b.has('requeue') && b.has('host') && b.get('host').expect === 2, 'host timeout: unresponsive host dropped after ~10 s, others re-formed (took ' + (b.get('host') ? b.get('host').at - 0 : '?') + ' ms)'); [b, c, d].forEach((x) => x.ws.close()); await sleep(300); }
+    await a.wait('host', 2000); const t0 = Date.now(); await sleep(26500); ok(a.closed === 1000 && b.has('requeue') && b.has('host') && b.get('host').expect === 2, 'host timeout: unresponsive host dropped after ~25 s (v4.6.2), others re-formed (took ' + (b.get('host') ? b.get('host').at - 0 : '?') + ' ms)'); [b, c, d].forEach((x) => x.ws.close()); await sleep(300); }
   // 6. bad input
   { const a = await mk(); a.q('nonsense'); await sleep(500); ok(a.has('err') && a.closed === 4400, 'bad mode rejected'); const b = await mk(); b.ws.send('{{{'); await sleep(400); ok(b.closed === 1003, 'garbage closed');
     const c = await mk(); c.ws.send(JSON.stringify({ t: 'q', mode: 'classic', fill: 60, x: 'y'.repeat(400) })); await sleep(400); ok(c.closed === 1003, 'oversize message closed');
     const d = await mk(); d.send({ t: 'noop' }); await sleep(10600); ok(d.closed === 4008, 'no queue request within 10 s -> closed (a socket that never sends anything is not closed by local workerd; real clients always send q at once)'); }
   // 7. flood: rate limit, then per-IP cap
   { const a = await mk(); a.q('classic', 60); for (let i = 0; i < 40; i++) a.send({ t: 'noop' }); await sleep(600); ok(a.closed === 4029, 'rate limit closes a flooding socket'); }
-  { const S = []; let refused = ''; for (let i = 0; i < 6; i++) { try { S.push(await mk()); } catch (e) { refused = e.message; } } if (process.env.MM_LIVE) console.log('SKIP per-IP cap on live (this box egresses via a rotating NAT pool, every connection has a different IP): ' + S.length + ' sockets'); else ok(S.length === 4 && refused === 'HTTP 429', 'per-IP cap: 4 sockets, then 429 (' + S.length + ', ' + refused + ')'); S.forEach((x) => x.ws.close()); await sleep(300); }
+  { const S = []; let refused = ''; for (let i = 0; i < 10; i++) { try { S.push(await mk()); } catch (e) { refused = e.message; } } if (process.env.MM_LIVE) console.log('SKIP per-IP cap on live (this box egresses via a rotating NAT pool, every connection has a different IP): ' + S.length + ' sockets'); else ok(S.length === 8 && refused === 'HTTP 429', 'per-IP cap: 8 sockets, then 429 (' + S.length + ', ' + refused + ')'); S.forEach((x) => x.ws.close()); await sleep(300); }
 } catch (e) { fail++; console.log('FAIL exception ' + e.stack); }
 console.log(`\n${pass} pass / ${fail} fail`); process.exit(fail ? 1 : 0);

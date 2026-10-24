@@ -52,13 +52,13 @@ def caption(raw_path, text, out, W):
         sz -= 2
     x = (W - (bb[2] - bb[0])) // 2 - bb[0]; y = (bar - (bb[3] - bb[1])) // 2 - bb[1]
     d.text((x, y), text, font=f, fill=(255, 226, 92), stroke_width=max(2, sz // 14), stroke_fill=(34, 10, 70))
-    full.save(out, optimize=True); return full.size
+    full.save(out, quality=92, subsampling=0, optimize=True); return full.size
 for i, (n, t) in enumerate(SHOTS, 1):
     p = f'{RAW}/{n}.png'
-    if os.path.exists(p): print('phone', i, n, caption(p, t, f'{ST}/phone/{i:02d}-{n}.png', 1920))
+    if os.path.exists(p): print('phone', i, n, caption(p, t, f'{ST}/phone/{i:02d}-{n}.jpg', 1920))
 TAB = os.path.isdir(RAWT)
 for i, (n, t) in enumerate(SHOTS, 1):
     p = f'{RAWT}/{n}.png'
     if TAB and os.path.exists(p):
-        print('tab10', i, n, caption(p, t, f'{ST}/tablet-10/{i:02d}-{n}.png', 2560))
-        print('tab7', i, n, caption(p, t, f'{ST}/tablet-7/{i:02d}-{n}.png', 1920))
+        print('tab10', i, n, caption(p, t, f'{ST}/tablet-10/{i:02d}-{n}.jpg', 2560))
+        print('tab7', i, n, caption(p, t, f'{ST}/tablet-7/{i:02d}-{n}.jpg', 1920))

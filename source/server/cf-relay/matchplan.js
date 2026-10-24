@@ -4,10 +4,10 @@ export const CFG = {
   FILL_MIN: 5000,      // a client may ask for a shorter deadline (test hook / "play now"), never below this
   GRACE_MS: 25000,     // with 2+ players waiting, start this long after the SECOND player joined (instead of waiting for the full deadline)
   FULL: 4,             // a full room starts immediately
-  HOST_OPEN_MS: 10000, // the chosen host must confirm its room is open within this time
+  HOST_OPEN_MS: 25000, // the chosen host must confirm its room is open within this time
   NEW_MS: 10000,       // a socket must send its queue request within this time
   STALE_MS: 75000,     // no heartbeat (client pings every 20 s) for this long = dead entry
-  MAX_SOCKETS: 300, PER_IP: 4, TICK_MS: 30000,
+  MAX_SOCKETS: 300, PER_IP: 8, TICK_MS: 30000,
 };
 export const MODES = ['classic', 'team', 'ctf', 'coins', 'ball', 'koth', 'bomb', 'crumble'];
 export const clampFill = (v) => { const n = Number(v); if (!Number.isFinite(n) || n <= 0) return CFG.FILL_MS; return Math.max(CFG.FILL_MIN, Math.min(CFG.FILL_MS, Math.round(n * 1000))); };
