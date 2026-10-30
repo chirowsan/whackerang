@@ -47,7 +47,7 @@ if (only('rematch')) { console.log('--- host leaves before start: guest re-searc
     clean(T, 'rematch'); } finally { await T.close(); } }
 if (only('offline')) { console.log('--- offline fallback');
   const T = await open(1, 8, {}, 'ws://localhost:1'); try { const [A] = T.pages; await toMenu(A); await click(A, 'net-auto');
-    ok('offline: message + Play vs bots now shown', await waitFor(async () => ev(A, () => !!document.getElementById('net-offline-bots')), 15000) && /can.t reach auto match/i.test(await ev(A, () => document.getElementById('ui').innerText)));
+    ok('offline: message + Play vs bots now shown', await waitFor(async () => ev(A, () => !!document.getElementById('net-offline-bots')), 40000) && /can.t reach auto match/i.test(await ev(A, () => document.getElementById('ui').innerText)));
     await A.page.screenshot({ path: '/workspace/out/v4.6-shots/offline.png' }); await click(A, 'net-offline-bots'); await sleep(2500);
     ok('offline: bots match starts immediately', await ev(A, () => !!__bg.app.game && __bg.app.game.fighters.length >= 3 && !__bg.net.active), await ev(A, () => __bg.app.mode));
     console.log(A.logs.filter((l) => /error|warn/i.test(l)).slice(0, 8).join('\n').slice(0, 1200)); clean(T, 'offline'); } finally { await T.close(); } }

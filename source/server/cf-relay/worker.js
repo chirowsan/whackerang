@@ -7,7 +7,7 @@
 //   relay -> host  (text) {"t":"join","g":1} / {"t":"leave","g":1}      relay -> guest (text) {"t":"ready","g":1} | {"t":"err","r":"nohost|full|taken|origin"} | {"t":"hostgone"}
 //   clients -> relay (text) "ping" is answered "pong" by the runtime (WebSocketAutoResponse) without waking the object.
 import { DurableObject } from 'cloudflare:workers';
-import { CFG, MODES, clampFill, planQueue, makeMatchCode } from './matchplan.js';
+import { CFG, MODES, clampFill, planQueue, makeMatchCode, pickRoom, cleanName, cleanCid } from './matchplan.js';
 
 const ORIGINS = new Set(['https://chirowsan.github.io', 'capacitor://localhost', 'https://localhost', 'http://localhost']);
 const CODE = /^[A-Z]{4,5}$/;
@@ -113,6 +113,8 @@ export class Room extends DurableObject {
 //                   {"t":"go","code":"BKTQL"}  guests: join this room now   {"t":"requeue"}  the host failed, you are searching again   {"t":"ok"}  host: released   {"t":"err","r":"..."}
 // "ping" text frames are answered "pong" by the runtime (no wake-up); clients send one every ~20 s and an entry with no ping for 75 s is dropped as stale.
 export class Matchmaker extends DurableObject {
+  // v4.6.3: one queue for all modes; the host of an Auto room keeps its queue socket ('room' state) and reports free seats, so players who search
+  // later are sent straight into that room (lobby, or a running match where they take over a bot) instead of waiting alone. v1 clients keep working.
   constructor(ctx, env) { super(ctx, env); ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong')); this.dirty = new Set(); }
   open() { return this.ctx.getWebSockets().filter((w) => w.readyState === 1); }
   att(ws) { try { return ws.deserializeAttachment() || {}; } catch (e) { return {}; } }
@@ -138,46 +140,68 @@ export class Matchmaker extends DurableObject {
     if (m.t === 'q') {
       if (a.st !== 'new') return;
       if (!MODES.includes(m.mode)) { this.tx(ws, { t: 'err', r: 'mode' }); return this.kill(ws, 4400, 'mode'); }
-      a = { ...a, st: 'wait', mode: m.mode, t: now, fill: clampFill(m.fill), id: crypto.randomUUID().slice(0, 8) }; this.put(ws, a); this.dirty.add(a.mode);
+      a = { ...a, st: 'wait', mode: m.mode, t: now, fill: clampFill(m.fill), id: crypto.randomUUID().slice(0, 8), v: m.v === 2 ? 2 : 1, cid: cleanCid(m.cid), nm: cleanName(m.nm), skip: (Array.isArray(m.skip) ? m.skip : []).slice(0, 3).map((x) => String(x || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5)) };
+      // idempotent: the same tab (random per-tab id) searching again replaces its older entry and keeps its place in the queue
+      if (a.cid) for (const w of this.open()) { if (w === ws) continue; const b = this.att(w); if (b.cid !== a.cid || b.st === 'done' || b.st === 'room') continue;
+        if (b.st === 'wait' && b.t < a.t) a.t = b.t; if (b.st === 'hostp') this.abort(b.gid, w); this.put(w, { ...b, st: 'done' }); this.kill(w, 4000, 'replaced'); }
+      this.put(ws, a); this.dirty.add('q');
     } else if (m.t === 'open' && a.st === 'hostp') {
-      for (const w of this.open()) { const b = this.att(w); if (w !== ws && b.gid === a.gid && b.st === 'guestp') { this.tx(w, { t: 'go', code: a.code }); this.put(w, { ...b, st: 'done' }); this.kill(w, 1000, 'matched'); } }
-      this.tx(ws, { t: 'ok' }); this.put(ws, { ...a, st: 'done' }); this.kill(ws, 1000, 'matched');
+      for (const w of this.open()) { const b = this.att(w); if (w !== ws && b.gid === a.gid && b.st === 'guestp') { this.tx(w, { t: 'go', code: a.code, mode: a.mode }); this.put(w, { ...b, st: 'done' }); this.kill(w, 1000, 'matched'); } }
+      this.tx(ws, { t: 'ok' });
+      if (a.v >= 2) { this.put(ws, { ...a, st: 'room', free: Math.max(0, CFG.FULL - 1 - (a.expect | 0)), ph: 'lobby', rt: now, res: [], rs: 0, ack: 0 }); this.dirty.add('q'); }
+      else { this.put(ws, { ...a, st: 'done' }); this.kill(ws, 1000, 'matched'); }
     } else if (m.t === 'fail' && a.st === 'hostp') { this.abort(a.gid, ws); }
+    else if (m.t === 'seats' && a.st === 'room') {
+      const ack = Math.max(a.ack | 0, Math.min(a.rs | 0, m.ack | 0)); const ph = m.ph === 'lobby' || m.ph === 'match' ? m.ph : 'closed';
+      this.put(ws, { ...a, free: Math.max(0, Math.min(CFG.FULL - 1, m.free | 0)), ph, ack, res: (a.res || []).filter((r) => r.s > ack) }); this.dirty.add('q');
+    } else if (m.t === 'closed' && a.st === 'room') { this.put(ws, { ...a, st: 'done' }); this.kill(ws, 1000, 'closed'); }
     else if (m.t === 'bye') { this.gone(ws); this.kill(ws, 1000, 'bye'); }
     await this.tick();
   }
   async webSocketClose(ws, code) { this.kill(ws, code && code !== 1005 && code !== 1006 ? code : 1000, 'bye'); this.gone(ws); await this.tick(); }
   async webSocketError(ws) { this.gone(ws); await this.tick(); }
-  gone(ws) { const a = this.att(ws); if (a.st === 'wait') this.dirty.add(a.mode); if (a.st === 'hostp') this.abort(a.gid, ws); this.put(ws, { ...a, st: 'done' }); }
+  gone(ws) { const a = this.att(ws); if (a.st === 'wait') this.dirty.add('q'); if (a.st === 'hostp') this.abort(a.gid, ws); this.put(ws, { ...a, st: 'done' }); }
   // the chosen host failed/left before opening its room: everyone else goes back to searching with their original queue time (so they re-match at once)
   abort(gid, hostWs) {
     for (const w of this.open()) { const b = this.att(w); if (b.gid !== gid) continue;
       if (w === hostWs) { this.put(w, { ...b, st: 'done' }); this.kill(w, 1000, 'failed'); }
-      else if (b.st === 'guestp') { const { gid: _g, code: _c, ...r } = b; this.put(w, { ...r, st: 'wait', u: 1 }); this.tx(w, { t: 'requeue' }); this.dirty.add(b.mode); } }
+      else if (b.st === 'guestp') { const { gid: _g, code: _c, ...r } = b; this.put(w, { ...r, st: 'wait', u: 1 }); this.tx(w, { t: 'requeue' }); this.dirty.add('q'); } }
   }
   async alarm() { await this.tick(); }
   async tick() {
     const now = Date.now(); let next = null; const wake = (t) => { if (next === null || t < next) next = t; };
     for (let guard = 0; guard < 8; guard++) { // matching can expose a new match (queue > 4); abort/prune can requeue
-      let again = false; const live = this.open(); const byMode = {};
+      let again = false; const live = this.open(); const es = []; const rooms = [];
       for (const w of live) {
         const a = this.att(w); if (a.st === 'done') continue;
-        const ts = this.ctx.getWebSocketAutoResponseTimestamp(w); const last = Math.max(a.t0 || 0, ts ? ts.getTime() : 0);
+        const ts = this.ctx.getWebSocketAutoResponseTimestamp(w); const last = Math.max(a.t0 || 0, a.rt || 0, ts ? ts.getTime() : 0);
         if (a.st === 'new') { if (now - a.t0 >= CFG.NEW_MS - 50) this.kill(w, 4008, 'noq'); else wake(a.t0 + CFG.NEW_MS); continue; }
-        if (now - last > CFG.STALE_MS) { if (a.st === 'hostp') this.abort(a.gid, w); this.put(w, { ...a, st: 'done' }); this.kill(w, 4009, 'stale'); if (a.mode) this.dirty.add(a.mode); again = true; continue; }
+        if (now - last > CFG.STALE_MS) { if (a.st === 'hostp') this.abort(a.gid, w); this.put(w, { ...a, st: 'done' }); this.kill(w, 4009, 'stale'); this.dirty.add('q'); again = true; continue; }
         if (a.st === 'hostp') { if (now > a.hostBy) { this.abort(a.gid, w); again = true; } else wake(a.hostBy); continue; }
-        if (a.st === 'wait') (byMode[a.mode] = byMode[a.mode] || []).push({ w, id: a.id, t: a.t, fill: a.fill, u: a.u });
+        if (a.st === 'room') {
+          if (now - a.rt > CFG.ROOM_MS) { this.put(w, { ...a, st: 'done' }); this.kill(w, 1000, 'roomtime'); continue; }
+          const res = (a.res || []).filter((r) => now - r.t < CFG.RES_MS); if (res.length !== (a.res || []).length) this.put(w, { ...a, res });
+          rooms.push({ w, id: a.code, code: a.code, mode: a.mode, free: a.free | 0, ph: a.ph, rt: a.rt, res: res.length }); if (res.length) wake(res[0].t + CFG.RES_MS); wake(now + CFG.TICK_MS); continue;
+        }
+        if (a.st === 'wait') es.push({ w, id: a.id, t: a.t, fill: a.fill, u: a.u, v: a.v | 0, mode: a.mode, nm: a.nm, skip: a.skip });
         if (a.st === 'wait' || a.st === 'guestp') wake(now + CFG.TICK_MS);
       }
-      for (const mode of Object.keys(byMode)) {
-        const es = byMode[mode]; const p = planQueue(es, now);
-        if (p.take) {
-          const mem = p.take.map((id) => es.find((e) => e.id === id).w); const gid = crypto.randomUUID().slice(0, 8);
-          const code = makeMatchCode((n) => { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] % n; });
-          mem.forEach((w, i) => { const b = this.att(w); if (i === 0) { this.put(w, { ...b, st: 'hostp', gid, code, hostBy: now + CFG.HOST_OPEN_MS }); this.tx(w, { t: 'host', code, expect: mem.length - 1 }); wake(now + CFG.HOST_OPEN_MS); } else { this.put(w, { ...b, st: 'guestp', gid, code }); this.tx(w, { t: 'found', n: mem.length }); } });
-          this.dirty.add(mode); again = true;
-        } else if (p.startAt) { wake(p.startAt); if (this.dirty.has(mode)) for (const e of es) this.tx(e.w, { t: 'st', n: p.n, fillIn: Math.max(0, p.startAt - now) }); }
+      // late players: straight into an open Auto room with a free seat (oldest waiting player first)
+      es.sort((x, y) => x.t - y.t);
+      for (const e of es.slice()) {
+        const r = pickRoom(rooms, e, now); if (!r) continue;
+        const ha = this.att(r.w); const s = (ha.rs | 0) + 1; this.put(r.w, { ...ha, rs: s, res: [...(ha.res || []), { s, t: now }] }); r.res++;
+        this.tx(r.w, { t: 'inc', s, nm: e.nm || '' });
+        this.tx(e.w, { t: 'found', n: 0, late: 1 }); this.tx(e.w, { t: 'go', code: r.code, mode: r.mode, late: 1, ph: r.ph }); this.put(e.w, { ...this.att(e.w), st: 'done' }); this.kill(e.w, 1000, 'matched');
+        es.splice(es.indexOf(e), 1); this.dirty.add('q');
       }
+      const p = planQueue(es, now);
+      if (p.take) {
+        const sel = p.take.map((id) => es.find((e) => e.id === id)); const mem = sel.map((e) => e.w); const gid = crypto.randomUUID().slice(0, 8); const mode = sel[0].mode;
+        const code = makeMatchCode((n) => { const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] % n; });
+        mem.forEach((w, i) => { const b = this.att(w); if (i === 0) { this.put(w, { ...b, st: 'hostp', gid, code, mode, expect: mem.length - 1, hostBy: now + CFG.HOST_OPEN_MS }); this.tx(w, { t: 'host', code, expect: mem.length - 1, mode, names: sel.slice(1).map((e) => e.nm || '') }); wake(now + CFG.HOST_OPEN_MS); } else { this.put(w, { ...b, st: 'guestp', gid, code }); this.tx(w, { t: 'found', n: mem.length, mode, names: sel.map((e) => e.nm || '') }); } });
+        this.dirty.add('q'); again = true;
+      } else if (p.startAt) { wake(p.startAt); if (this.dirty.has('q')) { const names = es.map((e) => e.nm || ''); for (const e of es) this.tx(e.w, { t: 'st', n: p.n, fillIn: Math.max(0, p.startAt - now), names }); } }
       this.dirty.clear(); if (!again) break;
     }
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, now + 200));

@@ -60,6 +60,7 @@ The matchmaker uses the same two daily pools (Workers requests and Durable Objec
 
 ## Change log
 * 2026-10-23 (v4.6.2): redeployed script `whackerang-relay` only (same bindings MATCH/ROOMS, same migrations, compat 2026-04-01). `matchplan.js`: HOST_OPEN_MS 10000 -> 25000 (slow phones were aborted as host), PER_IP 4 -> 8. No new resources; `backyard-private-rooms` untouched.
+* 2026-10-30 (v4.6.3): redeployed script `whackerang-relay` only (same bindings MATCH/ROOMS, migration tag stays v2, compat 2026-04-01) at 12:21 PDT. Matchmaker: one queue for all modes, 12 s grace, open Auto rooms keep the host's queue socket (max 20 min) so late players can join. Budget: one open room costs about 1 extra DO alarm per 30 s and a `seats` message at most every 15 s (WebSocket messages count 20:1), i.e. roughly 45 DO requests for a 20-minute room. No new resources; `backyard-private-rooms` untouched. Redeployed again 14:09 PDT the same way (skip list: a player is never re-offered a room it just failed to reach).
 
 ## Turning it off
 * Per device: `localStorage.setItem('whk.rly','off')`, or open the game with `?norelay=1` (and `?norelay=0` to re-enable). The game then behaves like v4.2 (direct WebRTC only).

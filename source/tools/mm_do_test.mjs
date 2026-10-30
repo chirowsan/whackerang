@@ -10,7 +10,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const E = (id, t, fill = 120000, u) => ({ id, t, fill, u });
   ok(planQueue([], 0).take === null, 'plan: empty');
   ok(planQueue([E('a', 0)], 119999).take === null && planQueue([E('a', 0)], 120000).take.length === 1, 'plan: lone player waits for the 120 s deadline then plays with bots');
-  ok(planQueue([E('a', 0), E('b', 10000)], 34999).take === null && planQueue([E('a', 0), E('b', 10000)], 35000).take.length === 2, 'plan: 2 players start 25 s after the second joined');
+  ok(planQueue([E('a', 0), E('b', 10000)], 21999).take === null && planQueue([E('a', 0), E('b', 10000)], 22000).take.length === 2, 'plan: 2 players start 12 s after the second joined (v4.6.3, was 25 s)');
+  ok(planQueue([E('a', 0), E('b', 1000), E('c', 11000)], 15999).take === null && planQueue([E('a', 0), E('b', 1000), E('c', 11000)], 16000).take.length === 3, 'plan: a player who just joined gets 5 s settle time');
+  ok(planQueue([E('a', 0), E('b', 1000), E('c', 21000)], 23000).take.length === 3, 'plan: grace capped at 22 s after the second');
   ok(planQueue([E('a', 0), E('b', 1), E('c', 2), E('d', 3), E('e', 4)], 5).take.join() === 'a,b,c,d', 'plan: 4 start at once, oldest first, the 5th stays');
   ok(planQueue([E('a', 0, 8000), E('b', 1000)], 8000).take.length === 2, 'plan: a shorter personal deadline wins over the grace');
   ok(planQueue([E('a', 0), E('b', 1, 120000, 1)], 2).take.length === 2 && planQueue([E('a', 0, 120000, 1)], 2).take === null, 'plan: re-queued group re-forms at once, a lone re-queued player keeps searching');
@@ -45,7 +47,8 @@ try {
     P[1].send({ t: 'open' }); const g = await P[2].wait('go', 2000); ok(g && g.code === h2.code && (await P[3].wait('go', 1000)), 'host fail: guests get the new room'); }
   // 4. cancel / disconnect updates the count; a different mode is a different queue
   { const a = await mk(); a.q('classic', 60); const b = await mk(); b.q('classic', 60); const c = await mk(); c.q('ctf', 60); await sleep(600);
-    ok(a.ev.filter((e) => e.t === 'st').pop().n === 2 && c.get('st').n === 1, 'modes: classic n=2, ctf n=1 (separate queues)');
+    ok(a.ev.filter((e) => e.t === 'st').pop().n === 3 && c.ev.filter((e) => e.t === 'st').pop().n === 3, 'modes: classic + ctf players share ONE queue (v4.6.3)');
+    c.send({ t: 'bye' }); await sleep(400);
     b.send({ t: 'bye' }); await sleep(500); ok(a.ev.filter((e) => e.t === 'st').pop().n === 1, 'cancel: other player sees n=1');
     const b2 = await mk(); b2.q('classic', 60); await sleep(300); b2.ws.terminate(); await sleep(700); ok(a.ev.filter((e) => e.t === 'st').pop().n === 1, 'disconnect without bye: removed from the queue');
     a.ws.close(); c.ws.close(); await sleep(300); }

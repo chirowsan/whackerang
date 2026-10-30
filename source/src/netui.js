@@ -54,7 +54,7 @@ const startHost = async () => {
 };
 const startAuto = () => {
   Match.cancel(); const st = S().settings; const mode = ONLINE_MODES.includes(st.autoMode) ? st.autoMode : 'classic';
-  if (!rtcSupported() || !Match.available()) { Match.state = 'offline'; Match.note = !rtcSupported() ? 'nowebrtc' : 'unreachable'; return UI.show('netSearch'); }
+  if (!rtcSupported() || !Match.available()) { Match.state = 'offline'; Match.note = !rtcSupported() ? 'nowebrtc' : 'unreachable'; Match.lastErr = Match.note; return UI.show('netSearch'); }
   Match.start(mode); UI.show('netSearch');
 };
 const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -84,7 +84,7 @@ Object.assign(UI, {
       pn.appendChild(this.btn('<i class="nm2-ic">🌍</i><b>Auto match</b><small>Play with other players now. Bots fill empty seats.</small>', 'gold nm2-btn nm2-auto', () => startAuto(), { id: 'net-auto' }));
       const mr = h('div', 'modechips nm2-modes', '', { id: 'net-am-modes' }); const cur = ONLINE_MODES.includes(S().settings.autoMode) ? S().settings.autoMode : 'classic';
       ONLINE_MODES.forEach((m) => { const M = MODES[m]; const b = h('button', 'mchip' + (cur === m ? ' on' : ''), `${M.icon} ${M.name}`, { 'data-nav': 1, 'data-mode': m }); b.addEventListener('click', () => { S().settings.autoMode = m; save(); sfx('click'); mr.querySelectorAll('.mchip').forEach((x) => x.classList.toggle('on', x.dataset.mode === m)); }); mr.appendChild(b); });
-      pn.appendChild(mr);
+      pn.appendChild(mr); pn.appendChild(h('div', 'net-st nm2-modehint', 'Your preferred mode. Everyone searching is matched together; the host\u2019s pick is played.', { style: 'opacity:.6;font-size:.78em' }));
     } else if (KIDS) pn.appendChild(h('div', 'note-line', 'Auto match is off. Play with friends using a room code. A grown-up can turn Auto match on in Settings.', { id: 'net-kids-note' }));
     row.appendChild(this.btn('<i class="nm2-ic">➕</i><b>Create room</b>', 'primary nm2-btn', () => startHost(), { id: 'net-create' }));
     row.appendChild(this.btn('<i class="nm2-ic">🔑</i><b>Join room</b>', 'nm2-btn nm2-join', () => this.show('netJoin'), { id: 'net-joinroom' }));
@@ -114,6 +114,7 @@ Object.assign(UI, {
       const nw = M.note === 'nowebrtc';
       d.appendChild(h('h2', '', nw ? 'Online play isn\u2019t supported here' : 'Can\u2019t reach Auto match'));
       d.appendChild(h('p', 'net-m', nw ? 'This browser can\u2019t do online play. You can still play right now against bots.' : 'You seem to be offline, or the free matchmaking service is blocked on this network. You can still play right now against bots, or try again.'));
+      d.appendChild(h('div', 'ms-line ms-code', esc('Code ' + M.dcode()), { id: 'ms-code', style: 'opacity:.6;font-size:.8em' }));
       const b = h('div', 'btns'); b.appendChild(this.btn('🤖 Play vs bots now', 'primary big', () => { M.cancel(); this.app.quickPlay(); }, { id: 'net-offline-bots' }));
       if (!nw) b.appendChild(this.btn('Try again', '', () => startAuto(), { id: 'net-search-retry' }));
       b.appendChild(this.btn('Back', 'back', () => { M.cancel(); this.show('netMenu'); }, { 'data-back': 1, id: 'net-search-back' })); d.appendChild(b); el.appendChild(d); return el;
@@ -124,6 +125,7 @@ Object.assign(UI, {
     d.appendChild(h('div', 'ms-line', '', { id: 'ms-time' })); d.appendChild(h('div', 'ms-line ms-bots', '', { id: 'ms-bots' }));
     d.appendChild(h('div', 'net-st', esc(M.note || (found ? 'Getting the room ready...' : `${(MODES[M.mode] || {}).name || ''} mode`)), { id: 'ms-note' }));
     d.appendChild(h('div', 'net-st ms-sub', esc(M.state === 'joining' ? (Net.status || '') : ''), { id: 'net-status' }));
+    d.appendChild(h('div', 'ms-line ms-names', '', { id: 'ms-names' })); d.appendChild(h('div', 'ms-line ms-code', '', { id: 'ms-code', style: 'opacity:.55;font-size:.8em' }));
     if (S().settings.netDiag) d.appendChild(diagBox());
     const b = h('div', 'btns'); b.appendChild(this.btn('Cancel', 'back', () => { M.cancel(); this.show('netMenu'); }, { 'data-back': 1, id: 'net-search-cancel' }));
     if (!found) b.appendChild(this.btn('🤖 Play vs bots now', 'small', () => { M.cancel(); this.app.quickPlay(); }, { id: 'net-search-bots' }));
@@ -132,8 +134,10 @@ Object.assign(UI, {
   searchTick() {
     const M = Match; const f = document.getElementById('ms-found'); if (!f) return;
     f.innerHTML = [0, 1, 2, 3].map((i) => `<span class="${i < M.n ? 'on' : ''}">${i < M.n ? '🙂' : '·'}</span>`).join('') + `<em>Players found: <b>${M.n}</b>/4</em>`;
+    const nm = document.getElementById('ms-names'); if (nm) { const L = (M.names || []).filter(Boolean); const tx = L.length > 1 ? 'With: ' + L.join(', ') : ''; if (nm.textContent !== tx) nm.textContent = tx; }
+    const cd = document.getElementById('ms-code'); if (cd) { const tx = 'Code ' + M.dcode(); if (cd.textContent !== tx) cd.textContent = tx; }
     const t = document.getElementById('ms-time'); if (t) t.textContent = `Searching: ${fmt(M.elapsed())}`;
-    const bt = document.getElementById('ms-bots'); if (bt) { const l = M.fillLeft(); bt.textContent = ['found', 'hosting', 'joining', 'joined'].includes(M.state) ? '' : (M.n >= 4 ? 'Room full!' : `Starting with bots in ${fmt(l)}`); }
+    const bt = document.getElementById('ms-bots'); if (bt) { const l = M.fillLeft(); bt.textContent = ['found', 'hosting', 'joining', 'joined'].includes(M.state) ? '' : (M.n >= 4 ? 'Room full!' : M.n >= 2 ? `Starting in ${fmt(l)} (empty seats get bots)` : `Starting with bots in ${fmt(l)} (anyone who searches later joins you)`); }
   },
   netConnect(p) {
     const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-conn'); d.appendChild(h('h2', '', esc(p.title || 'Connecting...'))); d.appendChild(h('div', 'spin')); d.appendChild(h('div', 'net-st', esc(Net.status || ''), { id: 'net-status' }));

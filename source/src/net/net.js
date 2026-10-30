@@ -143,15 +143,36 @@ export const Net = {
     let seat = H.slots.find((q, i) => i > 0 && q && q.cid === cid && !q.conn);
     if (seat && this.phase !== 'idle') { Object.assign(p, { slot: seat.slot, name: seat.name, hero: seat.hero, hat: seat.hat, skin: seat.skin, trail: seat.trail, team: seat.team, ready: seat.ready }); p.rejoin = true; H.slots[seat.slot] = p; H.peers.delete(seat.pid); }
     else {
-      if (this.phase === 'match') { send({ t: 'reject', r: 'locked' }); setTimeout(() => p.link.close(), 300); return; }
+      if (this.phase === 'match') { if (!this.lateSeat(p, m)) { send({ t: 'reject', r: 'locked' }); setTimeout(() => p.link.close(), 300); return; } }
+      else {
       const free = [1, 2, 3].find((i) => !H.slots[i] || (!H.slots[i].conn && this.phase === 'lobby')); if (!free) { send({ t: 'reject', r: 'full' }); setTimeout(() => p.link.close(), 300); return; }
       p.slot = free; p.ready = true; p.team = 1; this.applyProfile(p, m); this.pickFreeHero(p); H.slots[free] = p;
-    }
+    } }
+    p.mm = m.mm | 0;
     p.conn = true; p.ping = 0; p.rq = { q: [], cur: { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, assist: true, touchy: false }, edges: { dash: false, deflect: false, ult: false }, last: 0, ack: 0, stall: 0, nrx: 0, tpkt: 0 };
     H.peers.set(p.pid, p); H.pend.delete(p.pid); this.balanceTeams();
-    send({ t: 'welcome', slot: p.slot, code: this.code, proto: PROTO, rejoin: !!p.rejoin }); this.syncLobby();
-    this.note(`${p.name} ${p.rejoin ? 'is back' : 'joined'}`);
+    send({ t: 'welcome', slot: p.slot, code: this.code, proto: PROTO, rejoin: !!p.rejoin, took: p.took || undefined }); this.syncLobby();
+    this.note(`${p.name} ${p.rejoin ? 'is back' : p.took ? 'joined (took over ' + p.took + ')' : 'joined'}`);
     if (p.rejoin && this.phase === 'match') this.hostRejoin(p);
+    if (p.took) { const g = this.app.game; const def = this.app.match.players.find((d) => d.slot === p.slot && d.cid === p.cid); const fi = g ? g.fighters.findIndex((f) => f.def === def) : -1;
+      for (const q of H.peers.values()) if (q !== p && !q.isHost && q.conn && q.mm >= 2) this.sendTo(q, { t: 'evt', n: 'humin', f: fi, name: p.name }); this.UI && this.UI.toast(`${p.name} joined and took over a bot`, 2200); }
+  },
+  // v4.6.3: a player sent by Auto match into a match that is already running takes over one of the bots (its fighter, team and score), like a rejoin.
+  // Only Auto rooms (strangers, filled with bots) do this; friend rooms stay locked once the match starts.
+  lateSeat(p, m) {
+    const H = this.H, g = this.app.game, mt = this.app.match; if (!H.auto || !g || !mt) return false;
+    const slot = [1, 2, 3].find((i) => !H.slots[i]); const def = mt.players.find((d) => d.ctrl === 'bot' && d.slot === -1); if (!slot || !def) return false;
+    const f = g.fighters.find((q) => q.def === def); if (!f) return false;
+    this.applyProfile(p, m); p.slot = slot; p.ready = true; p.team = def.team === undefined ? 1 : def.team; p.hero = def.hero.id; p.hat = def.hat || 'none'; p.took = def.name; H.slots[slot] = p;
+    def.ctrl = 'human'; def.slot = slot; def.cid = p.cid; def.name = p.name; if (this.defsRaw) { const i = mt.players.indexOf(def); if (this.defsRaw[i]) Object.assign(this.defsRaw[i], { ctrl: 'human', slot, cid: p.cid, name: p.name }); }
+    p.rejoin = true; f.isBot = false; f.bot = null; f.netIn = null; if (f.model.setMarker) f.model.setMarker(f.color, tag(p.name), false); return true;
+  },
+  // seats an Auto room can still give to a late player: empty seats in the lobby, or bots that can be taken over in a running match
+  autoSeats() {
+    const H = this.H; if (!this.isHost || !H || H.closed) return { free: 0, ph: 'closed' }; const hum = H.slots.filter((q) => q && q.conn).length; const pend = H.pend.size;
+    if (this.phase === 'lobby') return { free: Math.max(0, 4 - hum - pend), ph: 'lobby' };
+    if (this.phase === 'match' && this.app.match && this.app.game) { const empty = [1, 2, 3].filter((i) => !H.slots[i]).length; const bots = this.app.match.players.filter((d) => d.ctrl === 'bot' && d.slot === -1).length; return { free: Math.max(0, Math.min(empty, bots) - pend), ph: 'match' }; }
+    return { free: 0, ph: 'closed' };
   },
   pickFreeHero(p) { // v4.1: two phones with the same fighter would look identical; give a late joiner a free default fighter instead
     const H = this.H; const taken = new Set(H.slots.filter((q) => q && q !== p && q.conn).map((q) => q.hero)); if (!taken.has(p.hero)) return;
@@ -179,6 +200,7 @@ export const Net = {
     const g = this.app.game, m = this.app.match; if (!g || !m) return; const def = m.players.find((d) => d.slot === p.slot && d.cid === p.cid); if (!def) return;
     def.ctrl = 'human'; const f = g.fighters.find((q) => q.def === def); if (f) { f.isBot = false; f.bot = null; if (f.model.setMarker) f.model.setMarker(f.color, p.slot === 0 ? 'YOU' : tag(p.name), p.slot === 0); }
     this.sendTo(p, this.roundMsg()); this.resendSlow(true);
+    p.joinedMatch = true; // v4.6.3: snapshots now, not only from the next round (late Auto joiners and rejoins were frozen until then)
   },
   hostEmote(p, id) {
     const g = this.app.game; if (!g || this.phase !== 'match' || !EMOTES[id]) return; const f = g.fighters.find((q) => !q.isBot && q.def.slot === p.slot); if (!f || !f.alive || f.emoteT > 0) return;
@@ -403,13 +425,13 @@ export const Net = {
     const d = link.pc.localDescription; return { type: d.type, sdp: d.sdp };
   },
   async joinManualAnswer(desc) { const G = this.G; if (!G || !G.link) return; await G.link.setAnswer(desc); this.setStatus('Connecting directly to the host...'); },
-  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, ...pr })); },
+  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, mm: 2, ...pr })); },
   gSend(o) { const G = this.G; if (G && G.link) G.link.send('rel', JSON.stringify(o)); },
   guestRel(d) {
     if (typeof d !== 'string' || d.length > 20000) return; let m; try { m = JSON.parse(d); } catch (e) { return; } if (!m || typeof m.t !== 'string') return; const G = this.G; if (!G) return; G.lastRx = now();
     const app = this.app;
     switch (m.t) {
-      case 'welcome': G.welcomed = true; this.mySlot = m.slot | 0; this.phase = 'lobby'; this.wasInRoom = true; this.code = m.code || this.code; this.setStatus(''); this.startGuestTimers(); if (m.rejoin) this.note('Reconnected'); this.emit(); break;
+      case 'welcome': G.welcomed = true; this.mySlot = m.slot | 0; this.phase = 'lobby'; this.wasInRoom = true; this.code = m.code || this.code; this.setStatus(''); this.startGuestTimers(); if (m.took) { this.note('Joined a match in progress'); this.UI && this.UI.toast(`You joined a match in progress and took over ${String(m.took).slice(0, 16)}!`, 2600); } else if (m.rejoin) this.note('Reconnected'); this.emit(); break;
       case 'reject': this.fail('reject:' + m.r); break;
       case 'lobby': this.lobby = { players: m.players, settings: m.settings, phase: m.phase, code: m.code }; if (m.phase === 'results' && this.phase === 'match') this.phase = 'results'; this.emit(); break;
       case 'pings': this.pings = m.p || {}; break;
@@ -451,6 +473,7 @@ export const Net = {
   guestEvent(m) {
     if (m.n === 'countdown' || m.n === 'go') return; // guests run their own synced countdown
     const g = this.app.game; if (!g) return; const F = (i) => (i >= 0 ? g.fighters[i] : null);
+    if (m.n === 'humin') { const f = F(m.f); if (f) { const nm = String(m.name || 'P').slice(0, 16); f.isBot = false; f.bot = null; f.def.ctrl = 'human'; f.def.name = nm; if (f.model.setMarker) f.model.setMarker(f.color, tag(nm), false); this.note(`${nm} joined`); this.UI.toast(`${nm} joined and took over a bot`, 2200); } return; }
     if (m.n === 'botin') { this.note(`${m.name} left: a bot takes over`); this.UI.toast(`${m.name} left. A bot takes over.`, 2200); return; }
     this.app.gameEvent(m.n, { f: F(m.f), killer: F(m.k), from: F(m.from), kind: m.kind, winner: F(m.w), winTeam: m.wt, draw: m.draw, team: m.team, n: m.num, name: m.name });
   },
