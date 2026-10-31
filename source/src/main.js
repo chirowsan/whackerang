@@ -12,6 +12,7 @@ import { UI, $ } from './ui.js';
 import './ui2.js';
 import { buildFighter, buildBoomerang } from './models.js';
 import { makePortraits, portrait, snap } from './portraits.js';
+import { POISON, poisonCfg } from './poison.js';
 import { faceDebugCanvas } from './faces.js';
 import { resolveMutator } from './mutators.js';
 import { Net } from './net/net.js';
@@ -143,6 +144,7 @@ const app = {
     const aid = m.arena === 'random' ? pick(ARENAS.filter((a) => a.id !== m.last || ARENAS.length < 2)).id : m.arena; m.last = aid;
     const rules = m.rules ? { ...m.rules } : rulesFor(m.rulesMode || m.mode, { arena: aid, eventLevel: m.events || S().settings.events });
     if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: m.events || S().settings.events }); Object.assign(rules, r2); } }
+    if (rules.poison && !(this.net && !this.net.isHost)) rules.poisonCfg = { ...POISON }; // v4.8: host-authoritative poison tuning rides in the round rules
     m.curRules = rules; this.mode = 'play';
     { const o = { mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, edgeSaves: (m.edgeSaves = m.edgeSaves || {}), cdShort: !!(m.tutorial || m.mode === 'tutorial') }; this.setGame(this.net && this.net.isHost ? this.net.hostGameOpts(o) : o); } music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
     if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0 }; const d = this.game.fighters[1]; if (d) { d.stunT = 9999; d.inv = 1e9; d.x = 6; d.z = -3; } const hf = this.humanF(); if (hf) hf.inv = 0; UI.tutorialShow(this.tut); }
@@ -194,6 +196,9 @@ const app = {
     else if (n === 'boss') { if (this.mode === 'play') UI.banner('BOSS ' + d.n + ' / 3', d.name, '#ff5a5a'); }
     else if (n === 'rage') { UI.banner('ENRAGED!', null, '#ff5a5a'); }
     else if (n === 'lastKO') { if (this.mode === 'play' && g.rules.type !== 'koth' && !(m && m.mode === 'survival')) UI.banner(d.draw ? 'DRAW' : (d.winTeam === 0 || (d.winner && !d.winner.isBot) ? 'K.O.!' : 'K.O.!'), d.winner ? d.winner.name + ' stands!' : 'Nobody stands...', '#ff7a5a'); if (m && m.tutorial) { /* handled in roundEnd */ } if (d.winner && d.winner.alive && !d.winner.isBot) { fx.confetti(d.winner.x, d.winner.z, 50); } }
+    else if (n === 'poisonWarn') { if (this.mode === 'play') UI.banner('\u2623 POISON IN ' + Math.ceil(poisonCfg(g).warn) + 's', 'Get to the middle!', '#b36bff'); }
+    else if (n === 'poison') { if (this.mode === 'play') UI.banner('\u2623 POISON!', 'It closes in from the rim', '#9dff3c'); }
+    else if (n === 'poisonHold') { if (this.mode === 'play') UI.banner('\u2623 FINAL ZONE', null, '#9dff3c'); }
     else if (n === 'sudden') { if (this.mode === 'play') UI.banner('SUDDEN DEATH!', 'The arena crumbles!', '#ff5a5a'); }
     else if (n === 'roundEnd') {
       if (this.mode !== 'play') { if (this.game && this.game.mode === 'attract') setTimeout(() => { if (this.mode === 'menu' && this.game && this.game.mode === 'attract') this.startAttractKeep(); }, 400); return; }
@@ -344,6 +349,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { net: Net, Match, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

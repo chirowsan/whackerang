@@ -74,3 +74,13 @@
 - net_soak47, 3 browsers (1 host and 2 guests over the local relay ws://localhost:8799), about 20 min: 6 matches (small/large/huge × classic/crumble), 18 rounds, 7194 client samples, 52 KOs, 138 hearts lost. 0 for NaN, off-map, below-floor, maxHp mismatch, hp-range and console errors.
 - APK/AAB built: versionCode 51 / 4.7.0, BUILD v4.7.0-20261031. Signer SHA-256 is 6e59e14a…35d8de on both the APK (v2+v3) and the AAB. Web dist was rebuilt with --min --dist --app.
 - Final reruns are running into out/v4.7/final.
+
+### Sat Oct 31 00:47 PDT — final suite green, releasing
+- Passes: abil47 19/19, hearts47 31/31, falls44 78/78, traps43 131/131, tut42 18/18, net_cd45 30/30, net_match 26/26; smoke31 and v33test EXIT 0. The known baseline failures net_ui/net_life/net_relay43 come from Chrome's stock WebRTC policy blocking a direct connection in headless. They were not circumvented, and they fail the same way on v4.6.3.
+- Source zip: out/v4.7/whackerang-v4.7.0-source.zip, 395 files, no keys. Next: gh release create v4.7.0, then the Pages deploy.
+
+### Sat Oct 31 00:50 PDT — RELEASED
+- GitHub release: https://github.com/chirowsan/whackerang/releases/tag/v4.7.0 (APK, AAB, debug APK, source zip).
+- Pages: commit 91f62a7 is built. Live https://chirowsan.github.io/whackerang/ and sw.js both serve v4.7.0-20261031.
+- Note: gh created tag v4.7.0 on main before the Pages push, so it points at 96eb275. This matches the earlier pattern (the v4.6.3 tag is on the v4.6.2 commit). Left as is, since moving it means re-pointing a published tag.
+- Known/not fixed: a slow pre-existing geometry leak (about 20 geometries per match, same as v4.6.3).

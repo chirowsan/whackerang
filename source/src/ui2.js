@@ -15,6 +15,7 @@ import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
 import { Input } from './input.js';
+import { poisonHud, poisonRect, poisonPhase, inPoison } from './poison.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -250,7 +251,7 @@ Object.assign(UI, {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; this.emoteClose(); this.tutorialHide(); if (!game || game.mode === 'attract') return; this.hudGame = game;
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'mid', '', { id: 'h-mid' }); const rr = h('div', 'grp');
     rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
-    top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' })); r.appendChild(h('div', '', '', { id: 'h-pu' }));
+    top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' })); r.appendChild(h('div', '', '', { id: 'h-pu' })); if (game.poisonView) r.appendChild(h('div', '', '', { id: 'poisonvig' }));
     if (gfx.follow) { const cv = gfx.follow.big ? h('canvas', '', '', { id: 'minimap' }) : null; if (cv) { cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); } this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
   },
   // minimap (Large/Huge): arena, solids, hazards, fighters, camera window
@@ -259,6 +260,7 @@ Object.assign(UI, {
     c.fillStyle = 'rgba(12,8,36,.72)'; c.fillRect(0, 0, W, H);
     for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { const k = j * AW + i; const t = game.layout.t[k]; let col = null; if (game.hole[k] < 0) col = '#000'; else if (game.sol[k]) col = t === 2 ? '#b98a54' : '#7d86a8'; else if (t === 4) col = '#ff6a1a'; else if (t === 3) col = '#cfd6e6'; else if (t === 5) col = '#4ab0ff'; if (col) { c.fillStyle = col; c.fillRect(i * sx, j * sz, sx + 0.5, sz + 0.5); } }
     for (const t of game.traps.list) { if (t.type === 'tele' || t.type === 'jump' || t.type === 'goo' || t.type === 'bumper' || t.type === 'ice') { c.fillStyle = t.type === 'tele' ? '#7a8cff' : t.type === 'goo' ? '#6aff4a' : '#7dff6a'; const pts = t.pads || [t]; pts.forEach((p) => c.fillRect((p.x + HX) * sx - 2, (p.z + HZ) * sz - 2, 4, 4)); } else if (t.st >= 1 || t.up || t.warn) { c.fillStyle = '#ff3a3a'; c.fillRect((t.x + HX) * sx - 3, (t.z + HZ) * sz - 3, 6, 6); } }
+    { const pr = poisonRect(game); const ph = poisonPhase(game); if (pr) { c.fillStyle = 'rgba(150,70,255,.42)'; const x0 = (HX - pr.sx) * sx, x1 = (HX + pr.sx) * sx, z0 = (HZ - pr.sz) * sz, z1 = (HZ + pr.sz) * sz; c.fillRect(0, 0, W, z0); c.fillRect(0, z1, W, H - z1); c.fillRect(0, z0, x0, z1 - z0); c.fillRect(x1, z0, W - x1, z1 - z0); c.strokeStyle = '#b6ff3c'; c.lineWidth = 2; c.strokeRect(x0, z0, x1 - x0, z1 - z0); } else if (ph === 'warn' && (game.time * 4 | 0) % 2) { c.strokeStyle = '#b6ff3c'; c.lineWidth = 3; c.strokeRect(1.5, 1.5, W - 3, H - 3); } } // v4.8 poison on the minimap
     for (const q of game.fighters) { if (!q.alive) continue; c.fillStyle = hex(q.color); c.strokeStyle = '#fff'; c.lineWidth = q.isBot ? 1 : 2; c.beginPath(); c.arc((q.x + HX) * sx, (q.z + HZ) * sz, q.isBot ? 3.2 : 4.4, 0, 6.3); c.fill(); c.stroke(); }
     if (game.camPoints) for (const p of game.camPoints()) { c.fillStyle = p[2] || '#ffd23c'; c.fillRect((p[0] + HX) * sx - 3, (p[1] + HZ) * sz - 3, 6, 6); }
     const f = gfx.follow; if (f) { const vw = (f.fill ? f.visW : 22 * (f.k || 1)) * f.d / f.dMin, vh = (f.fill ? f.visH : 13 * (f.k || 1)) * f.d / f.dMin; c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1.5; c.strokeRect((f.cx + HX - vw / 2) * sx, (f.cz + HZ - vh / 2) * sz, vw * sx, vh * sz); }
@@ -292,8 +294,9 @@ Object.assign(UI, {
     else if (rt === 'survival') mid = `<b>WAVE ${ms.wave}</b> · ${ms.left} left${game.rules.waves ? ' / ' + game.rules.waves : ''}`;
     this.hudSet('h-mid', mid);
     { const me = game.fighters.find((q) => !q.isBot && q.def.slot === 0); let pu = ''; if (me && me.alive) { const ts = game.cfg ? game.cfg.ts : 1; for (const k in me.pu) { if (me.pu[k] > 0 && POWERUPS[k]) pu += `<span class="pui" style="--pc:${hex(POWERUPS[k].color)}"><i>${POWERUPS[k].short}</i><b>${Math.ceil(me.pu[k] / ts)}</b></span>`; } if (me.shield) pu += `<span class="pui" style="--pc:${hex(POWERUPS.shield.color)}"><i>SH</i></span>`; if (me.typeT > 0) pu += `<span class="pui" style="--pc:${hex(BOOM_TYPES[me.type].color)}"><i>${BOOM_TYPES[me.type].name.slice(0, 2).toUpperCase()}</i><b>${Math.ceil(me.typeT / ts)}</b></span>`; if (me.maxAmmo > 1) pu += `<span class="pui" style="--pc:${hex(POWERUPS.extra.color)}"><i>x${me.maxAmmo}</i></span>`; } this.hudSet('h-pu', pu); }
-    const tl = rt === 'koth' ? '' : (game.sudden ? '☠' : (game.rules.sudden ? fmtTime(Math.max(0, 48 - game.playTime)) : fmtTime(game.playTime)));
+    const tl = poisonHud(game) || (rt === 'koth' ? '' : (game.sudden ? '☠' : (game.rules.sudden ? fmtTime(Math.max(0, 48 - game.playTime)) : fmtTime(game.playTime))));
     this.hudSet('h-time', tl);
+    { const pv = game.poisonView && document.getElementById('poisonvig'); if (pv) { const me = game.fighters.find((q) => !q.isBot && q.def.slot === 0); const on = !!(me && me.alive && inPoison(game, me.x, me.z)) ? '1' : '0'; if (pv.style.opacity !== on) pv.style.opacity = on; } } // v4.8: green vignette while you stand in poison
     const bb = $('#bossbar'); if (bb) { const b = ms.boss; this.hudSet('bossbar', b ? `<div class="bn">${b.name}</div><div class="bhp">${Array.from({ length: b.max }, (_, i) => `<i class="${i < b.hp ? 'on' : ''}"></i>`).join('')}</div>` : ''); }
   },
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },

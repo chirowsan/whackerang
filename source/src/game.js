@@ -7,6 +7,7 @@ import { S, speedCfg } from './save.js';
 import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle, mulberry32, CD_LEN, CD_PRE } from './util.js';
 import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, heroHp } from './data.js';
 import { ArenaEvents } from './events.js';
+import { POISON, poisonOn, poisonTick, inPoison, poisonRect, PoisonView } from './poison.js';
 import { installRules } from './rules.js';
 import { installRules2 } from './rules2.js';
 import { buildFighter, buildBoomerang, buildPowerup } from './models.js';
@@ -125,12 +126,12 @@ class Fighter {
   die(killer, kind, kx, kz) {
     if (!this.alive) return false; const g = this.g;
     if (g.state === 'intro' && g.mode !== 'attract') return false; // v4.5: invulnerable during the countdown
-    const hazard = kind === 'fall' || kind === 'lava' || kind === 'spike';
-    if (hazard && this.inv > 0 && !this.boss) { if (kind !== 'spike') g.rescue(this, false); return false; } // v4.7: invulnerable (just hit / respawned / saved) -> rescued for free, never a death
+    const hazard = kind === 'fall' || kind === 'lava' || kind === 'spike' || kind === 'poison'; // v4.8 poison: like spikes (no teleport, no knockback)
+    if (hazard && this.inv > 0 && !this.boss) { if (kind !== 'spike' && kind !== 'poison') g.rescue(this, false); return false; } // v4.7: invulnerable (just hit / respawned / saved) -> rescued for free, never a death
     if (this.hp > 1) {
       if (this.inv > 0 && !hazard) return false; // v4.7: brief invulnerability after losing a heart
       this.hp--; this.regenT = 0; this.inv = this.boss ? 1.0 : 1.4; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0;
-      if (hazard || kind === 'bomb') { this.vx = this.vz = 0; if (kind !== 'spike' && kind !== 'bomb') g.rescue(this, true); } else { const l = Math.hypot(kx, kz) || 1; const kb = this.abil === 'gus' ? 4.5 : 9; this.vx = kx / l * kb; this.vz = kz / l * kb; }
+      if (hazard || kind === 'bomb') { this.vx = this.vz = 0; if (kind !== 'spike' && kind !== 'bomb' && kind !== 'poison') g.rescue(this, true); } else { const l = Math.hypot(kx, kz) || 1; const kb = this.abil === 'gus' ? 4.5 : 9; this.vx = kx / l * kb; this.vz = kz / l * kb; }
       g.onHurt(this, killer, kind); return false;
     }
     if (this.abil === 'kuma' && !this.nineUsed && !(this.inv > 0 && !hazard)) { this.nineUsed = true; this.inv = 1.6; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; if (kind === 'fall' || kind === 'lava') g.rescue(this, true); fx.popup('NINE LIVES!', this.x, this.z, 'pop-gold', 2); g.onHurt(this, killer, kind); return false; } /* v4.7 Salty: once per round a KO leaves him on 1 heart */
@@ -212,11 +213,12 @@ export class Game {
     this.mut = o.mutator || null; { const _mr = Math.random; if (o.netSeed != null) Math.random = mulberry32((o.netSeed ^ 0x7a9) >>> 0); try { this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) }); } finally { Math.random = _mr; } }
     const n = o.players.length; this.nHumans = o.players.filter((p) => p.ctrl !== 'bot').length || 1; const order = this.rules.teams && n === 4 ? [0, 3, 1, 2] : n === 1 ? [0] : n === 2 ? [0, 1] : n === 3 ? [0, 1, 3] : [0, 1, 2, 3];
     o.players.forEach((d, i) => { const sp = spawns()[order[i]]; let p = [cx(sp[0]), cz(sp[1])]; if (!this.safeAt(p[0], p[1], true)) p = this.safeCell({ x: p[0], z: p[1] }, true) || p; this.fighters.push(new Fighter(this, d, i, p)); }); // v4.7: spawn always on solid floor
-    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.cdShort = !!o.cdShort; this.goAt = o.goAt || 0; this.introT = o.intro === undefined ? (this.cdShort ? 0.9 : CD_PRE + CD_LEN) : o.intro; this.lastCount = 9; this.cdDone = this.mode === 'attract'; this.goWall = performance.now() + this.introT * 1000; this._pw = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
+    this.nPlayers = n; this.time = 0; this.state = 'intro'; this.cdShort = !!o.cdShort; this.goAt = o.goAt || 0; this.introT = o.intro === undefined ? (this.cdShort ? 0.9 : CD_PRE + CD_LEN) : o.intro; this.lastCount = 9; this.cdDone = this.mode === 'attract'; this.poisonView = poisonOn(this) ? new PoisonView(this) : null; this.goWall = performance.now() + this.introT * 1000; this._pw = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
     this.puT = 3.5; this.suddenRing = -1; this.suddenT = 0; this.sudden = false; this.crackT = 8; this.result = null; this.koFlash = 0; this.playTime = 0; this.winner = null; this.winTeam = -1;
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
   }
   dispose() {
+    if (this.poisonView) { this.poisonView.dispose(); this.poisonView = null; }
     if (this._base) for (const c of [...this.scene.children]) if (!this._base.has(c)) disposeTree(c); // v4.5.1: free this round's GPU memory (was leaking ~60 geometries + 6 textures per round)
     for (const f of this.fighters) this.scene.remove(f.model.root); for (const b of this.booms) { this.scene.remove(b.mesh); b.ribbon.dispose(); } for (const p of this.powerups) this.scene.remove(p.mesh);
     this.events.dispose(); this.traps.dispose(); this.disposeRules(); this.view.dispose(); this.booms.length = 0; fx.clear();
@@ -341,6 +343,7 @@ export class Game {
     else if (kind === 'slam') { sfx('hit'); fx.popup('SMASHED!', f.x, f.z, 'pop-hit'); }
     else if (kind === 'saw') { sfx('hit'); fx.popup('SLICED!', f.x, f.z, 'pop-hit'); } else if (kind === 'hammer') { sfx('hit'); sfx('ko'); fx.popup('SMASHED!', f.x, f.z, 'pop-hit'); } else if (kind === 'boulder') { sfx('hit'); fx.popup('FLATTENED!', f.x, f.z, 'pop-hit'); } else if (kind === 'crush') { sfx('hit'); fx.popup('SQUISHED!', f.x, f.z, 'pop-hit'); }
     else if (kind === 'fire') { sfx('sizzle'); fx.popup('TOASTED!', f.x, f.z, 'pop-hit'); fx.sparks(f.x, 0.4, f.z, 20, [0xff7a1a, 0xffd060], { speed: 5, up: 4 }); } else if (kind === 'zap') { sfx('hit'); fx.popup('ZAPPED!', f.x, f.z, 'pop-cyan'); fx.sparks(f.x, 0.6, f.z, 20, [0xa08aff, 0xffffff], { speed: 6, up: 3 }); } else if (kind === 'laser') { sfx('hit'); fx.popup('ZAPPED!', f.x, f.z, 'pop-hit'); }
+    else if (kind === 'poison') { sfx('sizzle'); fx.popup('\u2623 POISONED!', f.x, f.z, 'pop-hit'); fx.sparks(f.x, 0.6, f.z, 20, [0x9dff3c, 0xb36bff], { speed: 4, up: 4 }); }
     else if (kind === 'fall') { sfx('fall'); fx.popup('WHOOPS!', f.x, f.z, 'pop-cyan'); } else if (kind === 'lava') { sfx('sizzle'); fx.popup('SIZZLE!', f.x, f.z, 'pop-hit'); fx.sparks(f.x, 0.4, f.z, 20, [0xff7a1a, 0xffd060], { speed: 5, up: 4 }); } else { sfx('hit'); sfx('ko'); fx.popup('OUCH!', f.x, f.z, 'pop-hit'); }
     if (killer && killer.alive) killer.happyT = 1.3;
     this.onEvent('ko', { f, killer, kind });
@@ -365,10 +368,12 @@ export class Game {
   // -------- v4.4 falling: ledge grace, one free save per match, proximity warning
   safeCell(f, strictTraps) {
     let best = null, bd = 1e9; const self = f._self || f;
-    for (let pass = 0; pass < 2 && !best; pass++) for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) {
+    const pz = !!poisonRect(this); // v4.8: while poison is on, first look inside the safe area (passes 0-2; pass 2 may stand close to others), then anywhere (3-4)
+    for (let p0 = pz ? 0 : 3; p0 < 5 && !best; p0++) for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { const pass = p0 === 2 ? 1 : p0 > 2 ? p0 - 1 : p0;
       const k = idx(i, j); if (this.hole[k] !== 0 || this.sol[k] || this.layout.t[k] !== T.FLOOR) continue; const x = cx(i), z = cz(j);
-      if (this.traps && this.traps.danger(x, z) > 0) continue; if (this.fighters && this.fighters.some((o) => o !== self && o.alive && Math.hypot(o.x - x, o.z - z) < 1.1)) continue;
-      if (pass === 0) { let bad = false; for (let dj = -1; dj <= 1 && !bad; dj++) for (let di = -1; di <= 1; di++) { if (inb(i + di, j + dj) && (this.hole[idx(i + di, j + dj)] !== 0 || this.sol[idx(i + di, j + dj)] && !di && !dj)) { bad = true; break; } } if (bad) continue; }
+      if (this.traps && this.traps.danger(x, z) > 0) continue; if (p0 !== 2 && this.fighters && this.fighters.some((o) => o !== self && o.alive && Math.hypot(o.x - x, o.z - z) < 1.1)) continue;
+      if (pass < 2 && inPoison(this, x, z, POISON.spawnMargin)) continue;
+      if ((pass & 1) === 0) { let bad = false; for (let dj = -1; dj <= 1 && !bad; dj++) for (let di = -1; di <= 1; di++) { if (inb(i + di, j + dj) && (this.hole[idx(i + di, j + dj)] !== 0 || this.sol[idx(i + di, j + dj)] && !di && !dj)) { bad = true; break; } } if (bad) continue; }
       const d = Math.hypot(x - f.x, z - f.z); if (d < bd) { bd = d; best = [x, z]; }
     }
     return best;
@@ -485,7 +490,7 @@ export class Game {
     for (let i = this.booms.length - 1; i >= 0; i--) { const b = this.booms[i]; if (this.state !== 'intro') b.update(dt); if (!b.alive) this.booms.splice(i, 1); }
     for (let i = this.powerups.length - 1; i >= 0; i--) { const p = this.powerups[i]; p.t += dt; for (const f of this.fighters) { if (f.alive && !f.boss && Math.hypot(f.x - p.x, f.z - p.z) < (f.abil === 'pico' ? 2 : 0.8)) { this.applyPowerup(f, p.kind); this.scene.remove(p.mesh); this.powerups.splice(i, 1); break; } } }
     this.traps.update(dt); this.updateHazards(dt);
-    if (this.state === 'play') { this.events.update(dt); this.updateRules(dt); } else this.events.idle(dt);
+    if (this.state === 'play') { this.events.update(dt); this.updateRules(dt); poisonTick(this, dt); } else this.events.idle(dt);
     this.vis(dt);
   }
   vis(dt) {
@@ -513,7 +518,7 @@ export class Game {
     }
     for (const b of this.booms) b.vis(dt);
     for (const p of this.powerups) { p.mesh.position.y = 0.25 + Math.sin(p.t * 3) * 0.12; p.mesh.userData.sp.scale.setScalar(0.95 + Math.sin(p.t * 6) * 0.05); }
-    this.traps.vis(dt); if (this.vis2) this.vis2(); this.view.update(dt, this.time, this);
+    this.traps.vis(dt); if (this.vis2) this.vis2(); if (this.poisonView) this.poisonView.update(dt); this.view.update(dt, this.time, this);
   }
 }
 installRules(Game, { Boom, Fighter }); installRules2(Game);

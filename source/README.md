@@ -14,6 +14,18 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.8 (shrinking poison zone)
+- **At the 2:00 mark the poison closes in.** In Classic, Team, Crumble, Bomb tag and King of the Hill, purple poison starts at the rim of the arena and slowly creeps toward the middle, so a round can't stall forever.
+  - **Warning:** 10 s before, a "☣ POISON IN 10s" banner appears, a warning sound plays with beeps at 3-2-1, and the rim glows green. The HUD timer counts down (during sudden death it shows ☠ ☣m:ss).
+  - **The zone:** purple haze covers the poisoned band and a bright green line marks the edge. On Large and Huge the minimap shades the poison and outlines the safe area. A green vignette shows when you are standing in it.
+  - **Shrinking:** the safe rectangle shrinks evenly over 75 s to a small final zone in the middle (20% of the arena, at least 5×4 tiles) and then holds that size.
+  - **Damage:** standing in poison costs one heart every 2 s ("☣ ♥ N LEFT"). The normal blinking invulnerability applies, and each hero's hearts and abilities count (Nine Lives saves Salty once, and Gus lasts about 10 s). Stepping back into the safe zone lets your poison meter recover. A KO in the poison counts as "☣ POISONED!".
+  - **Bots** take the shortest walkable route, around walls, holes and lava, to the safe zone, and avoid the poisoned edge.
+  - **Spawns, respawns and edge rescues** always land inside the safe zone. In King of the Hill the hill moves to the middle when the poison starts.
+  - **Where it's off:** the tutorial, boss stages, Boss rush, Survival waves, Capture the flag, Ball and Coins.
+  - **Online:** it is host-authoritative. The host's tuning travels with the round rules, the zone is computed from the synced match clock, and only the host applies poison damage. Guests just render it.
+- **Tuning:** every number lives in one object, `POISON` in `src/poison.js`: `startAt` 120 s, `warn` 10 s, `shrink` 75 s, `minFrac` 0.2, `minHX` 2.5, `minHZ` 2.0, `tick` 2.0 s, `botMargin` 1.0, `spawnMargin` 0.7. Times are in game time, the clock the HUD shows. At the default Chill speed that runs slower than wall time.
+
 ## What's new in v4.7 (hero health + abilities, bigger map, no more falling through the floor)
 - **Every hero has their own health and a unique ability** (shown on the hero cards, in the hero details and in the HUD). This replaces the flat 3 hits:
   - **Bao** 4♥, *Comfort Food*: gets 1 heart back after 8 s without being hit.

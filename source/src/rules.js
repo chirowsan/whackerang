@@ -6,6 +6,7 @@ import { spawns, T } from './arena.js';
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { Marker } from './events.js';
+import { POISON, inPoison, poisonRect } from './poison.js';
 
 const ENEMY_RED = 0xff5a5a;
 const TYPES = ['razor', 'frost', 'chain', 'boom', 'phantom'];
@@ -29,9 +30,9 @@ export function installRules(Game, { Boom, Fighter }) {
     if (this.state !== 'play') { f.respawnT = 0.5; return; }
     const foes = this.fighters.filter((o) => o.alive && o.team !== f.team); let best = null, bd = -1;
     const [sk, sz] = arenaScale(); const spots = [...spawns().map(([i, j]) => [cx(i), cz(j)]), [0, 0], [-6 * sk, 0], [6 * sk, 0]];
-    for (const [x, z] of spots) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.layout.t[k] === T.LAVA || this.layout.t[k] === T.SPIKE || this.sol[k]) continue; const d = foes.length ? Math.min(...foes.map((o) => Math.hypot(o.x - x, o.z - z))) : 5 + Math.random(); if (d > bd) { bd = d; best = [x, z]; } }
+    for (const [x, z] of spots) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.layout.t[k] === T.LAVA || this.layout.t[k] === T.SPIKE || this.sol[k] || inPoison(this, x, z, POISON.spawnMargin)) continue; const d = foes.length ? Math.min(...foes.map((o) => Math.hypot(o.x - x, o.z - z))) : 5 + Math.random(); if (d > bd) { bd = d; best = [x, z]; } }
     const sp2 = this.respawnSpot2 ? this.respawnSpot2(f) : null; if (sp2) best = sp2;
-    if (best && !this.safeAt(best[0], best[1], false)) best = null; best = best || this.safeCell({ x: f.spawn[0], z: f.spawn[1], _self: f }, true) || this.anyFloor() || [f.spawn[0], f.spawn[1]]; f.x = best[0]; /* v4.7: never respawn onto a hole / lava / crate */ f.z = best[1]; f.vx = f.vz = 0; f.alive = true; f.deadT = 0; f.air = 0; f.hp = f.maxHp; f.inv = 2.2; f.spawnT = 0; f.ammo = f.maxAmmo; f.charging = false; f.shield = false; f.frozenT = 0; f.stunT = 0; f.deathKind = '';
+    if (best && (!this.safeAt(best[0], best[1], false) || inPoison(this, best[0], best[1], POISON.spawnMargin))) best = null; /* v4.8: never respawn in poison */ best = best || this.safeCell({ x: f.spawn[0], z: f.spawn[1], _self: f }, true) || this.anyFloor() || [f.spawn[0], f.spawn[1]]; f.x = best[0]; /* v4.7: never respawn onto a hole / lava / crate */ f.z = best[1]; f.vx = f.vz = 0; f.alive = true; f.deadT = 0; f.air = 0; f.hp = f.maxHp; f.inv = 2.2; f.spawnT = 0; f.ammo = f.maxAmmo; f.charging = false; f.shield = false; f.frozenT = 0; f.stunT = 0; f.deathKind = '';
     const m = f.model; m.body.rotation.set(0, 0, 0); m.root.scale.setScalar(f.bs); m.root.position.set(f.x, 0, f.z); f.ult = Math.min(f.ult, 40);
     sfx('spawn'); fx.ring(f.x, 0.1, f.z, f.color, 2.8, 0.5); fx.sparks(f.x, 0.8, f.z, 16, [f.color, 0xffffff], { speed: 4, life: 0.6 });
     this.onEvent('respawn', { f });
@@ -56,6 +57,7 @@ export function installRules(Game, { Boom, Fighter }) {
 
   // ---------------- hurt (multi-hp fighters)
   P.onHurt = function (f, killer, kind) {
+    if (kind === 'poison') { sfx('sizzle'); fx.sparks(f.x, 0.7, f.z, 12, [0x9dff3c, 0xb36bff], { speed: 3, up: 3, life: 0.5 }); fx.popup('\u2623 \u2665 ' + f.hp + ' LEFT', f.x, f.z, 'pop-hit'); if (!f.isBot && f.def.slot === 0) fx.flash('#9dff3c', 0.18, 140); this.onEvent('hurt', { f, killer }); return; } // v4.8: gentle poison feedback
     sfx('hit'); fx.sparks(f.x, 0.8, f.z, 16, [0xffffff, f.color], { speed: 6, life: 0.5 }); fx.shockwave(f.x, f.z, 0xffffff, 3.4); shake(0.4); punch(f.x - (killer ? killer.x : f.x), f.z - (killer ? killer.z : f.z), 0.4); this.hitstop = 0.1; fx.flash('#ffffff', 0.25, 150);
     fx.popup(f.boss ? 'HIT! ' + f.hp + ' LEFT' : f.maxHp > 1 ? '\u2665 ' + f.hp + ' LEFT' : 'OUCH!', f.x, f.z, 'pop-hit'); this.onEvent('hurt', { f, killer });
     if (f.boss && !f.rage && f.hp <= f.maxHp / 2) { f.rage = true; f.slamCd = Math.min(f.slamCd, 1.5); fx.popup('ENRAGED!', f.x, f.z, 'pop-hit', 2.3); this.spawnMinions(f, 2); this.onEvent('rage', { f }); }
@@ -83,8 +85,9 @@ export function installRules(Game, { Boom, Fighter }) {
 
   // ---------------- King of the Hill
   P.moveZone = function (first) {
-    const z = this.zone, cands = first ? [[0, 0], [-1, 0], [1, 0], [0, 1], [0, -1]] : shuffle([[-6, 0], [6, 0], [0, -3], [0, 3], [-5, -3], [5, 3], [-5, 3], [5, -3], [0, 0]]); let pos = null;
-    for (const c of cands) { if (!first && Math.hypot(c[0] - z.x, c[1] - z.z) < 3) continue; let bad = false; for (let j = cj(c[1] - 1.8); j <= cj(c[1] + 1.8) && !bad; j++) for (let i = ci(c[0] - 1.8); i <= ci(c[0] + 1.8); i++) { const t = this.layout.t[idx(i, j)]; if (t === T.LAVA || t === T.PILLAR || t === T.SPIKE) { bad = true; break; } } if (!bad) { pos = c; break; } }
+    const pc = !first && poisonRect(this, this.playTime + 3); // v4.8: once poison is (about to be) on, the hill stays in the middle
+    const z = this.zone, cands = first || pc ? [[0, 0], [-1, 0], [1, 0], [0, 1], [0, -1]] : shuffle([[-6, 0], [6, 0], [0, -3], [0, 3], [-5, -3], [5, 3], [-5, 3], [5, -3], [0, 0]]); let pos = null;
+    for (const c of cands) { if (!first && !pc && Math.hypot(c[0] - z.x, c[1] - z.z) < 3) continue; let bad = false; for (let j = cj(c[1] - 1.8); j <= cj(c[1] + 1.8) && !bad; j++) for (let i = ci(c[0] - 1.8); i <= ci(c[0] + 1.8); i++) { const t = this.layout.t[idx(i, j)]; if (t === T.LAVA || t === T.PILLAR || t === T.SPIKE) { bad = true; break; } } if (!bad) { pos = c; break; } }
     pos = pos || [0, 0]; z.x = pos[0]; z.z = pos[1]; z.mk.set(pos[0], pos[1]); z.t = 0; if (!first) { sfx('zone'); fx.ring(pos[0], 0.1, pos[1], 0xffffff, 5, 0.6); this.onEvent('zoneMove'); }
   };
 

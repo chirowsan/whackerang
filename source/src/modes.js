@@ -43,6 +43,7 @@ export function rulesFor(mode, o = {}) {
   else if (mode === 'crumble') { r.crumble = true; r.sudden = false; r.puEvery = 5; }
   else if (mode === 'bossrush') { r.type = 'bossrush'; r.sudden = false; r.puEvery = 6; }
   if (o.boss) { r.sudden = false; }
+  r.poison = (r.type === 'elim' || r.type === 'bomb' || r.type === 'koth') && !o.boss; // v4.8 shrinking poison at 2:00 (src/poison.js)
   r.hearts = HEARTS; // v4.7: every player / bot fighter has 3 hearts per life (bosses keep their own hp, wave minions 1)
   return r;
 }

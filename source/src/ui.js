@@ -8,6 +8,7 @@ import { portrait } from './portraits.js';
 import { KIDS, PRIVACY_URL } from './flags.js';
 import { adultGate } from './kids.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
+import { poisonHud } from './poison.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export function h(tag, cls, kids, attrs) {
@@ -194,6 +195,6 @@ export const UI = {
     if (!game || game.mode === 'attract' || !this.hudCache) return;
     this.hudSet('h-pl', game.fighters.map((q) => `<div class="pchip ${q.alive ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><span>${q.name}</span><span class="w">${crown().repeat(q.wins || 0)}</span><span class="am">${'<i class="ap on"></i>'.repeat(Math.max(0, q.ammo))}${'<i class="ap"></i>'.repeat(Math.max(0, q.maxAmmo - q.ammo))}</span></div>`).join(''));
     this.hudSet('h-name', game.sudden ? '<span style="color:#ff5a5a">SUDDEN DEATH</span>' : `Round ${game.round}`);
-    this.hudSet('h-time', game.sudden ? '☠' : fmtTime(Math.max(0, 48 - game.playTime)));
+    this.hudSet('h-time', poisonHud(game) || (game.sudden ? '☠' : fmtTime(Math.max(0, 48 - game.playTime))));
   },
 };

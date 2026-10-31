@@ -1,6 +1,7 @@
 // Bot brain: dodge incoming boomerangs, keep distance, aim with imperfect accuracy, avoid hazards.
-import { AW, AH, HX, HZ, clamp, ci, cj, idx, inb, angDiff, rr } from './util.js';
+import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, angDiff, rr } from './util.js';
 import { T } from './arena.js';
+import { POISON, inPoison, poisonRect } from './poison.js';
 
 const CURVE = 0.95;
 const P = [ // easy, medium, hard
@@ -49,6 +50,7 @@ export class Bot {
     const g = this.g; const i = ci(x), j = cj(z); if (!inb(i, j)) return 9; const k = idx(i, j);
     if (g.sol[k]) return 6; if (g.hole[k] !== 0) return 8; const t = g.layout.t[k]; if (t === T.LAVA) return 9; if (t === T.SPIKE) return (g.spk[k] > 0.2 || g.spkWarn[k] || (g.playTime + g.spkPh[k]) % 4.2 > 1.8) ? 8 : 2;
     if (g.sudden) { const ring = Math.min(i, j, AW - 1 - i, AH - 1 - j); if (ring <= g.suddenRing + 1) return 5; }
+    { const pr = poisonRect(g); if (pr) { const dp = Math.max(Math.abs(x) - pr.sx, Math.abs(z) - pr.sz) + POISON.botMargin; if (dp > 0) return Math.min(7.5, 5 + dp * 0.4); } } // v4.8 poison: danger grows with depth, so bots flee toward the middle
     const td = g.traps ? g.traps.danger(x, z) : 0;
     return Math.max(td, t === T.CONV ? 0.8 : 0);
   }
@@ -109,8 +111,24 @@ export class Bot {
     { const vl = Math.hypot(f.vx, f.vz); if (vl > 1 && !(f.dashT > 0)) { const px = f.x + f.vx * 0.34, pz = f.z + f.vz * 0.34; if (this.cellDanger(px, pz) >= 8 || this.cellDanger(f.x + f.vx * 0.17, f.z + f.vz * 0.17) >= 8) { let b2 = null, s2 = -1e9; for (let n = 0; n < 12; n++) { const a = n / 12 * Math.PI * 2, sx = Math.sin(a), sz = Math.cos(a); const hit = this.cellDanger(f.x + sx * 0.6 + f.vx * 0.15, f.z + sz * 0.6 + f.vz * 0.15) >= 8 || this.cellDanger(f.x + sx * 1.1, f.z + sz * 1.1) >= 8; const sc = -(sx * f.vx + sz * f.vz) / vl - (hit ? 5 : 0) + (sx * o.mx + sz * o.mz) * 0.3; if (sc > s2) { s2 = sc; b2 = [sx, sz]; } } if (b2) { o.mx = b2[0]; o.mz = b2[1]; } } } }
     // never stand on a doomed/dangerous tile
     if (this.cellDanger(f.x, f.z) >= 5 && !evade) { let best = null, bs = 1e9; for (let n = 0; n < 12; n++) { const a = n / 12 * Math.PI * 2; const dd = this.cellDanger(f.x + Math.sin(a) * 1.4, f.z + Math.cos(a) * 1.4); if (dd < bs) { bs = dd; best = [Math.sin(a), Math.cos(a)]; } } if (best) { o.mx = best[0]; o.mz = best[1]; if (f.dashCd <= 0 && this.cellDanger(f.x, f.z) >= 8 && Math.random() < 0.3) o.dash = true; } }
+    // v4.8: in (or right next to) the poison -> head for the middle, steering around holes / walls
+    if (inPoison(g, f.x, f.z, POISON.botMargin) && (!evade || inPoison(g, f.x, f.z, -1.5))) { const d = this.poisonPath(); if (d) { o.mx = d[0]; o.mz = d[1]; } }
     if (this.holding) { o.mx *= 0.5; o.mz *= 0.5; }
     return this.finish(o);
+  }
+  // v4.8: shortest walkable route (BFS over floor cells, around walls / holes / lava / spikes) to the safe area
+  poisonPath() {
+    const g = this.g, f = this.f, pr = poisonRect(g); if (!pr) return null; const si = ci(f.x), sj = cj(f.z); if (!inb(si, sj)) return [-Math.sign(f.x) || 0, -Math.sign(f.z) || 0];
+    const sk = idx(si, sj); if (this._pp && this._ppK === sk && g.time - this._ppT < 0.3) return this._pp; this._ppK = sk; this._ppT = g.time;
+    const N = AW * AH; const prev = this._ppPrev && this._ppPrev.length === N ? this._ppPrev : (this._ppPrev = new Int32Array(N)); prev.fill(-2);
+    const m = Math.max(0.3, Math.min(POISON.botMargin, Math.min(pr.sx, pr.sz) - 0.6)); const q = [sk]; prev[sk] = -1; let goal = -1;
+    for (let h = 0; h < q.length; h++) { const k = q[h], i = k % AW, j = (k / AW) | 0; if (!inPoison(g, cx(i), cz(j), m)) { goal = k; break; }
+      for (let n = 0; n < 4; n++) { const ni = i + (n === 0 ? 1 : n === 1 ? -1 : 0), nj = j + (n === 2 ? 1 : n === 3 ? -1 : 0); if (!inb(ni, nj)) continue; const nk = idx(ni, nj); if (prev[nk] !== -2) continue; const t = g.layout.t[nk]; if (g.sol[nk] || g.hole[nk] !== 0 || t === T.LAVA || t === T.SPIKE) continue; prev[nk] = k; q.push(nk); } }
+    if (goal < 0) { const l = Math.hypot(f.x, f.z) || 1; return (this._pp = [-f.x / l, -f.z / l]); }
+    const path = []; for (let k = goal; prev[k] !== -1; k = prev[k]) path.push(k);
+    let tk = path.length ? path[path.length - 1] : goal; if (path.length > 1 && Math.hypot(cx(tk % AW) - f.x, cz((tk / AW) | 0) - f.z) < 0.35) tk = path[path.length - 2];
+    if (!path.length) tk = goal; const dx = cx(tk % AW) - f.x, dz = cz((tk / AW) | 0) - f.z, l = Math.hypot(dx, dz);
+    if (l < 0.05) { const l2 = Math.hypot(f.x, f.z) || 1; return (this._pp = [-f.x / l2, -f.z / l2]); } return (this._pp = [dx / l, dz / l]);
   }
   pathBad(dx, dz) { const f = this.f; for (let s = 0.7; s <= 3.1; s += 0.7) { if (this.cellDanger(f.x + dx * s, f.z + dz * s) >= 8) return true; } return false; }
   finish(o) {
