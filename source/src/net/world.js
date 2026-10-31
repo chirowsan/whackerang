@@ -51,7 +51,7 @@ export function encodeFast(g, st) {
   w.u8(g.fighters.length);
   for (let i = 0; i < g.fighters.length; i++) {
     const f = g.fighters[i];
-    const fl = (f.alive ? 1 : 0) | (f.charging ? 2 : 0) | (f.shield ? 4 : 0) | (f.hasBomb ? 8 : 0) | (f.dashT > 0 ? 16 : 0) | (f.deflectT > 0 ? 32 : 0) | (f.frozenT > 0 ? 64 : 0) | (f.stunT > 0 ? 128 : 0) | (f.inv > 0 ? 256 : 0) | (f.emoteT > 0 ? 512 : 0) | (f.carry ? 1024 : 0) | (f.respawnT > 0 ? 2048 : 0) | (f.slowK < 1 ? 4096 : 0) | (f.gooT > 0 ? 8192 : 0) | (f.airT > 0 ? 16384 : 0) | (f.isBot ? 32768 : 0);
+    const fl = (f.alive ? 1 : 0) | (f.charging ? 2 : 0) | (f.shield ? 4 : 0) | (f.hasBomb ? 8 : 0) | (f.dashT > 0 ? 16 : 0) | (f.deflectT > 0 ? 32 : 0) | (f.frozenT > 0 ? 64 : 0) | (f.stunT > 0 ? 128 : 0) | (f.inv > 0 ? 256 : 0) | (f.emoteT > 0 ? 512 : 0) | (f.carry ? 1024 : 0) | (f.respawnT > 0 ? 2048 : 0) | (f.slowK < 1 ? 4096 : 0) | (f.gooT > 0 || f.chillT > 0 ? 8192 : 0) | (f.airT > 0 ? 16384 : 0) | (f.isBot ? 32768 : 0);
     w.u8(i).q16(f.x, 1000).q16(f.z, 1000).q16(f.vx + (f.ex || 0), 100).q16(f.vz + (f.ez || 0), 100).u16(fl).u8(Math.round(normA(f.face) / TAU * 255));
     w.u8((Math.min(15, f.ammo) | (Math.min(15, f.maxAmmo) << 4))).u8(Math.round(f.ult)).u8(f.hp).u8(Math.min(255, Math.max(0, f.lives))).q8(Math.min(1, f.chargeT / 0.7), 255).q8(Math.max(0, f.dashCd), 100).q8(Math.max(0, f.deflectCd), 100);
     for (const k of PUK) w.q8(Math.max(0, f.pu[k] || 0), 10);
@@ -171,7 +171,7 @@ export class GuestWorld {
     if (type === PK.CRATES) { const n = r.u16(); const keep = new Map(); for (let i = 0; i < n; i++) { const v = r.u16(); keep.set(v & 0x7fff, (v & 0x8000) ? 1 : 2); } this.netCrates(keep); }
     else if (type === PK.HOLES) {
       const nb = Math.ceil(AW * AH / 8); const bits = r.bytes(nb); const nc = r.u8(); const col = new Map(); for (let i = 0; i < nc; i++) { const k = r.u16(); col.set(k, r.u8() / 60); }
-      for (let k = 0; k < AW * AH; k++) { const gone = !!(bits[k >> 3] & (1 << (k & 7))); if (gone) { if (g.hole[k] >= 0) this.holeGone(k); } else if (col.has(k)) { if (g.hole[k] <= 0) g.hole[k] = Math.max(0.05, col.get(k)); } else if (g.hole[k] > 0) g.hole[k] = 0; }
+      for (let k = 0; k < AW * AH; k++) { const gone = !!(bits[k >> 3] & (1 << (k & 7))); if (gone) { if (g.hole[k] >= 0) this.holeGone(k); } else if (col.has(k)) { if (g.hole[k] <= 0) g.hole[k] = Math.max(0.05, col.get(k)); } else if (g.hole[k] !== 0) g.hole[k] = 0; } // v4.7: a closed trapdoor is floor again on the guest too (was left as a hole)
     } else if (type === PK.ITEMS) {
       const np = r.u8(); const seen = new Set(); for (let i = 0; i < np; i++) { const id = r.u16(); r.u8(); const kind = PU_ALL[r.u8()] || 'extra'; const x = r.i16() / 1000, z = r.i16() / 1000; seen.add(id); if (!this.pus.has(id)) { const mesh = buildPowerup(kind); mesh.position.set(x, 0, z); g.scene.add(mesh); const p = { x, z, kind, mesh, t: 0, nid: id }; g.powerups.push(p); this.pus.set(id, p); } else { const p = this.pus.get(id); p.x = x; p.z = z; p.mesh.position.x = x; p.mesh.position.z = z; } }
       for (const [id, p] of [...this.pus]) if (!seen.has(id)) { g.scene.remove(p.mesh); const i = g.powerups.indexOf(p); if (i >= 0) g.powerups.splice(i, 1); this.pus.delete(id); }
@@ -214,7 +214,7 @@ export class GuestWorld {
     if (P.dashT > 0) { P.dashT -= dt; P.vx = P.dashDir[0] * 17; P.vz = P.dashDir[1] * 17; if (P.dashT <= 0) { P.vx *= 0.35; P.vz *= 0.35; } }
     else { const sp = this.speedOf(hf); const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * (g.mut && g.mut.grav ? 0.45 : 1) * dt; const stop = inp.mx === 0 && inp.mz === 0; const a2 = stop ? (ice ? 1.6 : 34) * dt : acc; P.vx += clamp(tx - P.vx, -a2, a2); P.vz += clamp(tz - P.vz, -a2, a2); }
     let ex = 0, ez = 0; if (g.cellType(P.x, P.z) === T.CONV) { const k = idx(ci(P.x), cj(P.z)); ex = g.layout.dx[k] * 2.6; ez = g.layout.dz[k] * 2.6; }
-    P.x += (P.vx + ex) * dt; P.z += (P.vz + ez) * dt; this.resolve(P, 0.4);
+    { const mx = (P.vx + ex) * dt, mz = (P.vz + ez) * dt, n = Math.min(12, Math.max(1, Math.ceil(Math.max(Math.abs(mx), Math.abs(mz)) / 0.2))); for (let q = 0; q < n; q++) { P.x += mx / n; P.z += mz / n; this.resolve(P, 0.4); } } // v4.7: same sub-steps as the host
     if (P.dashT <= 0 && Math.hypot(inp.mx, inp.mz) > 0.2) P.face = Math.atan2(inp.mx, inp.mz); else if (inp.aimX || inp.aimZ) P.face = Math.atan2(inp.aimX, inp.aimZ);
   }
   resolve(P, r) {
@@ -298,8 +298,9 @@ export class GuestWorld {
     }
     f._wasAlive = alive; f.alive = alive;
     if (!alive) { f.x = x; f.z = z; f.deadT += dt; this.koAnim(f, dt); f.respawnT = (fl & 2048) ? 1 : 0; this.copyStats(f, s); return; }
-    if (own && this.me && this.disp && !(fl & (64 | 128 | 16384 | 2048))) { f.x = this.disp.x; f.z = this.disp.z; } else { f.x = x; f.z = z; if (own) this.disp = null; }
-    const pa = f.ammo; this.copyStats(f, s);
+    if (own && this.me && this.disp && !(fl & (64 | 128 | 16384 | 2048))) { f.x = this.disp.x; f.z = this.disp.z; } else { f.x = clamp(x, -HX + 0.4, HX - 0.4); f.z = clamp(z, -HZ + 0.4, HZ - 0.4); /* v4.7: extrapolation never draws a rival past the rim */ if (own) this.disp = null; }
+    const pa = f.ammo, ph = f.hp; this.copyStats(f, s); if (s.hp > (f.maxHp || 1)) f.maxHp = s.hp;
+    if (s.hp < ph && f._wasHp) f.hurtT = 1; f._wasHp = 1; // v4.7: lost a heart (the sound / shake comes with the relayed 'hurt' event)
     if (s.ammo < pa && !own) f.throwT = 1; if (s.ammo > pa) { f.happyT = 1.0; f.catchPop = 0.2; }
     f.vx = s.vx; f.vz = s.vz; f.dashT = (fl & 16) ? 0.1 : 0; f.deflectT = (fl & 32) ? 0.2 : 0; f.frozenT = (fl & 64) ? 1 : 0; f.stunT = (fl & 128) ? 1 : 0; f.inv = (fl & 256) ? 1 : 0; f.emoteT = (fl & 512) ? 1 : 0; f.shield = !!(fl & 4); f.hasBomb = !!(fl & 8); f.airT = (fl & 16384) ? 0.1 : 0; f.hopY = s.hopY;
     if (own) { const inp = this.hist.length ? this.hist[this.hist.length - 1].inp : null; f.charging = !!(inp && inp.fire && s.ammo > 0 && !(fl & (16 | 64 | 128))); if (f.charging) { f.chargeT = Math.min(1.2, (f.chargeT || 0) + dt * f.mods.charge); if (inp.aimX || inp.aimZ) { f.lastAim = [inp.aimX, inp.aimZ]; f.face = Math.atan2(inp.aimX, inp.aimZ); } else if (this.me) f.face = this.me.face; } else { f.chargeT = 0; if (this.me) f.face = this.me.face; } }
@@ -315,7 +316,7 @@ export class GuestWorld {
     if (f.deathKind === 'shatter') m.root.scale.setScalar(0.0001);
     else if (f.deathKind === 'fall') { f.air -= dt * (4 + t * 14); m.root.scale.setScalar(Math.max(0, 1 - t * 1.3)); m.body.rotation.y += dt * 8; }
     else if (['lava', 'spike', 'fire', 'zap', 'laser'].includes(f.deathKind)) { m.root.scale.setScalar(Math.max(0, 1 - Math.max(0, t - 0.35) * 2)); f.air = Math.max(0, 0.5 * Math.sin(Math.min(t * 5, 3.1))); m.body.rotation.y += dt * 14; }
-    else { f.air = Math.max(-1.2, 2.4 * t * (1 - t * 0.9) * 2.2); if (t > 1.0) m.root.scale.setScalar(Math.max(0, 1 - (t - 1.0) * 2)); m.body.rotation.y += dt * 18; m.body.rotation.x = Math.min(1.4, t * 3); }
+    else { f.air = Math.max(0, 2.4 * t * (1 - t * 0.9) * 2.2); /* v4.7: never sink through the floor */ if (t > 1.0) m.root.scale.setScalar(Math.max(0, 1 - (t - 1.0) * 2)); m.body.rotation.y += dt * 18; m.body.rotation.x = Math.min(1.4, t * 3); }
   }
   applyMode(a, b, al, S, dt) {
     const g = this.g, m = S.m, type = this.type, mst = g.mst, m2 = g.m2;

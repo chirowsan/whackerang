@@ -7,8 +7,9 @@ export async function startRelay(port = 9100) { const p = spawn('node', ['/works
 // Chrome on this box gathers no host candidates, so tests use a local STUN/TURN server (node-turn) on 127.0.0.1:3478: real RTCPeerConnection + DataChannels.
 export async function startTurn() { const p = spawn('node', ['/workspace/boomerang-brawl/tools/netturn.mjs'], { stdio: 'ignore' }); await sleep(900); return { stop: () => p.kill() }; }
 export const LOCAL_ICE = [{ urls: 'stun:127.0.0.1:3478' }];
+// v4.7: o.stockRtc = stock Chrome WebRTC policy (no IP-handling / mDNS overrides); use with forceRelay so play goes over the WebSocket relay
 export async function openN(n, o = {}) {
-  const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--allow-file-access-from-files', '--disable-features=WebRtcHideLocalIpsWithMdns', '--force-webrtc-ip-handling-policy=default_public_and_private_interfaces', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--window-size=' + (o.w || 800) + ',' + (o.h || 450)] });
+  const browser = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--allow-file-access-from-files', ...(o.stockRtc ? [] : ['--disable-features=WebRtcHideLocalIpsWithMdns', '--force-webrtc-ip-handling-policy=default_public_and_private_interfaces']), '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--window-size=' + (o.w || 800) + ',' + (o.h || 450)] });
   const pages = [];
   for (let i = 0; i < n; i++) {
     const ctx = await (browser.createBrowserContext ? browser.createBrowserContext() : browser.createIncognitoBrowserContext()); const page = await ctx.newPage(); const errors = [], logs = [];

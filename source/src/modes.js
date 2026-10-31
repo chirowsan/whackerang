@@ -29,6 +29,7 @@ const pickEvents = (arena, level) => {
   const n = level === 'wild' ? 2 : 1; const a = base.slice().sort(() => Math.random() - 0.5); return a.slice(0, n);
 };
 
+export const HEARTS = 'hero'; /* v4.7: hearts per life come from the hero (data.js ABILITIES) */
 export function rulesFor(mode, o = {}) {
   const ev = o.events !== undefined ? o.events : pickEvents(o.arena || 'dojo', o.eventLevel || 'off');
   const r = { type: 'elim', sudden: true, events: ev, teams: false };
@@ -42,6 +43,7 @@ export function rulesFor(mode, o = {}) {
   else if (mode === 'crumble') { r.crumble = true; r.sudden = false; r.puEvery = 5; }
   else if (mode === 'bossrush') { r.type = 'bossrush'; r.sudden = false; r.puEvery = 6; }
   if (o.boss) { r.sudden = false; }
+  r.hearts = HEARTS; // v4.7: every player / bot fighter has 3 hearts per life (bosses keep their own hp, wave minions 1)
   return r;
 }
 

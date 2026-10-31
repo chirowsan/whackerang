@@ -147,7 +147,7 @@ export const Match = {
   // v4.6.3: a short code the player can read out when something goes wrong: version-state-players-lastError-link, e.g. 463-S2-TO-R
   dcode() { const st = { idle: 'I', connecting: 'C', searching: 'S', found: 'F', hosting: 'H', joining: 'J', joined: 'D', offline: 'O' }[this.state] || 'X';
     const e = { unreachable: 'UR', timeout: 'TO', dropped: 'DR', host: 'HF', slow: 'SL', alone: 'AL', left: 'LF', lost: 'LO', 'no-room': 'NR', nat: 'NT', 'no-signal': 'NS', 'reject:locked': 'LK', 'reject:full': 'FL', 'reject:version': 'VR', mode: 'MD', error: 'ER', nowebrtc: 'NW', 'no-webrtc': 'NW' }[this.lastErr] || (this.lastErr ? 'E' + String(this.lastErr).slice(0, 2).toUpperCase() : 'OK');
-    const via = { relay: 'R', direct: 'D', mixed: 'M' }[Net.conType] || '-'; return `463-${st}${this.n | 0}-${e}-${via}${this.joinTry ? 'r' : ''}${this.retries ? 'x' + this.retries : ''}`; },
+    const via = { relay: 'R', direct: 'D', mixed: 'M' }[Net.conType] || '-'; return `470-${st}${this.n | 0}-${e}-${via}${this.joinTry ? 'r' : ''}${this.retries ? 'x' + this.retries : ''}`; },
   log(ev, d) { this.diag.push({ t: now(), ev, d: d === undefined ? '' : String(d).slice(0, 40) }); if (this.diag.length > 24) this.diag.shift(); },
   closeWs() { clearInterval(this.hb); const w = this.ws; this.ws = null; if (w) { w.onclose = w.onerror = w.onmessage = null; if (w.readyState === 1) try { w.send(JSON.stringify({ t: 'bye' })); } catch (e) {} try { w.close(1000); } catch (e) {} } },
   close() { clearInterval(this._w); this.closeWs(); },

@@ -59,7 +59,7 @@ const app = {
   setGame(opts) {
     if (this.showPed) { this.game && this.game.scene.remove(this.showPed.ped, this.showBoom.mesh); this.showPed = null; this.showBoom = null; }
     this.cdHide(); if (this.game) { this.game.dispose(); this.game = null; } gfx.fovHold = 0; document.body.classList.remove('slowmo'); setTempo(1);
-    setArenaSize(opts.mode === 'attract' ? 'small' : (opts.size || 'small'));
+    setArenaSize(opts.mode === 'attract' ? 'small' : (opts.size || 'large'));
     this.game = new Game({ ...opts, mutator: opts.mode === 'attract' ? null : resolveMutator(opts.mutator), input: opts.input || Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
     fitCamera(opts.mode === 'attract' ? 'menu' : 'play'); UI.hudStart(this.game);
     AU.mute = opts.mode === 'attract';
@@ -124,7 +124,7 @@ const app = {
     else if (modeId === 'crumble') { const nb = Math.min(st.bots, 4 - nh); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); need = st.rounds; }
     else if (modeId === 'survival') { players[0].team = 0; players[0].lives = 3; }
     else { const nb = Math.max(modeId === 'bomb' ? 2 : 1, Math.min(st.bots, 4 - nh)); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); if (modeId === 'koth' || modeId === 'coins') players.forEach((p) => (p.lives = 99)); }
-    this.match = { mode: modeId, rulesMode, players, round: 0, need, arena: st.arena, size: (MODES[modeId] && MODES[modeId].size) || st.size || 'small', traps: st.traps, trapSet: modeId === 'ball' ? [['bumper', 'q4'], ['jump', 'r2']] : null, mutator: st.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
+    this.match = { mode: modeId, rulesMode, players, round: 0, need, arena: st.arena, size: (MODES[modeId] && MODES[modeId].size) || st.size || 'large', traps: st.traps, trapSet: modeId === 'ball' ? [['bumper', 'q4'], ['jump', 'r2']] : null, mutator: st.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
     s.played++; track('play'); save(); this.dailyBefore = dailySnapshot(); this.nextRound(true);
   },
   quickPlay() { const s = S(); const md = s.setup.mode; this.startMode(MODES[md] && md !== 'campaign' ? md : 'classic'); },

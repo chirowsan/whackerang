@@ -1,7 +1,7 @@
 // v2.0 screens: menu, mode select, setup, campaign, shop, profile, results, HUD, tutorial, emotes.
 import { UI, h, $ } from './ui.js';
 import { S, save, resetSave } from './save.js';
-import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, MODES, ACHIEVEMENTS, PERSONA_INFO } from './data.js';
+import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, MODES, ACHIEVEMENTS, PERSONA_INFO, ABILITIES, heroHp } from './data.js';
 import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
 import { STORE } from './flags.js';
 import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
@@ -31,7 +31,7 @@ const campStars = () => (S().camp.stars || []).reduce((a, b) => a + (b || 0), 0)
 Object.assign(UI, {
   notify(msg, kind) { this._nq = this._nq || []; this._nq.push({ msg, kind }); if (!this._nr) this._nextNote(); },
   _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
-  heroLine(hh) { return `<div class="perk">★ ${hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
+  heroLine(hh) { return `<div class="perk hpline">\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}</div><div class="perk">★ ${hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
   coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
   // ================= Gold Store =================
   goldstore(p) {
@@ -129,7 +129,7 @@ Object.assign(UI, {
     if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
     if (mode === 'classic' || mode === 'team') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins'], [5, '5 wins']]));
     add(this.seg('Arena events', s.settings, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
-    if (!M.size) add(this.seg('Map size', v, 'size', [['small', 'Small'], ['large', 'Large'], ['huge', 'Huge']]));
+    if (!M.size) add(this.seg('Map size', v, 'size', [['small', 'Small'], ['large', 'Large'], ['huge', 'Huge']], () => { v.sizeSet = true; save(); }));
     if (!M.noTraps) add(this.seg('Traps', v, 'traps', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
     add(this.seg('Daily twist', v, 'mutator', [['off', 'Off'], ['daily', 'Today: ' + todayMutator().name]]));
     const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt');
@@ -280,7 +280,7 @@ Object.assign(UI, {
   hudUpdate(game) {
     if (!game || game.mode === 'attract' || !this.hudCache) return; const m = this.app.match; const ms = game.mstate(); const touch = Input.touch.enabled;
     const shown = game.fighters.slice(0, game.nPlayers);
-    this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const hearts = lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; const rdy = q.ult >= 100; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
+    this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const mh = q.boss ? 1 : (q.maxHp || 1); const hearts = mh > 1 ? `<span class="hearts">${Array.from({ length: mh }, (_, i) => heart(i < (q.alive ? q.hp : 0))).join('')}${lives > 1 && lives < 90 ? `<b class="lvx" style="font-size:.8em;margin-left:3px;opacity:.85">\u00d7${Math.max(0, q.lives)}</b>` : ''}</span>` : lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; /* v4.7: hearts = hit points of the current life (x N = lives left) */ const rdy = q.ult >= 100; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
     this.mapUpdate(game); let mid = ''; const rt = ms.type;
     if (m && m.tutorial) mid = ''; else if (m && m.stage) mid = `<b>${m.stage.n}</b> ${m.stage.name.replace('Boss: ', '')}`; else if (game.sudden) mid = '<span style="color:#ff5a5a">SUDDEN DEATH</span>'; else mid = (rt === 'elim' ? `Round ${game.round}` : '');
     if (rt === 'koth') { const teams = [...new Set(game.fighters.slice(0, game.nPlayers).map((f) => f.team))]; mid = `<div class="koth">${teams.map((t) => `<div class="kb ${ms.owner === t ? 'own' : ''}" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${Math.floor(ms.scores[t] || 0)}</b></div>`).join('')}</div><div class="kz ${ms.contested ? 'c' : ''}">${ms.contested ? 'CONTESTED' : 'Hill moves in ' + Math.ceil(ms.zoneIn) + 's'}</div>`; }

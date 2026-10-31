@@ -31,7 +31,7 @@ export function installRules(Game, { Boom, Fighter }) {
     const [sk, sz] = arenaScale(); const spots = [...spawns().map(([i, j]) => [cx(i), cz(j)]), [0, 0], [-6 * sk, 0], [6 * sk, 0]];
     for (const [x, z] of spots) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.layout.t[k] === T.LAVA || this.layout.t[k] === T.SPIKE || this.sol[k]) continue; const d = foes.length ? Math.min(...foes.map((o) => Math.hypot(o.x - x, o.z - z))) : 5 + Math.random(); if (d > bd) { bd = d; best = [x, z]; } }
     const sp2 = this.respawnSpot2 ? this.respawnSpot2(f) : null; if (sp2) best = sp2;
-    best = best || [f.spawn[0], f.spawn[1]]; f.x = best[0]; f.z = best[1]; f.vx = f.vz = 0; f.alive = true; f.deadT = 0; f.air = 0; f.hp = f.maxHp; f.inv = 2.2; f.spawnT = 0; f.ammo = f.maxAmmo; f.charging = false; f.shield = false; f.frozenT = 0; f.stunT = 0; f.deathKind = '';
+    if (best && !this.safeAt(best[0], best[1], false)) best = null; best = best || this.safeCell({ x: f.spawn[0], z: f.spawn[1], _self: f }, true) || this.anyFloor() || [f.spawn[0], f.spawn[1]]; f.x = best[0]; /* v4.7: never respawn onto a hole / lava / crate */ f.z = best[1]; f.vx = f.vz = 0; f.alive = true; f.deadT = 0; f.air = 0; f.hp = f.maxHp; f.inv = 2.2; f.spawnT = 0; f.ammo = f.maxAmmo; f.charging = false; f.shield = false; f.frozenT = 0; f.stunT = 0; f.deathKind = '';
     const m = f.model; m.body.rotation.set(0, 0, 0); m.root.scale.setScalar(f.bs); m.root.position.set(f.x, 0, f.z); f.ult = Math.min(f.ult, 40);
     sfx('spawn'); fx.ring(f.x, 0.1, f.z, f.color, 2.8, 0.5); fx.sparks(f.x, 0.8, f.z, 16, [f.color, 0xffffff], { speed: 4, life: 0.6 });
     this.onEvent('respawn', { f });
@@ -57,7 +57,7 @@ export function installRules(Game, { Boom, Fighter }) {
   // ---------------- hurt (multi-hp fighters)
   P.onHurt = function (f, killer, kind) {
     sfx('hit'); fx.sparks(f.x, 0.8, f.z, 16, [0xffffff, f.color], { speed: 6, life: 0.5 }); fx.shockwave(f.x, f.z, 0xffffff, 3.4); shake(0.4); punch(f.x - (killer ? killer.x : f.x), f.z - (killer ? killer.z : f.z), 0.4); this.hitstop = 0.1; fx.flash('#ffffff', 0.25, 150);
-    fx.popup(f.boss ? 'HIT! ' + f.hp + ' LEFT' : 'OUCH!', f.x, f.z, 'pop-hit'); this.onEvent('hurt', { f, killer });
+    fx.popup(f.boss ? 'HIT! ' + f.hp + ' LEFT' : f.maxHp > 1 ? '\u2665 ' + f.hp + ' LEFT' : 'OUCH!', f.x, f.z, 'pop-hit'); this.onEvent('hurt', { f, killer });
     if (f.boss && !f.rage && f.hp <= f.maxHp / 2) { f.rage = true; f.slamCd = Math.min(f.slamCd, 1.5); fx.popup('ENRAGED!', f.x, f.z, 'pop-hit', 2.3); this.spawnMinions(f, 2); this.onEvent('rage', { f }); }
   };
   P.spawnMinions = function (boss, n) { const hs = shuffle(HEROES.slice()); for (let i = 0; i < n; i++) this.spawnEnemy({ hero: hs[i % hs.length], diff: 1, team: boss.team, color: boss.color, lives: 1, type: pick(['classic', 'razor', 'chain']) }); };
@@ -67,8 +67,8 @@ export function installRules(Game, { Boom, Fighter }) {
     const humans = this.fighters.filter((f) => f.team === 0 && f.alive); let best = null, bd = -1;
     const [sk, sz] = arenaScale(); const spots = [...spawns().map(([i, j]) => [cx(i), cz(j)]), [0, -4.5 * sz], [0, 4.5 * sz], [-8 * sk, 0], [8 * sk, 0]];
     for (const [x, z] of shuffle(spots)) { const k = idx(ci(x), cj(z)); if (this.hole[k] !== 0 || this.sol[k] || this.layout.t[k] !== T.FLOOR) continue; const dd = humans.length ? Math.min(...humans.map((o) => Math.hypot(o.x - x, o.z - z))) : 6; if (dd > bd) { bd = dd; best = [x, z]; } }
-    best = best || [0, 0]; const hero = d.hero || pick(HEROES);
-    const def = { ctrl: 'bot', hero, name: d.name || hero.name, persona: d.persona || PERSONAS[hero.id], slot: -1, ...d };
+    best = best || this.safeCell({ x: 0, z: 0 }, true) || this.anyFloor() || [0, 0]; const hero = d.hero || pick(HEROES);
+    const def = { ctrl: 'bot', hero, name: d.name || hero.name, persona: d.persona || PERSONAS[hero.id], slot: -1, minion: true, ...d }; /* v4.7: wave enemies / boss minions keep 1 heart */
     const f = new Fighter(this, def, 4 + this.fighters.length, best); f.inv = 1.2; this.fighters.push(f); f.spawnT = 0;
     sfx('spawn'); fx.ring(best[0], 0.1, best[1], f.color, 3, 0.5); fx.sparks(best[0], 0.8, best[1], 14, [f.color, 0xffffff], { speed: 4 }); return f;
   };
@@ -100,7 +100,7 @@ export function installRules(Game, { Boom, Fighter }) {
     else if (own !== m.holder) { f.stunT = Math.max(f.stunT, f === m.holder ? 1.2 : 0.7); fx.popup('STUN!', f.x, f.z, 'pop-cyan'); }
   };
   P.explodeBomb = function () {
-    const m = this.mst, h = m.holder; if (!h) return; this.explode(h.x, h.z, null, 2.6); h.hasBomb = false; m.holder = null; if (h.alive) { h.lives = 0; h.die(null, 'bomb', 0, -1); } fx.popup('KABOOM!', h.x, h.z, 'pop-hit', 2.0);
+    const m = this.mst, h = m.holder; if (!h) return; h.hasBomb = false; m.holder = null; if (h.alive) { h.inv = 0; if (h.hp <= 1) h.lives = 0; h.die(null, 'bomb', 0, -1); } this.explode(h.x, h.z, null, 2.6); /* v4.7: the holder loses a heart (eliminated on the last one); the blast hits the others */ fx.popup('KABOOM!', h.x, h.z, 'pop-hit', 2.0);
     const alive = this.fighters.filter((f) => f.alive); if (alive.length >= 2) { m.fuseMax = 6 + alive.length * 1.6; m.fuse = m.fuseMax; this.passBomb(null, pick(alive)); }
   };
 

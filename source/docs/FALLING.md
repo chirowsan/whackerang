@@ -23,3 +23,17 @@ The only floor that can disappear is a tile in the `hole[]` grid (arena walls cl
 
 ## Tests
 `tools/falls44.mjs` (all 8 arenas, 78 checks): rim strips, warning rim, abyss layers, rim removal, proximity, wobble, grace, free save, second fall fatal, step-off cancel, Edge help off, per-match record, overlay. `tools/net_relay43.mjs` checks that a guest sees the same drop and that the host saves a guest. Screenshots: `tools/shots44.mjs`, `tools/shots44b.mjs`.
+
+
+## v4.7: hearts + safety net (no fall-through deaths)
+Audit of every way to fall or leave the floor. Each one is fixed:
+* (a) A trapdoor, crumble tile, sudden-death ring or ice crack opening under you was a one-hit KO. With hearts left it now costs **one heart + a rescue** to the nearest safe floor (`Game.rescue`, inv 1.4 s). Only the last heart is a real fall KO. The once-per-match free save from v4.4 is kept.
+* (b) Only the centre cell was tested. Now there is a **rim assist** (`Game.ledge`): if any of 8 probe points 0.3 from the centre is on floor, you are eased toward it at 3.5 u/s. This is weaker than walking, so you can still step off on purpose.
+* (c) Respawns could fall back onto a hole, and enemy spawns used an unchecked [0,0]. Respawn, spawn and minion spawn now use `safeAt` / `safeCell` / `anyFloor`.
+* (d) Portals could teleport you onto a hole. The exit must be safe, otherwise the portal waits.
+* (e) The KO spin-out sank to y = -1.2, so it looked like falling through the floor. It is clamped at 0 on the host and on guests.
+* (f) A trapdoor that closed stayed a hole on online guests. The HOLES sync now restores it to floor.
+* (g) There was no rescue for NaN, off-map or inside-solid positions. `Game.guard` runs every frame and rescues for free.
+* High speed: `Game.moveSub` sub-steps movement in steps of at most 0.2 cell (up to 12 per frame). The guest prediction does the same.
+* Falling or lava while invulnerable is a free rescue. Spikes while invulnerable are ignored.
+Tests: `tools/hearts47.mjs` (31 checks), `tools/soak47.mjs` (all-bot soak plus `CHAOS=n` random-walking players; zero-tolerance counters for fall-on-floor, off-map, NaN, in-wall and fall-with-hearts).

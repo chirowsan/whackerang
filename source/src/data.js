@@ -6,7 +6,7 @@ export const HEROES = [
   { id: 'kuma', name: 'Salty', title: 'Cat Pirate', color: 0x7d8fc4, accent: 0xe8b23a, trail: 0xffd060, shape: 'pirate', blurb: 'One eye, one hook, nine lives (give or take).', quip: '"Arr! Yer boomerang be mine now!"', perk: 'Big catch radius', mods: { catchR: 1.35 }, cost: 0, cam: [0.72, 3.9] },
   { id: 'pico', name: 'Pico', title: 'Lizard Monk', color: 0x5fd16b, accent: 0xff9a2e, trail: 0x9dff7a, shape: 'monk', blurb: 'Calm, green and suspiciously fast with a tongue.', quip: '"Inner peace. Outer boomerang."', perk: 'Power-ups last 40% longer', mods: { puDur: 1.4 }, cost: 300, cam: [0.7, 3.9] },
   { id: 'yuki', name: 'Yuki', title: 'Penguin Samurai', color: 0x2b3a67, accent: 0xb5342a, trail: 0x9ad8ff, shape: 'peng', blurb: 'A waddling ice-slider with a very sharp helmet.', quip: '"Honor first. Snacks second."', perk: 'Faster walking (+8%)', mods: { speed: 1.08 }, cost: 450, cam: [0.74, 3.8] },
-  { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: 'Heavy thrower (+25% charge speed, +10% catch radius)', mods: { charge: 1.25, catchR: 1.1 }, cost: 500, cam: [0.8, 4.1] },
+  { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: 'Heavy thrower (+25% charge speed, +10% catch radius, -8% walk speed)', mods: { charge: 1.25, catchR: 1.1, speed: 0.92 }, cost: 500, cam: [0.8, 4.1] },
   { id: 'wisp', name: 'Wisp', title: 'Ghost Apprentice', color: 0xdff7ff, accent: 0x6ff0ff, trail: 0x8ffcff, shape: 'ghost', blurb: 'A shy little ghost who floats through the party. Light, quick and a bit spooky.', quip: '"Boo! ...sorry, was that too loud?"', perk: 'Floaty (+5% speed, -10% dash cooldown)', mods: { speed: 1.05, dashCd: 0.9 }, cost: 650, cam: [0.7, 4.0] },
 ];
 export const HATS = [
@@ -94,6 +94,18 @@ export const EMOTES = {
   gg: { text: 'GG!', color: '#ffd23c', cost: 0 }, nice: { text: 'Nice!', color: '#7dff6a', cost: 0 }, oops: { text: 'Oops!', color: '#ff9a5a', cost: 0 }, wow: { text: 'Wow!', color: '#4fd1ff', cost: 0 },
   haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 }, party: { text: 'Party!', color: '#ffd23c', cost: 150, premium: true }, bonk: { text: 'BONK!', color: '#ff9a5a', cost: 150, premium: true },
 };
+/* v4.7: every hero has its own health (hearts per life) and a unique passive ability. */
+export const ABILITIES = {
+  bao: { hp: 4, name: 'Comfort Food', desc: 'Regains 1 heart after 8 s without getting hit.' },
+  nori: { hp: 2, name: 'Smoke Dodge', desc: 'Dashes make him untouchable twice as long.' },
+  tako: { hp: 3, name: 'Static Throw', desc: 'Fully charged throws also stun the target.' },
+  kuma: { hp: 3, name: 'Nine Lives', desc: 'Once per round, survives a knockout with 1 heart.' },
+  pico: { hp: 3, name: 'Long Tongue', desc: 'Grabs power-ups from 2.5x farther away.' },
+  yuki: { hp: 3, name: 'Frostbite', desc: 'Her hits chill rivals: half speed for 1.5 s.' },
+  gus: { hp: 5, name: 'Heavyweight', desc: 'Tankiest hero: half knockback, but walks a bit slower.' },
+  wisp: { hp: 2, name: 'Hover', desc: 'Floats over holes for 1 s before dropping.' },
+};
+export const heroHp = (id) => (ABILITIES[id] ? ABILITIES[id].hp : 3);
 export const ULTS = {
   bao: { name: 'Dumpling Storm', desc: 'Fires a ring of 8 boomerangs.' },
   nori: { name: 'Shadow Step', desc: '3s invulnerable and super fast, dash recharged.' },

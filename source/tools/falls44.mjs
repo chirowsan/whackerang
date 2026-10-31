@@ -34,20 +34,20 @@ for (const a of arenas) {
     f.x = hc.x; f.z = hc.z; f.vx = f.vz = 0; T.st(9); o.aliveGrace = f.alive; o.wob = f.wobK; o.edgeT = f.edgeT; o.savesBefore = Object.keys(g.edgeSaves).length;
     let fr = 9; while (fr < 90 && f.x === hc.x && f.z === hc.z) { T.st(1); fr++; } o.frames = fr; T.st(2); o.saved = f.alive && !!g.edgeSaves[f.idx]; o.moved = Math.hypot(f.x - hc.x, f.z - hc.z); o.inv = f.inv; o.stun = f.stunT; o.onHole = g.hole[idx0(f)] < 0;
     // second fall in same match is real
-    T.st(100); f.stunT = 0; f.inv = 0; f.x = hc.x; f.z = hc.z; T.st(9); o.aliveGrace2 = f.alive; T.st(40); o.dead2 = !f.alive; o.kind = f.deathKind;
+    T.st(100); f.stunT = 0; f.inv = 0; f.hp = 1; f.abil = null; /* v4.7: a fall is only fatal on the last heart */ f.x = hc.x; f.z = hc.z; T.st(9); o.aliveGrace2 = f.alive; T.st(40); o.dead2 = !f.alive; o.kind = f.deathKind;
     return o; function idx0(f) { const c = T.cell(0, 0); return Math.floor(f.z + c.H / 2) * c.W + Math.floor(f.x + c.W / 2); }
   });
   ok(`${a}: edge glow strengthens near a drop, none far away`, t2.near > 0.3 && t2.boost > 0.3 && t2.far < 0.05, [t2.near, t2.far]);
   ok(`${a}: standing on nothing wobbles first and is still alive after ~0.15 s`, t2.aliveGrace && t2.wob > 0.5, [t2.aliveGrace, t2.wob, t2.edgeT]);
   ok(`${a}: first fall is saved: put back on safe floor, stunned, shielded`, t2.saved && t2.frames >= 14 && t2.frames <= 40 && t2.moved > 0.6 && !t2.onHole && t2.inv > 1 && t2.stun > 0.2 && t2.stun <= 0.9, t2);
-  ok(`${a}: second fall in the same match is fatal (after grace)`, t2.aliveGrace2 && t2.dead2 && t2.kind === 'fall', [t2.aliveGrace2, t2.dead2, t2.kind]);
+  ok(`${a}: second fall in the same match is fatal on the last heart (after grace)`, t2.aliveGrace2 && t2.dead2 && t2.kind === 'fall', [t2.aliveGrace2, t2.dead2, t2.kind]);
 }
 // recover inside the grace window keeps the one free save
 await start('dojo'); const t3 = await page.evaluate(() => { const fc = () => { const g = T.g(); const c0 = T.cell(0, 0); for (let j = 3; j < c0.H - 3; j++) for (let i = 6; i < c0.W - 6; i++) { let ok2 = true; for (let di = -3; di <= 3; di++) { const k = j * c0.W + i + di; if (g.sol[k] || g.layout.t[k] !== 0) ok2 = false; } if (ok2) return [i, j]; } return [8, 5]; }; const g = T.g(), f = g.fighters[0]; const [pi, pj] = fc(); const c = T.cell(pi, pj); g.hole[c.k] = -1; f.alive = true; f.x = c.x; f.z = c.z; f.stunT = 0; f.vx = f.vz = 0; T.st(8); const mid = f.alive; const e1 = f.edgeT; f.x = T.cell(pi + 2, pj).x; T.st(40); return { mid, e1, alive: f.alive, saves: Object.keys(g.edgeSaves).length, edgeT: f.edgeT }; });
 ok('stepping off within the grace window cancels the fall and keeps the free save', t3.mid && t3.alive && t3.saves === 0 && t3.edgeT === 0, t3);
 // Edge help off = old behaviour (instant, no save)
-await start('dojo', false); const t4 = await page.evaluate(() => { const fc = () => { const g = T.g(); const c0 = T.cell(0, 0); for (let j = 3; j < c0.H - 3; j++) for (let i = 6; i < c0.W - 6; i++) { let ok2 = true; for (let di = -3; di <= 3; di++) { const k = j * c0.W + i + di; if (g.sol[k] || g.layout.t[k] !== 0) ok2 = false; } if (ok2) return [i, j]; } return [8, 5]; }; const g = T.g(), f = g.fighters[0]; const [pi, pj] = fc(); const c = T.cell(pi, pj); g.hole[c.k] = -1; f.alive = true; f.x = c.x; f.z = c.z; f.inv = 0; T.st(3); return { dead: !f.alive, grace: g.edgeGrace, near: g.edgeNear }; });
-ok('Edge help off: instant fall, no save, no warning', t4.dead && t4.grace === 0 && t4.near === 0, t4);
+await start('dojo', false); const t4 = await page.evaluate(() => { const fc = () => { const g = T.g(); const c0 = T.cell(0, 0); for (let j = 3; j < c0.H - 3; j++) for (let i = 6; i < c0.W - 6; i++) { let ok2 = true; for (let di = -3; di <= 3; di++) { const k = j * c0.W + i + di; if (g.sol[k] || g.layout.t[k] !== 0) ok2 = false; } if (ok2) return [i, j]; } return [8, 5]; }; const g = T.g(), f = g.fighters[0]; const [pi, pj] = fc(); const c = T.cell(pi, pj); g.hole[c.k] = -1; f.alive = true; f.x = c.x; f.z = c.z; f.inv = 0; f.hp = 1; f.abil = null; T.st(24); return { dead: !f.alive, grace: g.edgeGrace, near: g.edgeNear }; });
+ok('Edge help off: quick fall (v4.7: 0.12 s anti-tunnel grace instead of 0), no save, no warning', t4.dead && Math.abs(t4.grace - 0.12) < 1e-6 && t4.near === 0, t4);
 // the free save is per match (shared across rounds)
 await start('dojo'); const t5 = await page.evaluate(() => { const app = __bg.app; const g = app.game; return { same: app.match.edgeSaves === g.edgeSaves }; });
 ok('free-save record lives on the match object (survives rounds)', t5.same);

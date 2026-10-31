@@ -46,3 +46,5 @@
 - 14:40 PDT: tools/apk463.sh: AAB signed, release APK signed. aapt: com.chirow.whackerang versionCode 50 / 4.6.3. Signer SHA-256 6e59e14a…35d8de on APK and AAB = same key as the v4.6.2 release APK.
 - 14:44 PDT: web dist rebuilt after APK (BUILD=v4.6.3-20261030 --min --dist --app): Whackerang.html, dist/index.html, dist/sw.js carry the tag. MATCHMAKING.md: root cause (6) added, test counts updated.
 - 14:45 PDT: packaging source zip (same file set as v4.6.2 + tests/, PROGRESS-v463, apk463/fin463), creating GitHub release v4.6.3, Pages deploy.
+- 14:46 PDT: GitHub release v4.6.3 created (/usr/local/bin/gh): https://github.com/chirowsan/whackerang/releases/tag/v4.6.3 with Whackerang.apk, Whackerang.aab, Whackerang-debug.apk, whackerang-v4.6.3-source.zip. Tag was created on main at 6c2fe5f (before the Pages commit), the same way as v4.6.2.
+- 14:47 PDT: Pages commit 96eb275 pushed (dist + source/ mirror). Pages build "built" at 96eb275. Live https://chirowsan.github.io/whackerang/ 200 with v4.6.3-20261030, and sw.js 200 with v4.6.3-20261030. DONE.

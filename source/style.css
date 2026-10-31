@@ -529,3 +529,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .kg-in{font:inherit;font-size:1.4em;width:7em;text-align:center;padding:.3em;border-radius:10px;border:2px solid #fff3;background:#0006;color:#fff;letter-spacing:.15em}
 .kg-row{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
 .set-link{color:#ffd76a;text-decoration:underline}
+/* v4.7: per-hero hearts on the hero cards / details */
+.hero-card .ti.hp { color: #ff5a7a; opacity: 1; letter-spacing: .02em; margin-top: .05em; }
+.perk.hpline b { color: #ff8aa2; }

@@ -14,6 +14,21 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.7 (hero health + abilities, bigger map, no more falling through the floor)
+- **Every hero has their own health and a unique ability** (shown on the hero cards, in the hero details and in the HUD). This replaces the flat 3 hits:
+  - **Bao** 4♥, *Comfort Food*: gets 1 heart back after 8 s without being hit.
+  - **Nori** 2♥, *Smoke Dodge*: dashes make him untouchable for 0.45 s (others get 0.22 s).
+  - **Bolt** 3♥, *Static Throw*: a fully charged throw also stuns whoever it hits for 0.6 s.
+  - **Salty** 3♥, *Nine Lives*: once per round, a knockout leaves him on 1 heart instead.
+  - **Pico** 3♥, *Long Tongue*: grabs power-ups from 2.5× farther away.
+  - **Yuki** 3♥, *Frostbite*: her hits chill rivals to half speed for 1.5 s.
+  - **Gus** 5♥, *Heavyweight*: the tankiest hero. He takes half knockback but walks 8% slower.
+  - **Wisp** 2♥, *Hover*: floats over a hole for 1 s before dropping.
+
+  A hit, a bomb, lava, spikes or a fall costs one heart and gives about 1.4 s of blinking invulnerability. You are knocked out when the last heart is gone, and hearts refill on respawn. It works the same online, because the host is authoritative and every guest sees each hero's hearts. Bosses keep their own HP, wave minions have 1 heart, and the tutorial stays at 1 heart.
+- **Default map size is Large** (the middle of Small / Large / Huge). Saves whose size was never picked by the player switch to Large once. Tapping Map size remembers your choice. The online lobby also defaults to Large.
+- **Safety net, no fall-through deaths:** movement is sub-stepped, so fast dashes, knockback and bumpers can't tunnel through walls. A rim assist eases you back when only part of your body is over a drop. Falling, or landing on lava, with hearts left costs one heart and puts you on the nearest safe floor. If you fall while invulnerable, you are put back for free. A guard puts any fighter that ends up off the map, NaN or inside a wall back on floor. Spawns, respawns and enemy spawns are always on solid floor. Portals wait instead of sending you onto a hole. The KO spin-out no longer sinks through the floor. A trapdoor that closes is floor again for online guests. See docs/FALLING.md.
+
 ## What's new in v4.6 (Auto match)
 - **Auto match** (big gold button above Create room / Join room in the Online menu): tap it and the game pairs you with other players who are searching at the same time (per mode). A full room (4) starts at once; with 2+ players it starts about 25 s after the second joins. If nobody comes, bots fill the empty seats after at most 2 minutes. You see a search screen with the time, "Players found n/4", a Cancel button and "Play vs bots now". If the matchmaker can't be reached you get a clear message and can play against bots right away.
 - Privacy: strangers only see a preset name (no custom name, no chat); the matchmaker only sees a random anonymous id while you search and keeps nothing afterwards; Settings has an "Auto match" switch. See `docs/MATCHMAKING.md`.
