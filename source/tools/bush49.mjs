@@ -25,7 +25,7 @@ const L = await page.evaluate(() => {
 });
 const cap = { small: 2, large: 3, huge: 4 }, maxB = { small: 16, large: 32, huge: 32 };
 for (const r of L) {
-  ok(`${r.size} ${r.arena}: default build is the bush layout (dens 4) with ${r.n} bush cells (1..${maxB[r.size]}) drawn`, r.dens === 4 && r.n > 0 && r.n <= maxB[r.size] && r.n === r.bushN && r.im, r);
+  ok(`${r.size} ${r.arena}: default build is the bush layout (dens 4, or 5 = same map + melee) with ${r.n} bush cells (1..${maxB[r.size]}) drawn`, (r.dens === 4 || r.dens === 5) && r.n > 0 && r.n <= maxB[r.size] && r.n === r.bushN && r.im, r);
   ok(`${r.size} ${r.arena}: bushes seeded/deterministic (guest dens 4 == host), point-mirrored, off solids/hazards, not central, not on spawns, clear of traps/switches`, r.h === r.h2 && r.tr && r.sym && !r.bad && !r.central && !r.nearSp && !r.nearTrap, r);
   ok(`${r.size} ${r.arena}: calm caps kept (${r.enc} <= ${cap[r.size]} hazards, >=1) and cover unchanged vs calm (${r.sol} == ${r.sol3}); dens 3 and Ball have no bushes`, r.enc <= cap[r.size] && r.enc >= 1 && r.sol === r.sol3 && r.b3 === 0 && r.bb === 0, r);
 }

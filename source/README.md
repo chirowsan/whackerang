@@ -14,6 +14,13 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10 (melee + character weapons)
+- **Every fighter has their own 3 weapons (24 in all, none shared):** e.g. Bao's Iron Wok / Cleaver / Rolling Pin, Nori's Shuriken / Kama / Tanto, Gus's Dumbbell / Title Belt / Kettlebell. They differ in swing pattern (Sweep, Thrust, Lunge, Spin 360), reach, speed and recovery, and some throws home in, pierce or briefly stun. Every hit is still one heart. All weapons are free.
+- **Melee swing:** tap the throw stick next to a visible rival to swing (drag + release always throws). Keys: G (P1), B (solo), Comma / Numpad 2 (P2), gamepad LT. Hidden rivals in bushes are not auto-targeted unless you are close enough to discover them.
+- **Armory:** pick a character from the strip; only that character's weapons are shown. The choice is saved per character and per player (P1 / P2); old saves carry the previous pick over to the selected character.
+- **Online:** rooms where everyone runs v4.10 get melee + character weapons (the host checks every pick). A room with an older v4.9 player plays the v4.9 boomerang-only rules; a v4.9 player cannot join a melee round already running.
+- **Known limits:** balance is a first pass; not yet verified on a real phone or over direct peer-to-peer (tested in desktop browsers over a local relay).
+
 ## What's new in v4.9 (calmer maps, bushes)
 - **Calmer, clearer maps.** Fewer walls and crates, and fewer traps: by default 2 / 3 / 4 hazards on Small / Large / Huge. Lethal traps stay dormant for the first seconds of a round. Each arena has a themed floor, shadows and switches are easier to read, and hit effects are quieter.
 - **Bushes for hiding and surprise attacks.** Step into a bush and rivals lose sight of you, while you and your teammates see you faded. You show up again for **1.5 s** after you throw, parry, use your ULT or get hit, and anyone within **1.8 units** of you can spot you. Bushes under the touch controls are drawn flat so they never cover the buttons. Boomerang Ball has no bushes.

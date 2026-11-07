@@ -1,18 +1,19 @@
 // Unified input: keyboard (+mouse aim), gamepads, touch (move stick, aim-throw stick, dash/deflect buttons).
 import { S } from './save.js';
+import { WICON, wpnOf } from './weapons.js';
 
-const P1 = { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], fire: ['KeyF', 'KeyJ'], dash: ['Space', 'KeyK'], deflect: ['KeyE', 'KeyQ', 'KeyL'], ult: ['KeyR', 'KeyU'] };
-const P2 = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'NumpadEnter'], dash: ['ShiftRight', 'Numpad0'], deflect: ['Slash', 'ControlRight', 'NumpadDecimal'], ult: ['Period', 'Numpad1'] };
-const SOLO = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'KeyZ'], dash: ['ShiftRight', 'KeyX'], deflect: ['Slash', 'KeyC'], ult: ['KeyV', 'Period'] };
+const P1 = { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], fire: ['KeyF', 'KeyJ'], dash: ['Space', 'KeyK'], deflect: ['KeyE', 'KeyQ', 'KeyL'], ult: ['KeyR', 'KeyU'], melee: ['KeyG', 'KeyH'] }; // v4.10 melee swing
+const P2 = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'NumpadEnter'], dash: ['ShiftRight', 'Numpad0'], deflect: ['Slash', 'ControlRight', 'NumpadDecimal'], ult: ['Period', 'Numpad1'], melee: ['Comma', 'Numpad2'] };
+const SOLO = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'KeyZ'], dash: ['ShiftRight', 'KeyX'], deflect: ['Slash', 'KeyC'], ult: ['KeyV', 'Period'], melee: ['KeyB', 'Comma'] };
 
 export const Input = {
   keys: new Set(), edge: new Set(), solo: true, onPause: null, padConnected: false, lastUsed: 'kbd', unproject: null,
   mouse: { x: 0, y: 0, down: false, active: false, t: 0, edgeDeflect: false },
-  touch: { enabled: false, mx: 0, mz: 0, tx: 0, tz: 0, aimX: 0, aimZ: 0, fire: false, fireQ: 0, dash: false, deflect: false, ult: false, aimShown: false, seen: false },
+  touch: { enabled: false, mx: 0, mz: 0, tx: 0, tz: 0, aimX: 0, aimZ: 0, fire: false, fireQ: 0, tapQ: 0, melee: false, dash: false, deflect: false, ult: false, aimShown: false, seen: false },
   pads: [{ prev: [] }, { prev: [] }], menuPrev: { up: 0, down: 0, left: 0, right: 0, ok: 0, back: 0 },
 };
-const OUTS = [{ mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false }, { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false }];
-const NONE = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false };
+const OUTS = [{ mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false, melee: false, tap: false }, { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false, melee: false, tap: false }];
+const NONE = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false, melee: false, tap: false };
 
 export function initInput(canvas) {
   const prevent = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash'];
@@ -43,18 +44,18 @@ function readPad(slot, o) {
   if (rl > 0.4) { o.aimX = rx / rl; o.aimZ = ry / rl; o.fire = true; Input.lastUsed = 'pad'; }
   if (b(7) || b(5)) o.fire = true;
   if (b(0) && !st.prev[0]) o.dash = true; if ((b(2) && !st.prev[2]) || (b(1) && !st.prev[1]) || (b(4) && !st.prev[4])) o.deflect = true;
-  if (b(3) && !st.prev[3]) o.ult = true;
+  if (b(3) && !st.prev[3]) o.ult = true; if (b(6) && !st.prev[6]) o.melee = true; /* v4.10: LT = melee swing */
   if (b(9) && !st.prev[9]) Input.onPause && Input.onPause();
   st.prev = gp.buttons.map((x) => x.pressed); return true;
 }
 Input.read = function (slot, f) {
   const touchOn = slot === 0 && Input.touch.enabled;
   const ms = maps(slot); const o = OUTS[slot] || OUTS[0];
-  o.mx = 0; o.mz = 0; o.aimX = 0; o.aimZ = 0; o.fire = false; o.dash = false; o.deflect = false; o.ult = false;
+  o.mx = 0; o.mz = 0; o.aimX = 0; o.aimZ = 0; o.fire = false; o.dash = false; o.deflect = false; o.ult = false; o.melee = false; o.tap = false;
   if (Input.keys.size || Input.edge.size) {
     let dx = 0, dz = 0; if (held(ms, 'left')) dx -= 1; if (held(ms, 'right')) dx += 1; if (held(ms, 'up')) dz -= 1; if (held(ms, 'down')) dz += 1;
     const l = Math.hypot(dx, dz); if (l > 0) { o.mx = dx / l; o.mz = dz / l; }
-    o.fire = held(ms, 'fire'); o.dash = pressed(ms, 'dash'); o.deflect = pressed(ms, 'deflect'); o.ult = pressed(ms, 'ult');
+    o.fire = held(ms, 'fire'); o.dash = pressed(ms, 'dash'); o.deflect = pressed(ms, 'deflect'); o.ult = pressed(ms, 'ult'); o.melee = pressed(ms, 'melee');
   }
   if (slot === 0 && Input.mouse.active && Input.lastUsed === 'mouse' && Input.unproject && f && !touchOn) {
     const w = Input.unproject(Input.mouse.x, Input.mouse.y); if (w) { const dx = w[0] - f.x, dz = w[1] - f.z, l = Math.hypot(dx, dz); if (l > 0.35) { o.aimX = dx / l; o.aimZ = dz / l; } }
@@ -71,10 +72,11 @@ Input.read = function (slot, f) {
     if (t.fire || t.fireQ > 0) { o.fire = true; if (t.aimX || t.aimZ) { o.aimX = t.aimX; o.aimZ = t.aimZ; } if (t.fireQ > 0 && !t.fire) t.fireQ--; }
     if (t.dash) { o.dash = true; t.dash = false; } if (t.deflect) { o.deflect = true; t.deflect = false; }
     if (t.ult) { o.ult = true; t.ult = false; }
+    if (t.tapQ > 0) { o.tap = true; t.tapQ--; } // v4.10: a quick tap (no drag) is offered to the game as a contextual swing on its release tick
   }
   return o;
 };
-Input.flush = function () { Input.edge.clear(); const t = Input.touch; t.dash = false; t.deflect = false; t.ult = false; t.fireQ = 0; Input.mouse.edgeDeflect = false; };
+Input.flush = function () { Input.edge.clear(); const t = Input.touch; t.tapQ = 0; t.dash = false; t.deflect = false; t.ult = false; t.fireQ = 0; Input.mouse.edgeDeflect = false; };
 Input.menuPoll = function () {
   const gps = navigator.getGamepads ? navigator.getGamepads() : []; const out = {}; let up = 0, down = 0, left = 0, right = 0, ok = 0, back = 0;
   for (const g of gps) { if (!g || !g.connected) continue; const b = (i) => g.buttons[i] && g.buttons[i].pressed; const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
@@ -139,7 +141,7 @@ export function initTouch(root) {
   az.addEventListener('pointermove', (e) => { if (e.pointerId !== aId) return; let vx = e.clientX - acx, vy = e.clientY - acy; const d = Math.hypot(vx, vy); const sx = d > R ? vx / d * R : vx, sy = d > R ? vy / d * R : vy; ak.style.transform = `translate(calc(-50% + ${sx * 0.7}px), calc(-50% + ${sy * 0.7}px))`;
     if (d > 26) { aDragged = true; const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; boomEl.style.transform = `rotate(${(Math.atan2(vx, -vy) * 57.2958).toFixed(0)}deg)`; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
   const aend = (e) => { if (e.pointerId !== aId) return; aId = null; ab.classList.remove('active'); rest();
-    const quick = !aDragged && performance.now() - aT0 < 340; t.fire = false; if (quick) { t.fireQ = 2; } else { t.fireQ = 1; } /* keep last aim for the release tick */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
+    const quick = !aDragged && performance.now() - aT0 < 340; t.fire = false; if (quick) { t.fireQ = 2; t.tapQ = 3; } else { t.fireQ = 1; t.tapQ = 0; } /* keep last aim for the release tick */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
   az.addEventListener('pointerup', aend); az.addEventListener('pointercancel', (e) => { if (e.pointerId === aId) { aId = null; t.fire = false; t.aimX = t.aimZ = 0; ab.classList.remove('active'); rest(); } }); az.addEventListener('lostpointercapture', (e) => { if (e.pointerId === aId) aend(e); });
   const btn = (el, key, hk, ms) => { el.addEventListener('pointerdown', (e) => { t[key] = true; Input.lastUsed = 'touch'; el.classList.add('down'); if (t.hud[hk] <= 0) vib(ms); e.preventDefault(); }); const up = () => el.classList.remove('down'); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); };
   btn(bDash, 'dash', 'dash', 10); btn(bDef, 'deflect', 'defl', 6); btn(bUlt, 'ult', 'ult0', 14);
@@ -157,5 +159,6 @@ export function initTouch(root) {
     { const u = Math.round((d.ult || 0) * 50) / 50; if (u !== last.ult) { last.ult = u; bUlt.style.setProperty('--u', u); bUlt.classList.toggle('rdy', u >= 1); } }
     if (d.ammo !== last.ammo) { last.ammo = d.ammo; ab.classList.toggle('empty', d.ammo <= 0); }
   };
+  t.setWeapon = (id) => { const k = wpnOf(id); if (boomEl.dataset.w !== k) { boomEl.dataset.w = k; boomEl.innerHTML = WICON[k]; } }; // v4.10: aim knob shows the equipped weapon
   layout(); rest(); window.addEventListener('resize', () => { if (jId === null && aId === null) { layout(); rest(); } }, { passive: true });
 }

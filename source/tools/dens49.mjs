@@ -14,9 +14,9 @@ const R = await page.evaluate(() => {
     S.setup.arena = arena; S.setup.size = size; S.setup.traps = 'some'; S.setup.bots = 3; app.startMode('classic'); app.paused = true; const base = app.game;
     const cfg0 = { mode: 'classic', round: 1, need: 2, arena, size, traps: 'some', trapSet: null, mutator: null, rules: base.rules, seed: 4242 + out.length, speed: 'chill', players: base.fighters.map((f) => f.def) };
     const mk = (extra, dens) => { window.__bbDens = dens; try { app.setGame({ mode: 'vs', arenaId: arena, players: cfg0.players, round: 1, rules: cfg0.rules, size, traps: 'some', netSeed: cfg0.seed, ...extra }); } finally { window.__bbDens = undefined; } app.paused = true; return snap(); };
-    const host2 = mk({}, undefined), guest2 = mk({ dens: 4 }, undefined); /* default host = 4 (calm + bushes); guest gets dens: 4 */ const c3h = mk({}, 3), c3g = mk({ dens: 3 }, undefined); const p2h = mk({}, 2), p2g = mk({ dens: 2 }, undefined);
+    const host2 = mk({}, 4), guest2 = mk({ dens: 4 }, undefined); /* v4.9 bush host (dens 4) */ const host5 = mk({}, undefined), guest5 = mk({ dens: 5 }, undefined); /* v4.10 default = 5 (melee + Armory): must build the SAME map as dens 4 */ const c3h = mk({}, 3), c3g = mk({ dens: 3 }, undefined); const p2h = mk({}, 2), p2g = mk({ dens: 2 }, undefined);
     const host1 = mk({}, 1), guest1 = mk({ dens: (({}).dens) || 1 }, undefined); // v4.8 host: no dens -> netStartGuestRound passes 1
-    out.push({ size, arena, host2, guest2, host1, guest1, p2h, p2g, c3h, c3g });
+    out.push({ size, arena, host2, guest2, host5, guest5, host1, guest1, p2h, p2g, c3h, c3g });
   }
   return out; });
 // 4) mixed-version handshake on the real net object (stubbed links, actual message shapes)
@@ -33,7 +33,7 @@ const C = await page.evaluate(() => { const N = __bg.net; const out = {};
   out.newMidMatch = tryHello('match', 4, { t: 'hello', proto: hello.proto, cid: 'new1', dens: 4 }); out.p3MidBush = tryHello('match', 4, { t: 'hello', proto: hello.proto, cid: 'p3', dens: 3 }); out.p3MidCalm = tryHello('match', 3, { t: 'hello', proto: hello.proto, cid: 'p3b', dens: 3 });
   out.withP3 = N.roomDens.call(peers([{ isHost: true, conn: true }, { conn: true, dens: 4 }, { conn: true, dens: 3 }]));
   return out; });
-ok('guest hello advertises dens 4 = calm + bushes (same PROTO)', C.helloDens === 4, C);
+ok('guest hello advertises dens 5 = calm + bushes + melee/Armory (same PROTO)', C.helloDens === 5, C);
 ok('room density: all bush builds -> 4, a calm-only (pass-3) guest -> 3 (no bushes/stealth), a pass-2 dev guest -> 2, any v4.8 guest -> 1, disconnected seat ignored', C.allNew === 4 && C.withP3 === 3 && C.withP2 === 2 && C.oneOld === 1 && C.oldGone === 4, C);
 ok('calm-only (pass-3) guest joining a running bush round -> reject:version; joining a running calm round -> accepted', C.p3MidBush.sent[0] === 'reject:version' && !C.p3MidCalm.sent.includes('reject:version') && C.p3MidCalm.dens === 3, [C.p3MidBush, C.p3MidCalm]);
 ok('v4.8 or pass-2 guest joining a running calm round -> clear reject:version (no silent map)', C.oldMidMatch.sent[0] === 'reject:version' && C.p2MidCalm.sent[0] === 'reject:version', [C.oldMidMatch, C.p2MidCalm]);
@@ -42,6 +42,7 @@ ok('v4.9 bush guest mid bush-match not version-rejected', !C.newMidMatch.sent.in
 let agg = {};
 for (const r of R) {
   ok(`${r.size} ${r.arena}: bush (dens 4) guest == host (layout+bushes+traps)`, r.host2.h === r.guest2.h && r.host2.tr === r.guest2.tr && r.host2.dens === 4 && r.host2.bushN > 0);
+  ok(`${r.size} ${r.arena}: v4.10 default (dens 5) host == dens-5 guest == the v4.9 dens-4 map (melee changes no map/trap)`, r.host5.dens === 5 && r.host5.h === r.host2.h && r.host5.tr === r.host2.tr && r.guest5.h === r.host5.h && r.guest5.tr === r.host5.tr);
   ok(`${r.size} ${r.arena}: calm-only (dens 3) room guest == host, no bushes`, r.c3h.h === r.c3g.h && r.c3h.tr === r.c3g.tr && r.c3h.dens === 3 && r.c3h.bushN === 0 && r.p2h.bushN === 0 && r.host1.bushN === 0);
   ok(`${r.size} ${r.arena}: pass-2 (dens 2) room guest == host`, r.p2h.h === r.p2g.h && r.p2h.tr === r.p2g.tr && r.p2h.dens === 2);
   ok(`${r.size} ${r.arena}: v4.8-host fallback guest (dens 1) == dens-1 host`, r.host1.h === r.guest1.h && r.host1.tr === r.guest1.tr && r.host1.dens === 1);

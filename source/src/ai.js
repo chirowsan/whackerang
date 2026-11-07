@@ -57,7 +57,7 @@ export class Bot {
   }
   update(dt) {
     const g = this.g, f = this.f, d = this.d, o = this.out;
-    o.fire = false; o.dash = false; o.deflect = false; o.ult = false; o.aimX = 0; o.aimZ = 0;
+    this._dt = dt; o.fire = false; o.dash = false; o.deflect = false; o.ult = false; o.melee = false; o.aimX = 0; o.aimZ = 0;
     if (g.state === 'intro') { o.mx = 0; o.mz = 0; return o; }
     this.throwWait -= dt; this.strafeT -= dt; this.sideLock -= dt;
     // ---- threats (every tick, cheap)
@@ -139,6 +139,8 @@ export class Bot {
       if (this.pathBad(dx, dz)) { let best = null, bd = 9; const w = Math.atan2(dx, dz); for (let n = 0; n < 12; n++) { const a = n / 12 * Math.PI * 2, sx = Math.sin(a), sz = Math.cos(a); if (this.pathBad(sx, sz)) continue; const d = Math.abs(angDiff(w, a)); if (d < bd) { bd = d; best = [sx, sz]; } }
         if (best) { o.mx = best[0]; o.mz = best[1]; } else o.dash = false; }
     }
+    // v4.10 melee: swing only at a rival this bot can SEE (slashTarget skips hidden bush rivals) already inside reach, after a human-like reaction delay; same cooldown as players
+    { const g = this.g, f = this.f; if (g.melee && g.state === 'play' && f.canSlash()) { const tg = f.slashTarget(0); if (tg) { this.slWait = (this.slWait === undefined || this.slWait < 0 ? this.d.react : this.slWait) - (this._dt || 1 / 60); if (this.slWait <= 0) { o.melee = true; o.fire = false; this.slWait = -1; this.holding = false; } } else this.slWait = -1; } }
     return o;
   }
   think() {

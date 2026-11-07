@@ -16,6 +16,8 @@ import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
 import { Input } from './input.js';
+import { WEAPONS, WEAPON_IDS, wpnOf, weaponBars, wpnSvg, heroWeapons, PAT_LABEL } from './weapons.js';
+import { getWpn, setWpn } from './save.js';
 import { poisonHud, poisonRect, poisonPhase, inPoison } from './poison.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
@@ -76,13 +78,14 @@ Object.assign(UI, {
     const a = this.app, s = S(), hero = this.heroById(s.hero); const el = h('div', 'screen', null, { id: 'menu' }); const left = h('div', 'left');
     left.appendChild(h('div', '', `<div class="title">WHACKERANG</div><div class="sub" style="margin-top:.5em">Throw · Catch · Last one standing</div>`));
     const md = MODES[s.setup.mode] && s.setup.mode !== 'campaign' ? s.setup.mode : 'classic'; const spd = { chill: 'Chill', normal: 'Normal', fast: 'Fast' }[s.settings.speed] || 'Chill';
-    const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '');
+    const sub = `${MODES[md].name} · ${spd}` + (md === 'classic' ? ` · ${s.setup.bots} bot${s.setup.bots > 1 ? 's' : ''}` : '') + ` · ${WEAPONS[getWpn(0, s.hero)].name}`; // v4.10: equipped weapon shown before every match
     left.appendChild(this.btn(`<span>▶ Play</span><small class="pl-sub">${sub}</small>`, 'primary big playbtn', () => (!s.tutorialDone ? a.startTutorial() : a.quickPlay()), { id: 'btn-play' }));
     const g = h('div', 'menu-grid');
     const dailyReady = dailyReadyCount() > 0; const newSeen = s.settings.seenVer === '4.5';
     g.appendChild(this.btn('⭐ Campaign', 'gold', () => this.show('campaign')));
     g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
+    g.appendChild(this.btn('⚔ Armory', '', () => this.show('armory', { ret: 'menu' }), { id: 'btn-armory' }));
     g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Hats' })));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
@@ -138,7 +141,9 @@ Object.assign(UI, {
     [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', v.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id]}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); b.addEventListener('click', () => { v.arena = A.id; save(); [...ao.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); sfx('click'); }); ao.appendChild(b); });
     ar.appendChild(ao); ar.style.gridColumn = '1 / -1'; add(ar);
     // loadout
-    const lr = h('div', 'row loadout', '<span>Boomerang</span>'); lr.style.gridColumn = '1 / -1'; const lt = h('div', 'ltypes'); const desc = h('div', 'ldesc', BOOM_TYPES[s.eq.type].desc);
+    { const wr = h('div', 'row wrow', `<span>${this.heroById(s.hero).name}'s weapon: ${wpnSvg(getWpn(0, s.hero), 'wsv sm')}<b>${WEAPONS[getWpn(0, s.hero)].name}</b></span>`); wr.appendChild(this.btn('Armory', 'small', () => this.show('armory', { ret: 'setup', rp: { mode } }))); add(wr); // v4.10
+      if (mode === 'classic' && !touch && v.players === 2) { const w2 = h('div', 'row wrow', `<span>P2 ${this.heroById(s.hero2).name}'s weapon: ${wpnSvg(getWpn(1, s.hero2), 'wsv sm')}<b>${WEAPONS[getWpn(1, s.hero2)].name}</b></span>`); w2.appendChild(this.btn('Armory', 'small', () => this.show('armory', { ret: 'setup', rp: { mode }, slot: 1 }))); add(w2); } }
+    const lr = h('div', 'row loadout', '<span>Power</span>'); lr.style.gridColumn = '1 / -1'; const lt = h('div', 'ltypes'); const desc = h('div', 'ldesc', BOOM_TYPES[s.eq.type].desc);
     Object.entries(BOOM_TYPES).forEach(([id, t]) => { const has = owns('types', id); const b = h('button', 'ltype' + (s.eq.type === id ? ' on' : '') + (has ? '' : ' lk'), `${boomSvg(hex(t.color))}<span>${t.name}</span>${has ? '' : '<em>🔒</em>'}`, { 'data-nav': 1, style: `--tc:${hex(t.color)}` }); b.addEventListener('click', () => { if (!has) { sfx('deny'); this.toast(`Unlock ${t.name} in the Shop (${t.cost} gold) or by levelling up`); return; } equip('types', id); [...lt.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); desc.textContent = t.desc; sfx('click'); }); lt.appendChild(b); });
     lr.appendChild(lt); add(lr); const dr = h('div', '', '', { style: 'grid-column:1/-1' }); dr.appendChild(desc); add(dr);
     const hero = this.heroById(s.hero), hero2 = this.heroById(s.hero2);
@@ -168,6 +173,29 @@ Object.assign(UI, {
     const b = h('div', 'btns'); b.appendChild(this.btn('▶ Start', 'primary', () => this.app.startStage(st.n))); b.appendChild(this.btn('Back', 'back', () => this.show('campaign'), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ================= shop =================
+  // v4.10 Armory: pick the weapon you bring into the next match. Free, no gold, no unlocks; every weapon hits for one heart (throw or close-range swing)
+  armory(p) { // v4.11: per-character Armory. Shows the selected character and ONLY that character's own three weapons.
+    const s = S(); const slot = p.slot === 1 ? 1 : 0; const key = slot ? 'hero2' : 'hero'; const el = h('div', 'screen page armory', null, { id: 'armory' }); const hd = h('header');
+    const back = () => (p.ret === 'setup' ? this.show('setup', p.rp || {}) : this.show(p.ret || 'menu')); hd.appendChild(this.backBtn(back)); hd.appendChild(h('h2', '', 'Armory')); el.appendChild(hd);
+    const touch = this.app.isTouchDevice(); const two = !touch && s.setup.mode === 'classic' && s.setup.players === 2;
+    if (two) { const sg = h('div', 'tabs'); [0, 1].forEach((k) => { const b = h('button', 'tab' + (k === slot ? ' on' : ''), k ? 'P2' : 'P1', { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.show('armory', { ...p, slot: k }); }); sg.appendChild(b); }); el.appendChild(sg); }
+    const hero = this.heroById(s[key]); const other = slot ? s.hero : s.hero2;
+    // character strip: the same selection as the Fighters screen (owned characters only); switching restores that character's own loadout
+    const strip = h('div', 'arm-heroes'); HEROES.forEach((hh) => { const own = (s.unlockedHeroes || []).includes(hh.id), on = hh.id === hero.id, taken = two && hh.id === other; if (!own) return;
+      const b = h('button', 'arm-hero' + (on ? ' on' : ''), `<img src="${this.pic(hh)}" alt=""><span>${hh.name}</span>`, { 'data-nav': 1, 'data-h': hh.id, title: hh.name }); if (taken) b.disabled = true;
+      b.addEventListener('click', () => { if (on || taken) return; s[key] = hh.id; save(); sfx('click'); this.show('armory', p); }); strip.appendChild(b); });
+    const top = h('div', 'arm-top'); top.appendChild(strip); el.appendChild(top);
+    top.appendChild(h('div', 'arm-who', `<img class="arm-pic" src="${this.pic(hero)}" alt=""><div><b>${hero.name}</b> <small>${hero.title}</small><div class="arm-sub">${slot ? 'P2 · ' : ''}${hero.name}'s own weapons</div></div>`));
+    const grid = h('div', 'arm-grid scroll'); const cur = getWpn(slot, hero.id);
+    heroWeapons(hero.id).forEach((id) => { const w = WEAPONS[id], on = id === cur, m = w.melee; const fx = w.fx || {}, mfx = w.mfx || {};
+      const tags = [PAT_LABEL[m.pat || 'arc'], fx.home ? 'Homing throw' : '', fx.pierce ? 'Piercing throw' : '', fx.stun ? 'Throw stuns' : '', mfx.stun ? 'Swing stuns' : ''].filter(Boolean).map((t) => `<em class="wtag">${t}</em>`).join('');
+      const bars = weaponBars(id).map(([k, v]) => `<div class="wbar"><span>${k}</span><i>${'<b></b>'.repeat(v)}${'<u></u>'.repeat(5 - v)}</i></div>`).join('');
+      const c = h('div', 'card wcard' + (on ? ' eq' : ''), `<div class="prev">${wpnSvg(id)}</div><h4>${w.name}${on ? ' <em class="eqtag">✓ Equipped</em>' : ''}</h4><div class="wtags">${tags}</div><p>${w.blurb}</p><div class="wrow2">${bars}</div><small class="wnum">Swing ${m.arc}° · reach ${m.reach} · every ${m.cd}s</small>`, { 'data-nav': 1, 'data-w': id });
+      const b = this.btn(on ? '✓ Equipped' : 'Equip', on ? 'small gold' : 'small primary', () => { setWpn(slot, hero.id, id); sfx('click'); const y = grid.scrollTop; this.show('armory', p); const g2 = document.querySelector('#armory .arm-grid'); if (g2) g2.scrollTop = y; }); c.appendChild(b); grid.appendChild(c); });
+    el.appendChild(grid);
+    el.appendChild(h('div', 'note-line arm-note', `Each fighter has their own weapons, all free. Every hit is one heart: throw it, or tap close to a rival to swing it (keys G / B, pad LT). Online rooms with an older version play boomerang-only.`));
+    return el;
+  },
   shop(p) {
     const s = S(); const tab = p.tab || 'Hats'; const el = h('div', 'screen page shop-split'); const hd = h('header'); hd.appendChild(this.backBtn(() => { this.app.previewCosmetic(null); this.show('menu'); })); hd.appendChild(h('h2', '', 'Shop')); hd.appendChild(this.coinChip()); el.appendChild(hd);
     const tabs = h('div', 'tabs'); Object.keys(SHOP).forEach((t) => { const b = h('button', 'tab' + (t === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.app.previewCosmetic(null); this.show('shop', { tab: t }); }); tabs.appendChild(b); }); el.appendChild(tabs);
@@ -366,7 +394,7 @@ UI.howto = function (p) {
   { const rb = wn41.querySelector('#hw-replay'); rb.addEventListener('click', () => { sfx('click'); this.app.startTutorial(); }); }
   const x = h('div', '', `<div class="hw-more"><h4 style="margin-top:1em">Modes</h4><ul>${mm}</ul>
     <h4 style="margin-top:1em">Map sizes</h4><p>Pick <b>Small</b>, <b>Large</b> or <b>Huge</b> in match setup. On bigger maps the camera follows the action; the <b>minimap</b> (top right) and the <b>arrows</b> at the screen edge show where rivals and objectives are. A few modes pick the size for you.</p>
-    <h4 style="margin-top:1em">Bushes</h4><p>Stand fully inside a <b>bush</b> to hide from rivals; you and your teammates see you faded. Throwing, parrying, using your ULT or getting hit shows you for about 1.5 s, and a rival who comes within about 1.8 units spots you. Boomerangs still hit anyone hiding, so a blind throw into a bush can pay off. No bushes in Boomerang Ball. Online rooms with a player on an older version use the older layout with no bushes.</p>
+    <h4 style="margin-top:1em">Close-range swing &amp; Armory</h4><p>While your weapon is in your hand you can also <b>swing</b> it at a rival right next to you: a short arc in front of you for one heart. On touch, a <b>quick tap</b> on the throw stick swings when a rival you can see is in reach, otherwise it throws; <b>drag and release</b> always throws. Keys: <b>G</b> (P1), <b>B</b> (solo arrows), <b>,</b> (P2); gamepad <b>LT</b>. No swing while your weapon is flying, while dashing or stunned; a parry blocks it and dodges / shields work as usual. Swinging reveals you from a bush. Pick your weapon for free in the <b>Armory</b> before a match: Boomerang (balanced), Zip Disc (fast, narrow), Hook Ring (wide curve, broad sweep) or Bonk Mallet (slow, big, long reach). Online rooms with an older version play boomerang-only.</p><h4 style="margin-top:1em">Bushes</h4><p>Stand fully inside a <b>bush</b> to hide from rivals; you and your teammates see you faded. Throwing, parrying, using your ULT or getting hit shows you for about 1.5 s, and a rival who comes within about 1.8 units spots you. Boomerangs still hit anyone hiding, so a blind throw into a bush can pay off. No bushes in Boomerang Ball. Online rooms with a player on an older version use the older layout with no bushes.</p>
     <h4 style="margin-top:1em">Traps</h4><p><b>Red traps are deadly, but they sleep until a player wakes them:</b> step on a switch plate, hit a switch with your boomerang, or hit the trap itself. You get about half a second of flashing warning. <b>Yellow traps never kill</b>: they slow, shove, stun for half a second or make your aim go dizzy. Set traps to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment.</p><ul>${tt}</ul><h4 style="margin-top:1em">Countdown</h4><p>Every round starts with a big <b>3-2-1-GO</b> (always 3 seconds, whatever Game Speed you picked). While it counts you can look around the arena, but nobody can move, throw or use traps, the clocks have not started and nobody can be hurt. Online, the host\u2019s start time is shared so everyone\u2019s GO lands together. Training skips the long version.</p><h4 style="margin-top:1em">Drops</h4><p><b>A dark hole with a glowing cyan edge means no floor.</b> Cracking tiles blink dark and cyan just before they fall. When you get close to a drop the screen edge glows, the phone ticks and buzzes, and you wobble if you stand on nothing: step back within a quarter of a second and you are fine. With <b>Edge help</b> on (Settings) your first fall in a match is forgiven once: you are put back on safe floor, stunned for under a second, with a short shield. After that, falling is real.</p>
     <h4 style="margin-top:1em">Daily twist</h4><p>Setup has a <b>Daily twist</b> option: one of these every day.</p><ul>${mu}</ul>
     <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>

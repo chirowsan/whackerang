@@ -3,10 +3,11 @@
 import { PROTO, MAX_PLAYERS, ID_PREFIX, GUEST_PREFIX, makeCode, normCode, validCode, rid, safeName, shareLink, ONLINE_MODES, TEAM_MODES, LOBBY_EMOJI } from './proto.js';
 import { Signal, Link, rtcSupported, relayUrl, netCfg } from './rtc.js';
 import { RelayHub, RelayConn, RelayGuestLink, relayOn } from './relay.js';
+import { wpnOf, wpnFor, WEAPON_IDS } from '../weapons.js';
 import { BinWriter, BinReader, enc, dec } from './bin.js';
 import { PK, STEP, FxRecorder, GuestWorld, encodeFast, encodeCrates, encodeHoles, encodeItems, encodeTraps, slowSig } from './world.js';
 import { HEROES, HATS, ARENAS, MODES, TRAILS, SKINS, EMOTES, PERSONAS, PLAYER_COLORS } from '../data.js';
-import { S, save, SPEEDS } from '../save.js';
+import { S, getWpn, save, SPEEDS } from '../save.js';
 import { Input } from '../input.js';
 import { Bot } from '../ai.js';
 import { fx } from '../fx.js';
@@ -36,7 +37,7 @@ export const Net = {
   emit() { this.onUpdate && this.onUpdate(); },
   setStatus(s) { this.status = s; this.onStatus && this.onStatus(s); },
   me() { return this.lobby.players.find((p) => p.slot === this.mySlot) || null; },
-  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail }; },
+  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail, weapon: getWpn(0, hero) }; },
   defaultSettings() { return { mode: 'classic', arena: 'random', size: 'large', traps: 'some', events: 'some', speed: 'chill', rounds: 3, bots: true, diff: 1, mutator: 'off' }; },
 
   // ================================================================== HOST
@@ -138,13 +139,13 @@ export const Net = {
     if (m.proto !== PROTO) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
     // v4.9: map-density capability. v4.8 guests send no 'dens' and only know the old layout. In the lobby that is fine (the host then builds every round with dens 1);
     // mid-match the running round may already be dens 2, so an old client gets a clear update-required 'version' reject instead of a silently different map.
-    p.dens = Math.max(1, Math.min(4, m.dens | 0 || 1)); if (this.phase !== 'lobby' && this.app.game && p.dens < (this.app.game.dens || 1)) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
+    p.dens = Math.max(1, Math.min(5, m.dens | 0 || 1)); if (this.phase !== 'lobby' && this.app.game && p.dens < (this.app.game.dens || 1)) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
     const cid = String(m.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) || rid(10); p.cid = cid;
     // v4.6.2: the same client (random per-tab id, never an IP) is back on a new link (e.g. direct -> relay) before its old link timed out: retire the old one so it is never counted twice
     { const old = H.slots.find((q, i) => i > 0 && q && q !== p && q.cid === cid && q.conn); if (old) this.dropPeer(old, 'replaced'); }
     // rejoin? same client id as a seat that dropped during the match
     let seat = H.slots.find((q, i) => i > 0 && q && q.cid === cid && !q.conn);
-    if (seat && this.phase !== 'idle') { Object.assign(p, { slot: seat.slot, name: seat.name, hero: seat.hero, hat: seat.hat, skin: seat.skin, trail: seat.trail, team: seat.team, ready: seat.ready }); p.rejoin = true; H.slots[seat.slot] = p; H.peers.delete(seat.pid); }
+    if (seat && this.phase !== 'idle') { Object.assign(p, { slot: seat.slot, name: seat.name, hero: seat.hero, hat: seat.hat, skin: seat.skin, trail: seat.trail, weapon: seat.weapon, team: seat.team, ready: seat.ready }); p.rejoin = true; H.slots[seat.slot] = p; H.peers.delete(seat.pid); }
     else {
       if (this.phase === 'match') { if (!this.lateSeat(p, m)) { send({ t: 'reject', r: 'locked' }); setTimeout(() => p.link.close(), 300); return; } }
       else {
@@ -152,7 +153,7 @@ export const Net = {
       p.slot = free; p.ready = true; p.team = 1; this.applyProfile(p, m); this.pickFreeHero(p); H.slots[free] = p;
     } }
     p.mm = m.mm | 0;
-    p.conn = true; p.ping = 0; p.rq = { q: [], cur: { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, assist: true, touchy: false }, edges: { dash: false, deflect: false, ult: false }, last: 0, ack: 0, stall: 0, nrx: 0, tpkt: 0 };
+    p.conn = true; p.ping = 0; p.rq = { q: [], cur: { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, assist: true, touchy: false }, edges: { dash: false, deflect: false, ult: false, melee: false, tap: false }, last: 0, ack: 0, stall: 0, nrx: 0, tpkt: 0 };
     H.peers.set(p.pid, p); H.pend.delete(p.pid); this.balanceTeams();
     send({ t: 'welcome', slot: p.slot, code: this.code, proto: PROTO, rejoin: !!p.rejoin, took: p.took || undefined }); this.syncLobby();
     this.note(`${p.name} ${p.rejoin ? 'is back' : p.took ? 'joined (took over ' + p.took + ')' : 'joined'}`);
@@ -182,7 +183,7 @@ export const Net = {
     const free = ['bao', 'nori', 'tako', 'kuma'].find((id) => !taken.has(id)); if (free) { p.autoFrom = p.hero; p.autoTo = free; p.hero = free; p.hat = 'none'; }
   },
   applyProfile(p, m) {
-    p.name = safeName(m.name); p.hero = HEROES.some((h) => h.id === m.hero) ? m.hero : 'bao'; p.hat = hexOk(m.hat, HATS.map((h) => h.id)) ? m.hat : 'none'; p.skin = SKINS[m.skin] ? m.skin : 'default'; p.trail = TRAILS[m.trail] ? m.trail : 'none';
+    p.name = safeName(m.name); p.hero = HEROES.some((h) => h.id === m.hero) ? m.hero : 'bao'; p.hat = hexOk(m.hat, HATS.map((h) => h.id)) ? m.hat : 'none'; p.skin = SKINS[m.skin] ? m.skin : 'default'; p.weapon = wpnFor(p.hero, m.weapon); /* v4.11: host keeps only a weapon of the player's own character; anything else -> that character's first */ p.trail = TRAILS[m.trail] ? m.trail : 'none';
   },
   note(t) { this.notes.push({ t, at: now() }); if (this.notes.length > 4) this.notes.shift(); this.onNote && this.onNote(t); },
   balanceTeams() { const H = this.H; if (!H) return; const hs = H.slots.filter((p) => p && p.conn); for (const t of [0, 1]) { let mem = hs.filter((p) => p.team === t); while (mem.length > 2) { const x = mem.pop(); x.team = 1 - t; } } },
@@ -222,7 +223,7 @@ export const Net = {
       // abuse guard: at most ~75 frames/s on average
       rq.tpkt += 1; const t = now(); rq.win = rq.win || t; rq.wn = (rq.wn || 0); if (t - rq.win > 2000) { rq.win = t; rq.wn = 0; }
       for (let i = n - 1; i >= 0; i--) { const f = fr[i]; if (f.tick <= rq.last && !(rq.last - f.tick > 1000)) continue; if (rq.wn > 170) continue; rq.wn++; rq.last = f.tick; rq.q.push(f); }
-      if (rq.q.length > 10) { const drop = rq.q.splice(0, rq.q.length - 6); for (const f of drop) { if (f.fl & 2) rq.edges.dash = true; if (f.fl & 4) rq.edges.deflect = true; if (f.fl & 8) rq.edges.ult = true; } }
+      if (rq.q.length > 10) { const drop = rq.q.splice(0, rq.q.length - 6); for (const f of drop) { if (f.fl & 2) rq.edges.dash = true; if (f.fl & 4) rq.edges.deflect = true; if (f.fl & 8) rq.edges.ult = true; if (f.fl & 64) rq.edges.melee = true; if (f.fl & 128) rq.edges.tap = true; } }
     } catch (e) { /* malformed packets are ignored */ }
   },
   // input source for the host's Game: slot 0 = local controls, other slots = validated network input
@@ -231,9 +232,9 @@ export const Net = {
     return { read(slot, f) {
       if (slot === 0) return Input.read(0, f);
       const p = net.H && net.H.slots[slot]; const o = net._o || (net._o = {}); const out = o[slot] || (o[slot] = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false });
-      if (!p || !p.rq || !p.conn) { out.mx = out.mz = out.aimX = out.aimZ = 0; out.fire = out.dash = out.deflect = out.ult = false; return out; }
+      if (!p || !p.rq || !p.conn) { out.mx = out.mz = out.aimX = out.aimZ = 0; out.fire = out.dash = out.deflect = out.ult = out.melee = out.tap = false; return out; }
       const c = p.rq.cur, e = p.rq.edges; let mx = c.mx, mz = c.mz; const l = Math.hypot(mx, mz); if (l > 1) { mx /= l; mz /= l; } let ax = c.aimX, az = c.aimZ; const al = Math.hypot(ax, az); if (al > 1e-3) { ax /= al; az /= al; } else { ax = az = 0; }
-      out.mx = mx; out.mz = mz; out.aimX = ax; out.aimZ = az; out.fire = c.fire; out.dash = e.dash; out.deflect = e.deflect; out.ult = e.ult; e.dash = e.deflect = e.ult = false;
+      out.mx = mx; out.mz = mz; out.aimX = ax; out.aimZ = az; out.fire = c.fire; out.dash = e.dash; out.deflect = e.deflect; out.ult = e.ult; e.dash = e.deflect = e.ult = false; out.melee = !!e.melee; e.melee = false; out.tap = !!e.tap && !c.fire; if (out.tap) e.tap = false; // v4.10: tap is delivered on the guest's release frame
       if (f) f.netIn = { assist: c.assist, touchy: c.touchy };
       return out;
     } };
@@ -244,8 +245,8 @@ export const Net = {
     for (const p of H.peers.values()) {
       if (p.isHost || !p.rq || !p.conn) continue; const rq = p.rq; let n = rq.q.length > 4 ? 2 : 1;
       if (!rq.q.length) { rq.stall++; if (rq.stall > 24) { rq.cur.mx = 0; rq.cur.mz = 0; } continue; } rq.stall = 0;
-      while (n-- > 0 && rq.q.length) { const f = rq.q.shift(); rq.cur.mx = f.mx; rq.cur.mz = f.mz; rq.cur.aimX = f.ax; rq.cur.aimZ = f.az; rq.cur.fire = !!(f.fl & 1); rq.cur.assist = !!(f.fl & 16); rq.cur.touchy = !!(f.fl & 32); if (f.fl & 2) rq.edges.dash = true; if (f.fl & 4) rq.edges.deflect = true; if (f.fl & 8) rq.edges.ult = true; rq.ack = f.tick; }
-      if (g && g.state === 'intro') rq.edges.dash = rq.edges.deflect = rq.edges.ult = false;
+      while (n-- > 0 && rq.q.length) { const f = rq.q.shift(); rq.cur.mx = f.mx; rq.cur.mz = f.mz; rq.cur.aimX = f.ax; rq.cur.aimZ = f.az; rq.cur.fire = !!(f.fl & 1); rq.cur.assist = !!(f.fl & 16); rq.cur.touchy = !!(f.fl & 32); if (f.fl & 2) rq.edges.dash = true; if (f.fl & 4) rq.edges.deflect = true; if (f.fl & 8) rq.edges.ult = true; if (f.fl & 64) rq.edges.melee = true; if (f.fl & 128) rq.edges.tap = true; rq.ack = f.tick; }
+      if (g && g.state === 'intro') rq.edges.dash = rq.edges.deflect = rq.edges.ult = rq.edges.melee = rq.edges.tap = false;
     }
   },
   afterStep() {
@@ -271,7 +272,7 @@ export const Net = {
   resendSlow(all) { const g = this.app.game; if (!g || !this.H) return; for (const k of ['crates', 'holes', 'items', 'traps']) this.sendSlow(k, g); },
   // ---- host: lobby state
   syncLobby() {
-    const H = this.H; if (!H) return; const players = H.slots.filter((p) => p).map((p) => ({ slot: p.slot, name: p.name, hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, ready: !!p.ready, team: p.team | 0, host: !!p.isHost, conn: !!p.conn, ping: Math.round(p.ping || 0), rematch: H.rematch.has(p.slot) }));
+    const H = this.H; if (!H) return; const players = H.slots.filter((p) => p).map((p) => ({ slot: p.slot, name: p.name, hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: p.weapon || 'boom', ready: !!p.ready, team: p.team | 0, host: !!p.isHost, conn: !!p.conn, ping: Math.round(p.ping || 0), rematch: H.rematch.has(p.slot) }));
     this.lobby = { players, settings: H.settings, phase: this.phase, code: this.code };
     this.sendAll({ t: 'lobby', ...this.lobby }); this.emit();
   },
@@ -292,10 +293,10 @@ export const Net = {
   buildDefs() {
     const H = this.H, s = H.settings; const hum = H.slots.filter((p) => p && p.conn).sort((a, b) => a.slot - b.slot); const teamy = TEAM_MODES.includes(s.mode);
     const defs = []; const HERO = (id) => HEROES.find((h) => h.id === id) || HEROES[0];
-    const base = (p) => ({ hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, type: 'classic', ctrl: 'human', slot: p.slot, name: p.name, wins: 0, diff: 1, cid: p.cid });
+    const base = (p) => ({ hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: wpnFor(p.hero, p.weapon), type: 'classic', ctrl: 'human', slot: p.slot, name: p.name, wins: 0, diff: 1, cid: p.cid });
     let list = hum.map((p) => ({ ...base(p), team: teamy ? p.team : undefined }));
     const used = new Set(list.map((d) => d.hero)); const pool = shuffle(HEROES.filter((h) => !used.has(h.id)).map((h) => h.id));
-    const bot = (extra = {}) => { const hid = pool.shift() || pick(HEROES).id; return { hero: hid, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: HERO(hid).name, diff: s.diff, persona: PERSONAS[hid], wins: 0, type: 'classic', ...extra }; };
+    const bot = (extra = {}) => { const hid = pool.shift() || pick(HEROES).id; return { hero: hid, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: HERO(hid).name, diff: s.diff, persona: PERSONAS[hid], wins: 0, type: 'classic', weapon: pick(WEAPON_IDS), ...extra }; };
     if (teamy) {
       const t0 = list.filter((d) => d.team === 0), t1 = list.filter((d) => d.team === 1);
       if (s.bots) { while (t0.length < 2) t0.push(bot({ team: 0 })); while (t1.length < 2) t1.push(bot({ team: 1 })); } else if (!t0.length || !t1.length) { const src = t0.length ? t0 : t1; const lone = !t0.length; if (!t0.length) t0.push(bot({ team: 0 })); if (!t1.length) t1.push(bot({ team: 1 })); }
@@ -320,19 +321,19 @@ export const Net = {
   },
   // app.nextRound (host) asks us to complete the Game options; we also announce the round to guests
   // v4.9: calmer maps only when every connected guest can build them; any v4.8 guest -> the whole room plays the v4.8 layout/trap density
-  roomDens() { let d = 4; if (!this.H) return d; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) d = Math.min(d, p.dens || 1); return d; }, // v4.9: 4 = calm layout + bushes/stealth, 3 = calm layout, 2 = pass-2 dev builds, 1 = v4.8
+  roomDens() { let d = 5; if (!this.H) return d; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) d = Math.min(d, p.dens || 1); return d; }, // v4.9: 4 = calm layout + bushes/stealth, 3 = calm layout, 2 = pass-2 dev builds, 1 = v4.8
   hostGameOpts(o) { const s = this.H.settings; // v4.5: the host's countdown is a 3 s real-time count after a pre-roll that grows with the worst peer ping, so slow links still see the 3 before it starts
     let worst = 0; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) worst = Math.max(worst, p.ping || 0);
     const pre = Math.min(1.2, Math.max(0.45, 0.45 + worst / 1000)); return { ...o, intro: CD_LEN + pre, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), dens: this.roomDens(), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
   roundMsg() {
     const m = this.app.match, g = this.app.game, o = this.curOpts;
-    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, dens: g.dens, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
+    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, dens: g.dens, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, weapon: g.melee ? wpnOf(d.weapon) : undefined, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
   },
   onGameCreated(g, opts) {
     this.curOpts = opts;
     if (this.isHost) {
       const m = this.app.match; const H = this.H; H.tick = 0; H.snapN = 0; H.fxPrev = null; H.sigLast = {};
-      g.netRec = (n, x, z) => H.rec.push(n, [x, z]);
+      g.netRec = (n, x, z) => H.rec.push(n, [x, z]); g.netRec2 = (n, a) => H.rec.push(n, a);
       for (const f of g.fighters) { if (!f.isBot && f.model.setMarker) f.model.setMarker(f.color, f.def.slot === 0 ? 'YOU' : tag(H.slots[f.def.slot] ? H.slots[f.def.slot].name : 'P'), f.def.slot === 0); }
       this.phase = 'match'; for (const p of H.peers.values()) if (!p.isHost && p.conn) p.joinedMatch = true;
       this.sendAll(this.roundMsg()); setTimeout(() => this.resendSlow(), 300);
@@ -430,7 +431,7 @@ export const Net = {
     const d = link.pc.localDescription; return { type: d.type, sdp: d.sdp };
   },
   async joinManualAnswer(desc) { const G = this.G; if (!G || !G.link) return; await G.link.setAnswer(desc); this.setStatus('Connecting directly to the host...'); },
-  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, mm: 2, dens: (window.__bbNet && window.__bbNet.dens) || 4, ...pr })); },
+  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, mm: 2, dens: (window.__bbNet && window.__bbNet.dens) || 5, ...pr })); },
   gSend(o) { const G = this.G; if (G && G.link) G.link.send('rel', JSON.stringify(o)); },
   guestRel(d) {
     if (typeof d !== 'string' || d.length > 20000) return; let m; try { m = JSON.parse(d); } catch (e) { return; } if (!m || typeof m.t !== 'string') return; const G = this.G; if (!G) return; G.lastRx = now();

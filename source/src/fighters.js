@@ -238,6 +238,12 @@ export function animateFighter(m, dt, st) {
   if (st.deflect > 0) { m.armL.rotation.set(-1.4, 0, 0.1); m.armR.rotation.set(-1.4, 0, -0.1); }
   if (armsUp) { const w = Math.sin(t * (st.win ? 13 : 16)) * 0.25; m.armL.rotation.set(-2.7 + w, 0, 0.5); m.armR.rotation.set(-2.7 - w, 0, -0.5); }
   if (st.dead) { m.armL.rotation.set(Math.sin(t * 25) * 1.3 - 1.5, 0, 1.0); m.armR.rotation.set(Math.cos(t * 25) * 1.3 - 1.5, 0, -1.0); }
+  // v4.10 melee swing with the held weapon: wind-up (pull back to the right), fast sweep across during the hit frames, recovery
+  m.armR.rotation.order = 'XYZ';
+  if (st.slash && !st.dead) { const s = st.slash, M = s.M; m.armR.rotation.order = 'YXZ'; let k;
+    if (s.t < M.wind) { k = s.t / M.wind; m.armR.rotation.set(-1.25 * k, 1.25 * k, -0.4); body.rotation.y += 0.3 * k; }
+    else if (s.t < M.wind + M.act) { k = (s.t - M.wind) / M.act; m.armR.rotation.set(-1.35, 1.25 - 2.45 * k, -0.35); body.rotation.y += 0.3 - 0.75 * k; }
+    else { k = Math.min(1, (s.t - M.wind - M.act) / M.rec); m.armR.rotation.set(-1.35 * (1 - k), -1.2 * (1 - k), -0.35); body.rotation.y += -0.45 * (1 - k); } }
   // ---- ears: wiggle
   m.ears.forEach((e, i) => { const s = i ? 1 : -1; e.rotation.set(-0.3 * mv + Math.sin(t * 3 + i * 1.7) * 0.03 + (st.dead ? Math.sin(t * 20) * 0.4 : 0) + (ex === 'happy' ? Math.sin(t * 16 + i) * 0.18 : 0) + (ex === 'angry' ? -0.2 : 0) + (ex === 'scared' ? 0.35 : 0), 0, Math.sin(t * 2.2 + i * 2.3) * 0.05 + s * (ex === 'scared' ? -0.3 : 0)); });
   sp.update(m, t, st, q);

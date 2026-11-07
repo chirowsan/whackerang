@@ -110,3 +110,28 @@
 ### Fri Nov 6 18:10 PST: v4.9.0 release started (pt386u approval). Inspecting bb-pages.
 - 19:02 PST resumed after interrupt; tests: core suites green, tut42 fixed(escape dir) 18/0 x3, net_poison48 10/10 rerun, net_mixed49 ghost expectation updated 0.45->0.6, net_ui/net_life/net_relay43 known WebRTC baselines (fail on v4.8 too)
 - 19:08 net_mixed49 25/25, net_cd45 30/0 (rerun quiet), relay stopped
+- 19:05 PST pushed bb-pages 38a4f90
+- 19:06 PST pushed bb-pages 0139a3d
+- 19:18 PST release v4.9.0 created with 4 assets, live site verified v4.9.0-20261106 (sha256 30a1f166...). DONE
+### Fri Nov 06 21:45 PST: melee slash work started (pt388u). Baseline backup /workspace/out/v4.10/base (v4.9 published 0139a3d). LOCAL ONLY, no publish.
+### Fri Nov 6 21:46 PST: checkpoint (melee + new weapon-shop scope, pt388u + t389u/t390u). LOCAL ONLY
+- Backup: /workspace/out/v4.10/base (src, tools, docs, README, build.mjs, v49.html). No source edits yet.
+- Melee design (chosen): params in one object (per-weapon later): arc ~100 deg, reach 1.3 u, wind-up 0.12 s, active 0.08 s, recovery 0.22 s, cd 0.42 s, 1 heart, once per target per swing, needs ammo>0 (held boomerang).
+- Capability: dens 5 = melee (layout uses >=, so 5 builds like 4). roomDens base 5, clamp 5; v4.9 host clamps guests to 4 -> melee off; mixed rooms fall back to v4.9 behaviour. Mid-round lower-dens join -> existing reject:version.
+- Net: guest input byte bits 64 (explicit melee) and 128 (contextual tap) are free; host edges like dash. Guest visuals via host event 'slash' in fxList.
+- Controls: touch quick-tap = slash only if a visible foe is in reach+front cone and a boomerang is held, else old auto-aim throw; drag-release always throws. Keys: P1 G, P2 ?, SOLO B; pad LT(6).
+- Weapon shop: pre-match loadout in the existing gold store, alternatives to boomerang, no real money; detailed brief pending.
+- 21:53 PST melee core + weapons table + net plumbing done; tools/melee410.mjs 25/0. Next: Armory UI, touch tap test, net tests, screenshots.
+- 21:58 PST Armory UI + touch tap/drag (touchmelee410 8/0) + stills done. Next: net tests vs published v4.9.
+- 22:02 PST net_melee410 22/22 vs PUBLISHED v4.9.0 page (local relay). dens49 updated: 181/181 (adds dens5==dens4 map checks).
+- 22:37 PST resumed; fin410 still running (net_cd45); killed stale net_ui/net_life helpers 203070 203077 203727
+- 22:49 PST suite done: net_cd45 30/0 + bush49 89/0 on rerun (first net_cd45 crashed after stale-helper kill); relay stopped
+- 22:50 PST DONE local: patch /workspace/out/v4.10/v4.10-melee-armory.patch, shots /workspace/out/v4.10/shots, build Whackerang.html BUILD v4.10-dev-20261106 (local only, no version bump/publish)
+- 2026-11-06 v4.10-dev (local): Armory polish — 2/1/4-col responsive grid, px text floors, 44px Equip, ✓ Equipped tag, scroll kept on equip; armory410 9/0 x3, touchmelee410 rerun. Unpublished.
+- 2026-11-06 v4.10-dev (local): touchmelee410 made deterministic (fixed-dt stepping, seeded RNG, frozen bot, explicit state, real CDP touches, warm-page gate, failure diagnostics). Causes: old 'hidden' case was not hidden (no bush; d 1.0 < detect 1.8) and raced a 5 ms pin; throw-instead-of-swing = touchend delayed >340 ms on a cold page (correct long-press). No game code change. 8/8 runs 11/0.
+- 2026-11-07 v4.10-dev (local, unpublished): per-character weapons (8 heroes x 3 own weapons, patterns arc/poke/lunge/spin, homing/pierce/stun effects), per-slot per-character loadout + v4.10 migration, character-strip Armory, host validation by hero, per-owner wire code (no capability bump). loadout411 18/0, armory411 11/0 x3, touchmelee410 5x 11/0, melee410 46/0, bush49 89/0, dens49 181/181, net_melee410 25/25, net_mixed49 25/25 (local relay, stopped).
+### Sat Nov 7 2026 PST: v4.10.0 release (pt392u approval), versionCode 54, build v4.10.0-20261107
+- Scope: melee swing + per-character Armory (8 heroes x 3 exclusive weapons = 24), per-slot per-character saves with v4.10-dev/v4.9 migration, host-validated picks, per-owner wire weapon code (dens 5; v4.9 rooms fall back to boomerang-only, v4.9 mid-round join rejected).
+- Release-build tests: loadout411 18/0, melee410 46/0, bush49 89/0, dens49 181/181, hop49 5/0, tut42 18/0, traps49calm 73/0 (1 skip), armory411 915x412 11/0, touchmelee410 3 fresh runs 11/0 each; local relay (stopped): net_melee410 25/25 (incl. published v4.9.0 fallback + mid-round reject), net_mixed49 25/25.
+- Not run this release: net_ui / net_life / net_relay43 (known direct-WebRTC baseline failures on this box, also on v4.8), net_cd45, net_poison48, leak45, full fin suite. No real-phone or direct P2P testing. Balance first pass (stuns 0.3-0.35 s < every stunning weapon's swing cooldown; post-hit 1.4 s invulnerability -> no stun lock).
+- APK/AAB signed with the existing key (cert SHA-256 6e59e14a...ab35d8de, same as v4.9.0).

@@ -2,7 +2,7 @@
 import os, shutil, sys
 SRC = '/workspace/boomerang-brawl'; DST = '/workspace/bb-pages/source'
 TOP = ['README.md','assets','build.mjs','docs','icon-192.png','icon-512.png','index.html','manifest.webmanifest','mobile','package-lock.json','package.json','pwa','server','src','style.css','tools','vendor']
-SKIP_DIRS = {'node_modules','build','.gradle','.git','www','.idea'}
+SKIP_DIRS = {'node_modules','build','.gradle','.git','www','.idea','.wrangler'}
 def ign(d, names):
     out = set()
     for n in names:

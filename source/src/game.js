@@ -10,7 +10,8 @@ import { ArenaEvents } from './events.js';
 import { POISON, poisonOn, poisonTick, inPoison, poisonRect, PoisonView } from './poison.js';
 import { installRules } from './rules.js';
 import { installRules2 } from './rules2.js';
-import { buildFighter, buildBoomerang, buildPowerup } from './models.js';
+import { buildFighter, buildBoomerang, buildWeapon, buildPowerup } from './models.js';
+import { W, wpnOf, wpnFor, WEAPON_IDS } from './weapons.js';
 import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
 import { Input } from './input.js';
@@ -37,6 +38,9 @@ class Fighter {
     this.baseType = def.type || 'classic'; this.type = this.baseType; this.typeT = 0; this.skin = def.skin || 'default'; this.trail = def.trail || 'none'; this.ult = def.ult0 || 0; this.ultT = 0; this.ultKind = '';
     this.frozenT = 0; this.stunT = 0; this.tagImmune = 0; this.tagCd = 0; this.respawnT = 0; this.catchPop = 0; this.happyT = 0; this.hitFlash = 0; this.emoteT = 0; this.score = 0; this.dmgTaken = 0;
     if (this.bs !== 1) this.model.root.scale.setScalar(this.bs);
+    // v4.10 Armory + melee: weapon is fixed for the whole match (chosen pre-match); rooms without the capability are boomerang-only
+    this.wpn = g.melee && !def.boss && !def.minion ? wpnFor(def.hero && def.hero.id || def.hero, def.weapon) : 'boom'; /* v4.11: only this character's own weapons */ this.slT = -1; this.slV = -1; this.slAng = 0; this.slCd = 0; this.slHit = new Set(); this.fireLock = false;
+    if (g.melee && this.model.armR) { const hm = buildWeapon(this.wpn, this.color, this.hero, this.skin, 'classic', true); hm.scale.setScalar(this.wpn === 'boom' ? 0.8 : 0.82); hm.position.set(0.05, -0.24, 0.1); this.model.armR.add(hm); this.model.held = hm; }
     const hum = !this.isBot; const nh = g.nHumans || 1; if (this.model.setMarker) this.model.setMarker(this.color, hum ? (nh > 1 ? 'P' + (this.def.slot + 1) : 'YOU') : null, hum);
   }
   get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.62 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 || this.chillT > 0 ? 0.5 : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1); }
@@ -56,13 +60,14 @@ class Fighter {
     if (this.dizzyT > 0 && inp !== NOINP && (inp.aimX !== 0 || inp.aimZ !== 0)) inp = { ...inp, aimX: -inp.aimX, aimZ: -inp.aimZ }; // v4.3 dizzy: aim is reversed for a moment
     if (inp.ult && this.ult >= 100 && this.alive && g.state === 'play') g.useUlt(this);
     // --- dash
-    if (inp.dash && this.dashCd <= 0 && this.dashT <= 0) {
+    if (g.melee) this.meleeTick(dt, inp); // v4.10 close-range swing (before dash/parry so a swing in progress blocks them)
+    if (inp.dash && this.dashCd <= 0 && this.dashT <= 0 && this.slT < 0) {
       let dx = inp.mx, dz = inp.mz; if (Math.hypot(dx, dz) < 0.2) { dx = dirx(this.face); dz = dirz(this.face); } const l = Math.hypot(dx, dz) || 1;
       this.dashDir = [dx / l, dz / l]; this.dashT = (g.mut && g.mut.grav ? 0.24 : 0.17); this.dashCd = 0.95 * this.mods.dashCd; this.inv = Math.max(this.inv, this.abil === 'nori' ? 0.45 : 0.22); this.pushed = false; this.charging = false; this.chargeT = 0; this.vface = this.face = Math.atan2(dx, dz);
       sfx('dash'); fx.puff(this.x, 0.15, this.z, 6, 0xffffff, 0.3); shake(0.06); g.onEvent('dash', { f: this });
     }
     // --- deflect
-    if (inp.deflect && this.deflectCd <= 0 && this.dashT <= 0) { this.deflectT = 0.3; this.deflectCd = 0.85; this.charging = false; this.chargeT = 0; sfx('deflectfail'); }
+    if (inp.deflect && this.deflectCd <= 0 && this.dashT <= 0 && this.slT < 0) { this.deflectT = 0.3; this.deflectCd = 0.85; this.charging = false; this.chargeT = 0; sfx('deflectfail'); }
     if (this.frozenT > 0) { this.vx *= 0.8; this.vz *= 0.8; }
     // --- movement
     const hz = g.cellType(this.x, this.z); const ice = g.arenaId === 'ice' || this.iceT > 0;
@@ -75,6 +80,7 @@ class Fighter {
       const a2 = stopping ? (ice ? 1.6 : 34) * dt : acc;
       this.vx += clamp(tx - this.vx, -a2, a2); this.vz += clamp(tz - this.vz, -a2, a2);
     }
+    if (this.slT >= 0 && this.dashT <= 0) { const M = W(this.wpn).melee; if (this.slT < M.wind + M.act) { const lv = M.pat === 'lunge' ? 6 : 2.2; this.vx = dirx(this.slAng) * lv; this.vz = dirz(this.slAng) * lv; } else { this.vx *= 0.5; this.vz *= 0.5; } } // v4.10 swing: short forward lunge through the hit frames, then a slowed recovery
     // conveyor
     this.ex = 0; this.ez = 0; if (hz === T.CONV) { const k = idx(ci(this.x), cj(this.z)); this.ex = g.layout.dx[k] * 2.6; this.ez = g.layout.dz[k] * 2.6; }
     if (g.wind) { const wk = this.dashT > 0 ? 0.3 : 1; this.ex += g.wind[0] * wk; this.ez += g.wind[1] * wk; }
@@ -87,15 +93,16 @@ class Fighter {
     // --- aiming / throwing
     const aiming = inp.aimX !== 0 || inp.aimZ !== 0;
     if (this.charging && !inp.fire && this.prevFire) { /* handled below */ }
-    if (inp.fire && !this.charging && this.ammo > 0 && this.throwCd <= 0 && this.dashT <= 0 && this.deflectT <= 0) { this.charging = true; this.chargeT = 0; this.lastAim = [0, 0]; }
+    if (!inp.fire) this.fireLock = false; // v4.10: a tap that became a swing must be released before it can start a throw
+    if (inp.fire && !this.charging && !this.fireLock && this.slT < 0 && this.ammo > 0 && this.throwCd <= 0 && this.dashT <= 0 && this.deflectT <= 0) { this.charging = true; this.chargeT = 0; this.lastAim = [0, 0]; }
     if (this.charging) {
       this.chargeT += dt * this.mods.charge; if (aiming) { this.lastAim = [inp.aimX, inp.aimZ]; this.face = Math.atan2(inp.aimX, inp.aimZ); }
       if (Math.floor(this.chargeT * 12) !== Math.floor((this.chargeT - dt * this.mods.charge) * 12) && this.chargeT < 0.8) sfx('charge', Math.min(1, this.chargeT));
-      if (!inp.fire) { this.release(); }
+      if (!inp.fire) { if (!(inp.tap && g.melee && this.tapSlash())) this.release(); } // v4.10: a quick tap next to a visible rival swings instead of throwing
     }
     this.prevFire = inp.fire;
     // face
-    if (!this.charging) { if (this.dashT <= 0 && Math.hypot(inp.mx, inp.mz) > 0.2) this.face = Math.atan2(inp.mx, inp.mz); else if (aiming) this.face = Math.atan2(inp.aimX, inp.aimZ); }
+    if (this.slT >= 0) this.face = this.slAng; else if (!this.charging) { if (this.dashT <= 0 && Math.hypot(inp.mx, inp.mz) > 0.2) this.face = Math.atan2(inp.mx, inp.mz); else if (aiming) this.face = Math.atan2(inp.aimX, inp.aimZ); }
     this.vface += angDiff(this.vface, this.face) * Math.min(1, dt * 18);
     // --- hazards
     if (this.dashT <= 0 && !(this.airT > 0)) {
@@ -105,6 +112,24 @@ class Fighter {
       else if (t === T.SPIKE && g.spk[k] > 0.6) this.die(null, 'spike', 0, 0);
     } else this.edgeT = 0;
     g.guard(this); // v4.7 safety net: NaN / out of bounds / stuck inside a pillar or crate -> back onto the nearest safe floor, free
+  }
+  // ---- v4.10 melee: a short swing with the weapon in hand. Only while it is held (not out flying), never while dashing / parrying / stunned / frozen.
+  canSlash() { const g = this.g; return g.melee && g.state === 'play' && this.alive && !this.show && this.ammo > 0 && this.slT < 0 && this.slCd <= 0 && this.dashT <= 0 && this.deflectT <= 0 && this.frozenT <= 0 && this.stunT <= 0; }
+  meleeReachTo(o) { return FR * this.bs + W(this.wpn).melee.reach + FR * 0.9 * o.bs; }
+  // nearest rival this fighter can SEE (hidden bush rivals are never auto-targeted) inside swing reach (+ small slack) with no wall in between
+  slashTarget(slack = 0.25) { const g = this.g; let best = null, bd = 1e9; for (const o of g.fighters) { if (!o.alive || !g.isFoe(this, o) || !canSee(g, this.team, o)) continue; const d = Math.hypot(o.x - this.x, o.z - this.z); if (d > this.meleeReachTo(o) + slack || !g.clearLine(this.x, this.z, o.x, o.z)) continue; if (d < bd) { bd = d; best = o; } } return best; }
+  tapSlash() { if (!this.canSlash()) return false; const o = this.slashTarget(); if (!o) return false; this.startSlash(Math.atan2(o.x - this.x, o.z - this.z)); return true; }
+  startSlash(ang) {
+    const g = this.g, M = W(this.wpn).melee; this.slT = 0; this.slV = 0; this.slAng = ang; this.face = this.vface = ang; this.slHit.clear(); this.slCd = M.cd; this.charging = false; this.chargeT = 0; this.fireLock = true;
+    reveal(this, STEALTH.reveal); sfx('dash'); if (g.netRec2) g.netRec2('slash', [g.fighters.indexOf(this), Math.round(ang * 100) / 100]); g.onEvent('slash', { f: this });
+  }
+  meleeTick(dt, inp) {
+    this.slCd -= dt; const M = W(this.wpn).melee;
+    if (this.slT >= 0) { const t0 = this.slT; this.slT += dt; if (this.slT >= M.wind && t0 < M.wind + M.act) this.g.slashHits(this, M); if (this.slT >= M.wind + M.act + M.rec) this.slT = -1; }
+    if (inp.melee && this.canSlash()) { // explicit swing key: aim direction if aiming, else toward a visible rival in reach (aim assist), else straight ahead
+      let a = this.face; if (inp.aimX || inp.aimZ) a = Math.atan2(inp.aimX, inp.aimZ); else if (Math.hypot(inp.mx, inp.mz) > 0.2) a = Math.atan2(inp.mx, inp.mz);
+      const o = this.slashTarget(0.35); if (o) { const ta = Math.atan2(o.x - this.x, o.z - this.z); if (Math.abs(angDiff(a, ta)) < 1.2) a = ta; } this.startSlash(a);
+    }
   }
   release() {
     const g = this.g; this.charging = false; let c = clamp(this.chargeT / 0.7, 0, 1); this.chargeT = 0; if (this.ultKind === 'tako' && this.ultT > 0) c = 1;
@@ -152,7 +177,8 @@ class Boom {
     this.g = g; this.owner = owner; this.x = x; this.z = z; this.th = ang; this.t = 0; this.phase = 'out'; this.alive = true; this.carry = o.carry; this.bounces = 0; this.total = 0;
     this.type = o.type || 'classic'; const T = TYPEFX[this.type] || {}; this.pierce = !!T.pierce; this.freeze = !!T.freeze; this.chains = T.chain || 0; this.ghost = !!T.ghost; this.hit = new Set(); this.chainHits = 0;
     this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = o.giant ? 0.85 : 0.3; this.v0 = (13 + 8 * c) * (T.v || 1); this.shock = owner.abil === 'tako' && c >= 0.9; /* v4.7 Bolt: full-charge throws stun */ this.tout = (0.8 + 0.7 * c) * (g.mut && g.mut.grav ? 1.25 : 1); this.retT = 0; this.w = CURVE * (1 - 0.35 * c); this.spin = 0; this.fade = 0;
-    this.mesh = buildBoomerang(owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
+    this.wpn = wpnOf(o.wpn || owner.wpn); { const WP = W(this.wpn); this.v0 *= WP.v; this.hitR *= WP.hitR; this.tout *= WP.tout; this.w *= WP.curve; const X = WP.fx || {}; this.homeK = X.home || 0; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; } // v4.10 Armory: per-weapon flight
+    this.mesh = buildWeapon(this.wpn, owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
     const tr = TRAILS[owner.trail] || TRAILS.none; const rcol = owner.trail !== 'none' ? tr.color : (this.type !== 'classic' ? BOOM_TYPES[this.type].color : owner.color);
     this.ribbon = fx.ribbon(rcol, o.giant ? 0.62 : 0.36, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null;
   }
@@ -165,7 +191,7 @@ class Boom {
       let speed;
       if (this.phase === 'out') {
         this.t += h; const k = this.t / this.tout; speed = this.v0 * (1 - 0.68 * Math.min(1, k)); this.th += this.w * h * (1 - 0.3 * k);
-        if (this.homing) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); this.th += clamp(angDiff(this.th, a), -3.4 * h, 3.4 * h); } }
+        if (this.homing || this.homeK) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); const k = this.homing ? 3.4 : this.homeK; this.th += clamp(angDiff(this.th, a), -k * h, k * h); } }
         if (this.t >= this.tout) { this.phase = 'ret'; this.retT = 0; }
       } else {
         this.retT += h; speed = 8 + 15 * Math.min(1, this.retT / 0.8); const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
@@ -204,7 +230,7 @@ export class Game {
   constructor(o) {
     this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this._base = new Set(gfx.scene.children); this.arenaId = o.arenaId; this.round = o.round || 1;
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
-    this.dens = o.dens || (typeof window !== "undefined" && window.__bbDens) || 4; /* v4.9 calmer maps: 1 = v4.8 layout/trap density (old hosts), 2 = v4.9 */ this.layout = genLayout(this.arenaId, o.netSeed, this.dens); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.bush = null; /* v4.9: no bushes in Boomerang Ball (a hidden ball carrier / goalie would be unfair) */ this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.layout.sol0 = this.layout.t.reduce((a, v) => a + (v === T.PILLAR || v === T.CRATE ? 1 : 0), 0); this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
+    this.dens = o.dens || (typeof window !== "undefined" && window.__bbDens) || 5; /* v4.9 calmer maps: 1 = v4.8 layout/trap density (old hosts), 2 = v4.9 */ this.melee = this.dens >= 5 && o.mode !== 'attract'; /* v4.10: dens 5 = melee swing + Armory weapons (older rooms: boomerang-only, no swing) */ this.layout = genLayout(this.arenaId, o.netSeed, this.dens); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.bush = null; /* v4.9: no bushes in Boomerang Ball (a hidden ball carrier / goalie would be unfair) */ this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.layout.sol0 = this.layout.t.reduce((a, v) => a + (v === T.PILLAR || v === T.CRATE ? 1 : 0), 0); this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
     const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
     this.edgeHelp = o.edgeHelp !== undefined ? !!o.edgeHelp : S().settings.edgeHelp !== false; this.edgeSaves = o.edgeSaves || {}; this.edgeGrace = this.edgeHelp ? 0.25 : 0.12; this.edgeNear = 0; this.edgeTickT = 0;
     this.hole = new Float32Array(AW * AH); this.spk = new Float32Array(AW * AH); this.spkWarn = new Uint8Array(AW * AH); this.spkPh = new Float32Array(AW * AH);
@@ -258,7 +284,31 @@ export class Game {
     if (Math.random() < 0.2 && this.powerups.length < 4) this.spawnPowerupAt(x, z);
   }
   // -------- throwing
+  // v4.10: thin swing arc on the floor, drawn ONLY during the real hit frames, exactly the cone + reach the sim tests (no big rings)
+  slashArcVis(f, m, r) {
+    const M = W(f.wpn).melee; if (!m.slArc) { const R1 = FR * f.bs + M.reach, R0 = Math.max(FR + 0.1, R1 - 0.38), half = M.arc * Math.PI / 360; const ring = new THREE.Mesh(new THREE.RingGeometry(R0, R1, 18, 1, -Math.PI / 2 - half, half * 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; const gr = new THREE.Group(); gr.position.y = 0.12; gr.add(ring); r.add(gr); m.slArc = gr; m.slArcM = ring.material; ring.material.color.set(f.color).lerp(new THREE.Color(0xffffff), 0.55); }
+    const t = f.slV, on = f.alive && t >= M.wind - 0.02 && t <= M.wind + M.act + 0.08; m.slArc.visible = on;
+    if (on) { m.slArc.rotation.y = f.slAng - r.rotation.y; m.slArc.scale.setScalar(1 / (r.scale.x || 1)); m.slArcM.opacity = t <= M.wind + M.act ? 0.72 : 0.72 * (1 - (t - M.wind - M.act) / 0.08); }
+  }
   isFoe(a, b) { return a !== b && a.team !== b.team; }
+  clearLine(x0, z0, x1, z1) { const d = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(d / 0.2)); for (let k = 1; k < n; k++) { const x = x0 + (x1 - x0) * k / n, z = z0 + (z1 - z0) * k / n; if (this.solid(Math.floor(x + HX), Math.floor(z + HZ))) return false; } return true; } // v4.10: walls / pillars / crates block a swing
+  // v4.10 melee hit frames: every rival inside the cone + reach with a clear line is hit at most once per swing; same parry / dodge / shield / freeze / team rules as a boomerang
+  slashHits(f, M) {
+    const half = M.arc * Math.PI / 360;
+    for (const o of this.fighters) {
+      if (!o.alive || !this.isFoe(f, o) || f.slHit.has(o)) continue; const dx = o.x - f.x, dz = o.z - f.z, d = Math.hypot(dx, dz); if (d > f.meleeReachTo(o)) continue;
+      if (d > 0.05 && Math.abs(angDiff(f.slAng, Math.atan2(dx, dz))) > half + Math.atan2(FR * o.bs, d)) continue; if (!this.clearLine(f.x, f.z, o.x, o.z)) continue;
+      f.slHit.add(o); const kx = dx / (d || 1), kz = dz / (d || 1);
+      if (o.deflectT > 0) { reveal(o, STEALTH.reveal); o.deflectT = 0; f.slT = -1; f.slCd = Math.max(f.slCd, 0.6); f.vx = -kx * 6; f.vz = -kz * 6; sfx('deflect'); fx.sparks((f.x + o.x) / 2, 0.6, (f.z + o.z) / 2, 10, [0xffffff, 0x9ff0ff], { speed: 4, life: 0.3 }); fx.popup('PARRY!', o.x, o.z, 'pop-cyan'); this.hitstop = 0.05; this.gainUlt(o, 20); this.onEvent('parry', { f: o }); return; } // swing blocked: attacker bounced back, no stun
+      if (o.inv > 0 || o.dashT > 0) continue; // dodge i-frames / post-hit blink: the swing whiffs
+      if (this.rules.stunOnly) { if (o.stunT > 0) continue; o.stunT = 1.0; o.charging = false; o.chargeT = 0; o.vx = kx * 6; o.vz = kz * 6; sfx('hit'); fx.sparks(o.x, 0.7, o.z, 8, [0xffffff, f.color], { speed: 4, life: 0.3 }); fx.popup('BONK!', o.x, o.z, 'pop-cyan'); continue; } // Ball: non-lethal like the boomerang, never re-stuns a stunned player
+      if (this.rules.type === 'bomb') { this.bombHit({ owner: f }, o); continue; }
+      if (o.frozenT > 0) { sfx('shatter'); this.onEvent('shatter', { f: o, killer: f }); o.frozenT = 0; if (o.die(f, 'shatter', kx, kz)) f.kos++; this.gainUlt(f, 30); continue; }
+      if (o.shield) { reveal(o, STEALTH.hurt); o.shield = false; o.inv = 0.7; sfx('shieldpop'); fx.sparks(o.x, 0.6, o.z, 10, [0x6fffb0, 0xffffff], { speed: 4, life: 0.4 }); fx.popup('SHIELD!', o.x, o.z, 'pop-cyan', 1.8); this.onEvent('shieldpop', { f: o }); continue; }
+      sfx('hit'); fx.sparks(o.x - kx * 0.3, 0.7, o.z - kz * 0.3, 8, [0xffffff, f.color], { speed: 4.5, life: 0.25, size: 0.08 }); this.hitstop = Math.max(this.hitstop || 0, 0.04);
+      const died = o.die(f, 'boom', kx, kz); if (died) f.kos++; else if (o.alive) { if (f.abil === 'yuki') o.chillT = 1.5; const MX = W(f.wpn).mfx || {}; if (MX.stun) o.stunT = Math.max(o.stunT, MX.stun); } this.gainUlt(f, died ? 30 : 15); this.onEvent('slashhit', { f, o });
+    }
+  }
   nearestEnemy(f, x, z, maxD, excl, seen) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o)) || (seen && !canSee(this, f.team, o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
   pickAim(f, base, explicit) {
     const assist = f.isBot ? false : (f.netIn ? f.netIn.assist : S().settings.aimAssist); let tg = null;
@@ -274,7 +324,7 @@ export class Game {
     const ang = f.isBot ? base : this.pickAim(f, base, explicit); f.face = ang; f.vface = ang;
     const tri = f.pu.triple > 0; const angs = tri ? [ang - 0.3, ang, ang + 0.3] : [ang];
     angs.forEach((a, i) => this.booms.push(new Boom(this, f, f.x + dirx(a) * 0.6 * f.bs, f.z + dirz(a) * 0.6 * f.bs, a, c, { carry: i === 0 ? 1 : 0, giant: f.pu.giant > 0 || !!(this.mut && this.mut.giant), fire: f.pu.fire > 0, homing: f.pu.homing > 0, type: f.type })));
-    reveal(f, STEALTH.reveal); f.ammo--; f.throwCd = f.type === 'boom' ? 0.55 : 0.16; f.throwT = 1; sfx('throw', c); shake(0.04 + c * 0.05); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
+    reveal(f, STEALTH.reveal); f.ammo--; f.throwCd = (f.type === 'boom' ? 0.55 : 0.16) + W(f.wpn).cd; f.throwT = 1; sfx('throw', c); shake(0.04 + c * 0.05); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
     this.onEvent('throw', { f });
   }
   boomCollide(b) {
@@ -308,7 +358,7 @@ export class Game {
         if (b.fire) { this.explode(b.x, b.z, own); b.caught(true); return; }
         b.hit.add(f);
         if (b.freeze) { reveal(f, STEALTH.hurt); f.freezeFor(2.6); this.gainUlt(own, 18); this.onEvent('freeze', { f, killer: own }); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
-        const died = f.die(own, 'boom', Math.sin(b.th), Math.cos(b.th)); if (died) own.kos++; else if (f.alive) { if (b.shock) f.stunT = Math.max(f.stunT, 0.6); if (own.abil === 'yuki') f.chillT = 1.5; } this.gainUlt(own, died ? 30 : 15); punch(Math.sin(b.th), Math.cos(b.th), 0.35);
+        const died = f.die(own, 'boom', Math.sin(b.th), Math.cos(b.th)); if (died) own.kos++; else if (f.alive) { if (b.shock) f.stunT = Math.max(f.stunT, 0.6); if (b.wstun) f.stunT = Math.max(f.stunT, b.wstun); if (b.wchill) f.chillT = Math.max(f.chillT || 0, b.wchill); if (own.abil === 'yuki') f.chillT = 1.5; } this.gainUlt(own, died ? 30 : 15); punch(Math.sin(b.th), Math.cos(b.th), 0.35);
         if (b.pierce) continue;
         if (b.chains > 0) { const nx = this.nearestEnemy(own, b.x, b.z, 7.5, b.hit, true); if (nx) { b.chains--; b.chainHits++; b.th = Math.atan2(nx.x - b.x, nx.z - b.z); b.phase = 'out'; b.t = Math.min(b.t, b.tout * 0.45); b.v0 = Math.max(b.v0, 17); fx.sparks(b.x, 0.6, b.z, 14, [0xffd060, 0xffffff], { speed: 6, life: 0.3 }); sfx('chain'); if (b.chainHits >= 2 && died) this.onEvent('chainko', { f: own }); return; } }
         if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return;
@@ -320,7 +370,7 @@ export class Game {
     b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z) + (Math.random() - 0.5) * 0.15; b.phase = 'out'; b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hit.clear();
     reveal(f, STEALTH.reveal); f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.star(b.x, 0.6, b.z, 0x9ff0ff, 3.4, 0.32); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
     b.ribbon.release(); b.ribbon = fx.ribbon(f.color, b.giant ? 0.55 : 0.3, false);
-    b.mesh.removeFromParent(); b.mesh = buildBoomerang(f.color, f.hero, f.skin, b.type); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
+    b.mesh.removeFromParent(); b.mesh = buildWeapon(b.wpn, f.color, f.hero, f.skin, b.type); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
   }
   explode(x, z, owner, rad = 2.3) {
     sfx('explode'); shake(0.55); pulseFov(0.6); this.hitstop = Math.max(this.hitstop, 0.07); fx.flash('#ffd9a0', 0.3, 220); punch(0, 1, 0.25);
@@ -506,7 +556,10 @@ export class Game {
       const spawnK = f.spawnT; if (f.alive) r.scale.setScalar(f.bs * (gfx.heroZoom || 1) * (0.7 + 0.3 * Math.min(1, spawnK * 1.2) + (f.catchPop > 0 ? f.catchPop * 0.6 : 0)) * (f.ultKind === 'bao' && f.ultT > 0 ? 1.25 : 1)); if (f.catchPop > 0) f.catchPop -= dt;
       let scared = 0; if (f.alive) for (const b of this.booms) { if (b.owner !== f && b.alive && Math.abs(b.x - f.x) < 3.2 && Math.abs(b.z - f.z) < 3.2) { scared = 1; break; } }
       if (f.happyT > 0) f.happyT -= dt;
-      m.update(dt, { move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT, air: f.alive ? 0 : 0, win: (f.show && f.show.win) || (this.state === 'roundEnd' && f.alive && (this.winTeam >= 0 ? f.team === this.winTeam : this.winner === f)), scared, happy: f.happyT > 0 ? 1 : 0, catchPop: f.catchPop > 0 ? f.catchPop : 0, hurt: Math.min(1, f.hitFlash * 2 + f.hurtT + (f.stunT > 0 ? 0.6 : 0)), emote: f.emoteT > 0 ? 1 : 0 });
+      if (f.slV >= 0) { const M = W(f.wpn).melee; f.slV += dt; if (f.slV > M.wind + M.act + M.rec || !f.alive) f.slV = -1; } // v4.10 swing animation clock (host: started with the sim swing; guest: started by the host's 'slash' event)
+      if (m.held) m.held.visible = f.alive && f.ammo > 0 && !f.show;
+      if (this.melee) this.slashArcVis(f, m, r);
+      m.update(dt, { slash: f.slV >= 0 && f.alive ? { t: f.slV, M: W(f.wpn).melee } : null, move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT, air: f.alive ? 0 : 0, win: (f.show && f.show.win) || (this.state === 'roundEnd' && f.alive && (this.winTeam >= 0 ? f.team === this.winTeam : this.winner === f)), scared, happy: f.happyT > 0 ? 1 : 0, catchPop: f.catchPop > 0 ? f.catchPop : 0, hurt: Math.min(1, f.hitFlash * 2 + f.hurtT + (f.stunT > 0 ? 0.6 : 0)), emote: f.emoteT > 0 ? 1 : 0 });
       if (m.mark) { m.mark.visible = f.alive && !f.show && this.mode !== 'attract'; if (m.mark.visible) { m.mark.position.y = m.mark.userData.y0 + Math.sin(t * 4.5 + f.idx) * 0.07; keepMarkOn(m); } }
       if (m.tbub) { m.tbub.visible = f.alive && f.pu.slow > 0; if (m.tbub.visible) { m.tbub.rotation.z = t * 0.6; m.tbub.material.opacity = 0.35 + Math.sin(t * 5) * 0.12; } }
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);

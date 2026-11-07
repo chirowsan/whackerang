@@ -1,7 +1,7 @@
 import * as STEALTHM from './stealth.js'; gfx.touchCtl = () => Input.touch.enabled; /* v4.9: arena view presses foliage flat under the touch buttons */ const { shownHere } = STEALTHM;
 import { encodeFast as _encF, decodeFast as _decF, decodeFastRest as _decFR } from './net/world.js';
 import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
-import { S, save, loadSave } from './save.js';
+import { S, save, loadSave, getWpn } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier, dailySnapshot, ensureDaily } from './progress.js';
@@ -13,6 +13,7 @@ import { Game } from './game.js';
 import { UI, $ } from './ui.js';
 import './ui2.js';
 import { buildFighter, buildBoomerang } from './models.js';
+import { WEAPON_IDS, wpnOf, heroWeapons, HERO_WPN, wpnFor, wpnCode as _wc, wpnDecode as _wd, WEAPONS as WEAPONS_ } from './weapons.js';
 import { makePortraits, portrait, snap } from './portraits.js';
 import { POISON, poisonCfg } from './poison.js';
 import { faceDebugCanvas } from './faces.js';
@@ -65,6 +66,7 @@ const app = {
     setArenaSize(opts.mode === 'attract' ? 'small' : (opts.size || 'large'));
     this.game = new Game({ ...opts, mutator: opts.mode === 'attract' ? null : resolveMutator(opts.mutator), input: opts.input || Input, onEvent: (n, d) => this.gameEvent(n, d) }); this.acc = 0;
     fitCamera(opts.mode === 'attract' ? 'menu' : 'play'); UI.hudStart(this.game);
+    if (Input.touch.setWeapon) { let hf = null; try { hf = this.humanF(); } catch (e) {} Input.touch.setWeapon(hf && opts.mode !== 'attract' ? hf.wpn : 'boom'); } // v4.10 Armory icon on the throw stick
     AU.mute = opts.mode === 'attract';
     if (this.net && opts.mode !== 'attract') { if (this.net.isHost) this.net.onGameCreated(this.game, opts); else if (this.net.isGuest) this.net.onGuestGame(this.game, opts); }
   },
@@ -113,9 +115,10 @@ const app = {
     if (slot === 1) { const h1 = HEROES.find((h) => h.id === s.hero) || HEROES[0]; if (hero.id === h1.id) hero = HEROES.find((h) => h.id !== h1.id); }
     const d = { hero, hat: s.hats[hero.id] || 'none', ctrl: 'human', slot, name: slot === 1 ? 'P2 ' + hero.name : (this.humans() === 2 ? 'P1 ' + hero.name : hero.name), wins: 0, diff: 1 };
     if (slot === 0) { d.skin = s.eq.skin; d.trail = s.eq.trail; d.type = s.eq.type; }
+    d.weapon = getWpn(slot, hero.id); // v4.11: this slot's saved weapon for THIS character (ignored in boomerang-only rooms)
     return d;
   },
-  botDef(hero, o = {}) { return { hero, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: hero.name, diff: S().setup.diff, persona: PERSONAS[hero.id], wins: 0, ...o }; },
+  botDef(hero, o = {}) { return { hero, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: hero.name, diff: S().setup.diff, persona: PERSONAS[hero.id], wins: 0, weapon: pick(heroWeapons(hero.id)), ...o }; }, // v4.11 bots only pick their own character's weapons
   // ---- start a mode from the mode-select screen
   startMode(modeId) {
     const s = S(), st = s.setup; st.mode = modeId; const nh = this.humans(); const players = [this.humanDef(0)]; if (nh === 2) players.push(this.humanDef(1));
@@ -351,6 +354,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

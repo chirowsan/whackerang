@@ -1,6 +1,7 @@
 import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, softTex } from './gfx.js';
 import { POWERUPS, SKINS as SHOP_SKINS, BOOM_TYPES } from './data.js';
 import { buildFighterBody, animateFighter } from './fighters.js';
+import { WEAPONS } from './weapons.js';
 
 const G = {};
 const geo = (k, f) => G[k] || (G[k] = f());
@@ -9,7 +10,7 @@ const BOX = (x, y, z) => geo('b' + x + y + z, () => new THREE.BoxGeometry(x, y, 
 const CYL = (a, b, h, s = 16) => geo('c' + a + b + h + s, () => new THREE.CylinderGeometry(a, b, h, s));
 const CONE = (r, h, s = 12) => geo('n' + r + h + s, () => new THREE.ConeGeometry(r, h, s));
 const CAP = (r, l, a = 4, b = 12) => geo('p' + r + l + a + b, () => new THREE.CapsuleGeometry(r, l, a, b));
-const TOR = (r, t, a = 8, b = 20) => geo('t' + r + t + a + b, () => new THREE.TorusGeometry(r, t, a, b));
+const TOR = (r, t, a = 8, b = 20, arc = Math.PI * 2) => geo('t' + r + t + a + b + arc, () => new THREE.TorusGeometry(r, t, a, b, arc));
 const OL = 0.03;
 const WHITE = () => geo('wm', () => toon(0xffffff));
 const DARK = () => geo('dm', () => toon(0x1a1530));
@@ -128,6 +129,35 @@ export function buildBoomerang(color, hero, skin, type) {
   const glow = glowSprite(sk.glow, tyd ? 1.5 : 1.1, tyd ? 0.65 : 0.5); glow.position.y = 0.15; g.add(glow);
   // v3.2 ownership: owner-coloured ring on the floor under the boomerang (survives custom trails/skins)
   const ow = new THREE.Mesh(geo('bring', () => new THREE.RingGeometry(0.34, 0.5, 20)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })); ow.rotation.x = -Math.PI / 2; ow.position.y = -0.47; g.add(ow);
+  g.userData = { inner, glow, ring: ow }; return g;
+}
+// v4.10 Armory: one builder for every weapon (flying projectile AND the copy held in the hand). The boomerang keeps its skinned mesh;
+// the alternatives are original simple silhouettes: a flat disc with a rim, a C-shaped hook ring, a short-handled mallet. Team gem + owner ring kept.
+export function buildWeapon(wid, color, hero, skin, type, held) {
+  if (!wid || wid === 'boom' || !WEAPONS[wid]) { const b = buildBoomerang(color, hero, skin, type); if (held) { b.userData.ring.visible = false; b.userData.glow.visible = false; } return b; }
+  const w = WEAPONS[wid]; const g = new THREE.Group(); const inner = new THREE.Group(); g.add(inner); const tyd = type && type !== 'classic' ? BOOM_TYPES[type] : null;
+  const main = toon(w.col), dark = toon(new THREE.Color(w.col).multiplyScalar(0.45).getHex()), lite = toon(0xf4f0e6), tc = toon(color);
+  const F = w.form; const O = { outline: 0.025, grp: 'other' }, NC = { cast: false }; const P = (o, x) => ({ ...x, ...o });
+  if (F === 'disc') { mesh(CYL(0.36, 0.36, 0.06, 20), main, inner, { outline: 0.025, grp: 'other' }); mesh(TOR(0.36, 0.035, 6, 24), lite, inner, { rot: [Math.PI / 2, 0, 0], cast: false }); mesh(CYL(0.14, 0.14, 0.08, 12), dark, inner, { cast: false }); }
+  else if (F === 'hook') { mesh(TOR(0.3, 0.07, 8, 22, Math.PI * 1.55), main, inner, { rot: [Math.PI / 2, 0, 0], outline: 0.025, grp: 'other' }); for (const a of [0, Math.PI * 1.55]) mesh(CONE(0.07, 0.2, 6), lite, inner, { pos: [Math.cos(a) * 0.3, 0, -Math.sin(a) * 0.3], rot: [Math.PI / 2, 0, -a], cast: false }); }
+  else if (F === 'mallet') { mesh(CYL(0.05, 0.05, 0.62, 8), toon(0x8a5a2a), inner, { pos: [0, 0, 0.05], rot: [Math.PI / 2, 0, 0], outline: 0.02, grp: 'other' }); mesh(CYL(0.2, 0.2, 0.42, 14), main, inner, { pos: [0, 0, 0.38], rot: [0, 0, Math.PI / 2], outline: 0.025, grp: 'other' }); for (const x of [-0.22, 0.22]) mesh(CYL(0.21, 0.21, 0.05, 14), dark, inner, { pos: [x, 0, 0.38], rot: [0, 0, Math.PI / 2], cast: false }); }
+  // v4.11 character weapon forms (flat, top-down readable silhouettes; all fly in the XZ plane)
+  else if (F === 'boom') { for (const s2 of [-1, 1]) mesh(BOX(0.12, 0.06, 0.46), main, inner, P({ pos: [s2 * 0.15, 0, 0.1], rot: [0, s2 * 0.75, 0] }, O)); mesh(BOX(0.16, 0.08, 0.16), lite, inner, P({ pos: [0, 0, -0.08], rot: [0, Math.PI / 4, 0] }, NC)); }
+  else if (F === 'pan') { mesh(CYL(0.34, 0.3, 0.08, 20), main, inner, O); mesh(TOR(0.33, 0.03, 6, 22), dark, inner, P({ rot: [Math.PI / 2, 0, 0] }, NC)); mesh(BOX(0.08, 0.06, 0.38), toon(0x3a2210), inner, P({ pos: [0, 0, 0.5] }, NC)); }
+  else if (F === 'blade') { mesh(BOX(0.13, 0.04, 0.62), main, inner, P({ pos: [0, 0, 0.12] }, O)); mesh(CONE(0.065, 0.16, 4), main, inner, P({ pos: [0, 0, 0.5], rot: [Math.PI / 2, 0, 0] }, NC)); mesh(BOX(0.26, 0.06, 0.05), dark, inner, P({ pos: [0, 0, -0.2] }, NC)); mesh(BOX(0.07, 0.07, 0.2), toon(0x3a2210), inner, P({ pos: [0, 0, -0.32] }, NC)); }
+  else if (F === 'star') { for (let k = 0; k < 4; k++) mesh(CONE(0.1, 0.32, 4), main, inner, P({ pos: [Math.sin(k * Math.PI / 2) * 0.17, 0, Math.cos(k * Math.PI / 2) * 0.17], rot: [Math.PI / 2, 0, -k * Math.PI / 2] }, k ? NC : O)); mesh(CYL(0.09, 0.09, 0.06, 10), dark, inner, NC); }
+  else if (F === 'wrench') { mesh(BOX(0.09, 0.06, 0.6), main, inner, P({ pos: [0, 0, 0.02] }, O)); mesh(TOR(0.13, 0.05, 6, 14, Math.PI * 1.5), main, inner, P({ pos: [0, 0, 0.4], rot: [Math.PI / 2, 0, Math.PI * 0.25] }, NC)); }
+  else if (F === 'anchor') { mesh(BOX(0.08, 0.07, 0.6), main, inner, P({ pos: [0, 0, 0.05] }, O)); mesh(BOX(0.32, 0.06, 0.07), main, inner, P({ pos: [0, 0, -0.12] }, NC)); mesh(TOR(0.24, 0.05, 6, 16, Math.PI), main, inner, P({ pos: [0, 0, 0.28], rot: [Math.PI / 2, 0, Math.PI] }, NC)); mesh(TOR(0.07, 0.025, 6, 12), lite, inner, P({ pos: [0, 0, -0.38], rot: [Math.PI / 2, 0, 0] }, NC)); }
+  else if (F === 'staff') { mesh(CYL(0.045, 0.045, 1.0, 8), main, inner, P({ rot: [Math.PI / 2, 0, 0] }, O)); for (const z of [-0.44, 0.44]) mesh(CYL(0.065, 0.065, 0.12, 8), toon(0xffd060), inner, P({ pos: [0, 0, z], rot: [Math.PI / 2, 0, 0] }, NC)); }
+  else if (F === 'ring') { mesh(TOR(0.3, 0.06, 8, 24), main, inner, P({ rot: [Math.PI / 2, 0, 0] }, O)); for (let k = 0; k < 4; k++) mesh(CONE(0.05, 0.12, 4), lite, inner, P({ pos: [Math.sin(k * Math.PI / 2) * 0.38, 0, Math.cos(k * Math.PI / 2) * 0.38], rot: [Math.PI / 2, 0, -k * Math.PI / 2] }, NC)); }
+  else if (F === 'icicle') { mesh(CONE(0.11, 0.7, 6), main, inner, P({ rot: [Math.PI / 2, 0, 0] }, O)); mesh(CONE(0.06, 0.3, 6), lite, inner, P({ pos: [0.08, 0, -0.1], rot: [Math.PI / 2, 0, 0] }, NC)); }
+  else if (F === 'orb') { mesh(SPH(0.24, 14, 10), main, inner, O); mesh(TOR(0.1, 0.03, 6, 12), dark, inner, P({ pos: [0, 0.24, 0] }, NC)); }
+  else if (F === 'bell') { mesh(CYL(0.04, 0.04, 0.5, 8), dark, inner, P({ rot: [Math.PI / 2, 0, 0] }, O)); for (const z of [-0.25, 0.25]) mesh(CYL(0.16, 0.16, 0.1, 12), main, inner, P({ pos: [0, 0, z], rot: [Math.PI / 2, 0, 0] }, NC)); }
+  mesh(SPH(0.065, 8, 6), tc, inner, { pos: [0, 0.1, 0], cast: false }); // team gem, like the boomerang
+  mergeToon(inner, null, { cast: false, ol: true, grp: 'other' });
+  const glow = glowSprite(tyd ? tyd.color : w.col, tyd ? 1.5 : 1.1, tyd ? 0.65 : 0.5); glow.position.y = 0.15; g.add(glow);
+  const ow = new THREE.Mesh(geo('bring', () => new THREE.RingGeometry(0.34, 0.5, 20)), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })); ow.rotation.x = -Math.PI / 2; ow.position.y = -0.47; g.add(ow);
+  if (held) { ow.visible = false; glow.visible = false; }
   g.userData = { inner, glow, ring: ow }; return g;
 }
 const faceKeyOf = (h) => ({ bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng' }[h.id] || 'panda');

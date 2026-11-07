@@ -1,3 +1,4 @@
+import { WEAPON_IDS, wpnCode, wpnDecode } from '../weapons.js';
 // Host -> guest world replication: binary snapshots (fast channel), slow-changing state packets, fx/sfx replay, interpolation and
 // light client-side prediction for the guest's own fighter. The host runs the one and only real simulation.
 import { BinWriter, BinReader, enc, dec } from './bin.js';
@@ -59,7 +60,7 @@ export function encodeFast(g, st) {
   }
   // boomerangs
   const bs = g.booms.filter((b) => b.alive); w.u8(Math.min(60, bs.length));
-  for (let i = 0; i < Math.min(60, bs.length); i++) { const b = bs[i]; if (!b.nid) b.nid = ++st.bid; w.u16(b.nid).u8(g.fighters.indexOf(b.owner)).q16(b.x, 1000).q16(b.z, 1000).q16(((b.th + Math.PI) % TAU + TAU) % TAU - Math.PI, 10000).u8((b.phase === 'ret' ? 1 : 0) | (b.giant ? 2 : 0) | (b.fire ? 4 : 0) | (b.ghost ? 8 : 0) | (b.pierce ? 16 : 0) | (b.homing ? 32 : 0) | (b.fade > 0 ? 64 : 0)).u8(Math.max(0, BT.indexOf(b.type))); }
+  for (let i = 0; i < Math.min(60, bs.length); i++) { const b = bs[i]; if (!b.nid) b.nid = ++st.bid; w.u16(b.nid).u8(g.fighters.indexOf(b.owner)).q16(b.x, 1000).q16(b.z, 1000).q16(((b.th + Math.PI) % TAU + TAU) % TAU - Math.PI, 10000).u8((b.phase === 'ret' ? 1 : 0) | (b.giant ? 2 : 0) | (b.fire ? 4 : 0) | (b.ghost ? 8 : 0) | (b.pierce ? 16 : 0) | (b.homing ? 32 : 0) | (b.fade > 0 ? 64 : 0)).u8(Math.max(0, BT.indexOf(b.type)) | (wpnCode(b.owner && b.owner.hero && b.owner.hero.id, b.wpn) << 4)); } // v4.10: high nibble = weapon (0 = boomerang, so boomerang-only rooms send the v4.9 byte)
   // mode state
   if (r === 'koth') { const z = g.zone; for (let t = 0; t < 4; t++) w.f32(mst.scores[t] || 0); w.q16(z.x, 1000).q16(z.z, 1000).f32(z.t).i8(z.owner).u8(z.contested ? 1 : 0); }
   else if (r === 'bomb') { w.i8(mst.holder ? g.fighters.indexOf(mst.holder) : -1).f32(mst.fuse || 0).f32(mst.fuseMax || 12); }
@@ -113,7 +114,7 @@ export function decodeFast(buf) {
     o.pu = {}; for (const k of PUK) o.pu[k] = r.u8() / 10; o.typeT = r.u8() / 10; o.type = BT[r.u8()] || 'classic'; o.ultKind = ULTK[r.u8()] || ''; o.dk = DK[r.u8()] || 'boom'; o.score = r.i16(); o.kos = r.u8(); o.ultT = r.u8() / 10; o.hopY = r.u8() / 50; S.f.push(o);
   }
   const nb = r.u8(); S.b = [];
-  for (let n = 0; n < nb; n++) { const o = { id: r.u16(), own: r.u8(), x: r.i16() / 1000, z: r.i16() / 1000, th: r.i16() / 10000 }; const fl2 = r.u8(); o.ret = !!(fl2 & 1); o.giant = !!(fl2 & 2); o.fire = !!(fl2 & 4); o.ghost = !!(fl2 & 8); o.pierce = !!(fl2 & 16); o.homing = !!(fl2 & 32); o.fade = !!(fl2 & 64); o.type = BT[r.u8()] || 'classic'; S.b.push(o); }
+  for (let n = 0; n < nb; n++) { const o = { id: r.u16(), own: r.u8(), x: r.i16() / 1000, z: r.i16() / 1000, th: r.i16() / 10000 }; const fl2 = r.u8(); o.ret = !!(fl2 & 1); o.giant = !!(fl2 & 2); o.fire = !!(fl2 & 4); o.ghost = !!(fl2 & 8); o.pierce = !!(fl2 & 16); o.homing = !!(fl2 & 32); o.fade = !!(fl2 & 64); { const tb = r.u8(); o.type = BT[tb & 15] || 'classic'; o.wc = tb >> 4; /* v4.11: 0 = base boomerang, 1..3 = owner's own weapon; resolved with the owner below */ } S.b.push(o); }
   S.rest = r; return S;
 }
 // second stage: needs the rules type (guest knows it) - parses the mode block, acks, wind, fx
@@ -141,7 +142,7 @@ export class GuestWorld {
     this.buf = []; this.off = null; this.offs = []; this.interp = 0.1; this.lastSeq = -1; this.tk = 0; this.hist = []; this.ackTick = 0; this.lastAck = 0; this.inFrames = []; this.fxSeen = new Set(); this.fxQ = []; this.lastRecv = performance.now();
     this.booms = new Map(); this.pus = new Map(); this.coinMap = new Map(); this.me = null; this.disp = null; this.suppress = {}; this.holeT = new Float32Array(AW * AH); this.sendAcc = 0; this.stats = { snaps: 0, late: 0, starved: 0, errs: 0, corr: 0, maxErr: 0 };
     this.jit = 0; this.lastArrive = 0; this.hostSpeed = o.speed; this.wind = null; this.windAcc = 0; this.pseq = { crates: -1, holes: -1, items: -1, traps: -1 };
-    const f0 = g.fighters[this.localIdx]; this.lf = f0; g.viewIdx = this.localIdx; /* v4.9 bushes: this screen views as its own fighter */
+    const f0 = g.fighters[this.localIdx]; this.lf = f0; if (f0 && Input.touch.setWeapon) Input.touch.setWeapon(f0.wpn); /* v4.10 */ g.viewIdx = this.localIdx; /* v4.9 bushes: this screen views as its own fighter */
     for (const f of g.fighters) { f.hopY = 0; f.die = () => false; f.deadT = 0; f.alive = true; f.spawnT = 1; f._wasAlive = true; f.pu = { triple: 0, giant: 0, fire: 0, homing: 0, speed: 0, magnet: 0, slow: 0 }; }
     // the guest never simulates gameplay: crate breaks are visual only (no random power-up drops), explosions cannot hurt
     g.breakCrate = (k) => { if (g.crateHp[k] === 0) return; g.crateHp[k] = 0; g.sol[k] = 0; g.layout.t[k] = T.FLOOR; g.view.breakCrate(k); };
@@ -229,8 +230,8 @@ export class GuestWorld {
   update(dt) {
     const g = this.g, now = performance.now(); g.time += dt; const lf = this.lf;
     // 1. read local input every step, remember it for prediction, send redundantly at 30 Hz
-    const raw = Input.read(0, lf); const inp = { mx: raw.mx, mz: raw.mz, aimX: raw.aimX, aimZ: raw.aimZ, fire: !!raw.fire, dash: !!raw.dash, deflect: !!raw.deflect, ult: !!raw.ult };
-    if (g.state === 'intro') { inp.dash = inp.deflect = inp.ult = false; }
+    const raw = Input.read(0, lf); const inp = { mx: raw.mx, mz: raw.mz, aimX: raw.aimX, aimZ: raw.aimZ, fire: !!raw.fire, dash: !!raw.dash, deflect: !!raw.deflect, ult: !!raw.ult, melee: !!raw.melee, tap: !!raw.tap };
+    if (g.state === 'intro') { inp.dash = inp.deflect = inp.ult = inp.melee = inp.tap = false; }
     const m = Math.hypot(inp.mx, inp.mz); if (m > 1) { inp.mx /= m; inp.mz /= m; }
     this.tk++; this.hist.push({ tick: this.tk, inp }); if (this.hist.length > 90) this.hist.shift();
     this.inFrames.push({ tick: this.tk, inp }); if (this.inFrames.length > 6) this.inFrames.shift();
@@ -255,7 +256,7 @@ export class GuestWorld {
   busy(hf) { return !!(hf.fl & (16 | 64 | 128)); }
   sendInput() {
     const w = new BinWriter(48); const n = this.inFrames.length; w.u8(PK.INPUT).u8(n).u32(this.tk);
-    for (let i = n - 1; i >= 0; i--) { const { inp } = this.inFrames[i]; w.qi8(inp.mx, 127).qi8(inp.mz, 127).qi8(inp.aimX, 127).qi8(inp.aimZ, 127).u8((inp.fire ? 1 : 0) | (inp.dash ? 2 : 0) | (inp.deflect ? 4 : 0) | (inp.ult ? 8 : 0) | (S().settings.aimAssist ? 16 : 0) | (Input.lastUsed === 'touch' ? 32 : 0)); }
+    for (let i = n - 1; i >= 0; i--) { const { inp } = this.inFrames[i]; w.qi8(inp.mx, 127).qi8(inp.mz, 127).qi8(inp.aimX, 127).qi8(inp.aimZ, 127).u8((inp.fire ? 1 : 0) | (inp.dash ? 2 : 0) | (inp.deflect ? 4 : 0) | (inp.ult ? 8 : 0) | (S().settings.aimAssist ? 16 : 0) | (Input.lastUsed === 'touch' ? 32 : 0) | (inp.melee ? 64 : 0) | (inp.tap ? 128 : 0)); } // v4.10: 64 = swing key, 128 = quick tap (v4.9 hosts ignore both bits)
     this.send(w.out());
   }
   applyAt(rt, dt) {
@@ -284,7 +285,7 @@ export class GuestWorld {
       seen.add(q.id); let bm = this.booms.get(q.id); const qa = aB.get(q.id), qb = bB.get(q.id); let x = q.x, z = q.z, th = q.th;
       if (qa && qb) { x = qa.x + (qb.x - qa.x) * al; z = qa.z + (qb.z - qa.z) * al; th = qa.th + angDiff(qa.th, qb.th) * al; }
       const owner = g.fighters[q.own] || g.fighters[0];
-      if (!bm || bm.owner !== owner) { if (bm) { bm.kill(); const i = g.booms.indexOf(bm); if (i >= 0) g.booms.splice(i, 1); } bm = new Boom(g, owner, x, z, th, 0.5, { carry: 0, type: q.type, giant: q.giant, fire: q.fire, homing: q.homing }); bm.nid = q.id; this.booms.set(q.id, bm); g.booms.push(bm); }
+      q.wpn = wpnDecode(owner && owner.hero && owner.hero.id, q.wc); if (!bm || bm.owner !== owner || (bm.wpn || 'boom') !== (q.wpn || 'boom')) { if (bm) { bm.kill(); const i = g.booms.indexOf(bm); if (i >= 0) g.booms.splice(i, 1); } bm = new Boom(g, owner, x, z, th, 0.5, { carry: 0, type: q.type, giant: q.giant, fire: q.fire, homing: q.homing, wpn: q.wpn }); bm.nid = q.id; this.booms.set(q.id, bm); g.booms.push(bm); }
       bm.x = x; bm.z = z; bm.th = th; bm.phase = q.ret ? 'ret' : 'out'; bm.fire = q.fire; bm.fade = q.fade ? 0.5 : 0; bm.spin += dt * 19; bm.total += dt;
     }
     for (const [id, bm] of [...this.booms]) if (!seen.has(id)) { bm.kill(); const i = g.booms.indexOf(bm); if (i >= 0) g.booms.splice(i, 1); this.booms.delete(id); }
@@ -349,6 +350,7 @@ export class GuestWorld {
     for (const [name, a] of list) {
       try {
         if (name === 'sfx') { if (a[0] === 'throw' && this.suppress.throw > performance.now()) continue; sfx(a[0], a[1]); }
+        else if (name === 'slash') { const f = g.fighters[a[0]]; if (f) { f.slV = 0; f.slAng = a[1]; } } // v4.10: host swing -> play the same swing animation / hit-frame arc here
         else if (name === 'meteor') g.events.spawnMeteor(a[0], a[1]);
         else if (name === 'popup' && a[0] === 'YOU HAVE IT!') fx.popup('BOMB!', a[1], a[2], a[3], a[4]);
         else if (fx[name]) fx[name](...a);

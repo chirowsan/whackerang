@@ -1,4 +1,5 @@
 import { KIDS } from './flags.js';
+import { wpnFor, migrateOld } from './weapons.js';
 const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
   coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
@@ -7,6 +8,8 @@ const defaults = () => ({
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
   own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'] },
+  wpn: ['boom', 'boom'], // v4.10 Armory: equipped weapon per local player slot (P1, P2), validated on use
+  loadout: [{}, {}], // v4.11: per local player slot, per character: { heroId: weaponId } (validated against that character's own list)
   eq: { type: 'classic', trail: 'none', skin: 'default', emotes: ['gg', 'nice', 'oops', 'wow'] },
   stats: { ko: 0, catch: 0, deflect: 0, win: 0, play: 0, wave: 0, kothwin: 0, bombwin: 0, teamwin: 0, boss: 0, shatter: 0, chainko: 0, ult: 0, stars: 0, level: 1, throw: 0, dash: 0 },
   ach: {}, daily: { date: '', list: [], prog: {}, claimed: {} },
@@ -30,6 +33,9 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   r.settings.speedMig = 31; if (typeof r.settings.touchSmooth !== 'boolean') r.settings.touchSmooth = true;
   r.settings.quality = migQ((o && o.settings || {}).quality); if (!Array.isArray(r.eq.emotes)) r.eq.emotes = d.eq.emotes;
   for (const k of Object.keys(d.own)) if (!Array.isArray(r.own[k])) r.own[k] = d.own[k];
+  // v4.11: one-time move from the v4.10 global P1/P2 weapon to the per-character loadout (only for the character each slot had selected)
+  if (!o || !Array.isArray(o.loadout) || o.loadout.length !== 2) { r.loadout = [{}, {}]; const ow = (o && Array.isArray(o.wpn)) ? o.wpn : null; if (ow) { r.loadout[0][r.hero] = migrateOld(r.hero, ow[0]); r.loadout[1][r.hero2] = migrateOld(r.hero2, ow[1]); } }
+  for (const L of r.loadout) { if (!L || typeof L !== 'object') continue; for (const h of Object.keys(L)) L[h] = wpnFor(h, L[h]); }
   return r;
 };
 export function loadSave() {
@@ -38,5 +44,8 @@ export function loadSave() {
 }
 export function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) { /* ignore */ } }
 export const S = () => data;
+// v4.11 per-character loadout (slot 0 = P1, 1 = P2). Always returns a weapon that belongs to that character.
+export const getWpn = (slot, hero) => { const L = (data.loadout || [])[slot ? 1 : 0] || {}; return wpnFor(hero, L[hero]); };
+export const setWpn = (slot, hero, id) => { if (!Array.isArray(data.loadout)) data.loadout = [{}, {}]; data.loadout[slot ? 1 : 0][hero] = wpnFor(hero, id); save(); };
 export const speedCfg = () => SPEEDS[data.settings.speed] || SPEEDS.chill;
 export function resetSave() { data = defaults(); save(); return data; }
