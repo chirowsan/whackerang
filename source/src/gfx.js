@@ -227,8 +227,12 @@ export function fitCamera(mode = gfx.camMode || 'play') {
     let lo = 4, hi = 120; for (let i = 0; i < 26; i++) { const d = (lo + hi) / 2; place(d); hit(-1, row, fl); hit(1, row, fr); if (fr.x - fl.x > wantW) hi = d; else lo = d; }
     const d = (lo + hi) / 2; place(d); hit(-1, row, fl); hit(1, row, fr); const visW = fr.x - fl.x; const t0 = hit(0, 1, new THREE.Vector3()), b0 = hit(0, -1, new THREE.Vector3()); const visH = Math.abs(b0.z - t0.z);
     gfx.viewShift = 0; gfx.viewShiftX = 0; gfx.tilt_ = tilt; gfx.heroZoom = gfx.h < 560 ? 1.15 : 1.06;
-    gfx.follow = { dMin: d, dFull: d * 1.45, cx: 0, cz: 0.2, d, init: false, k: 1, big: HX > 10.5 || HZ > 6.5, fill: true, visW, visH, tz0: 0.2 };
-    cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); gfx.camBase.copy(cam.position); gfx.camTarget.copy(tgt); gfx.camDist = d;
+    // t397u: phones (iPhone + Android landscape) frame the WHOLE arena by default, fitted to this screen's aspect from the map bounds
+    // (same margins as the overview), instead of a fixed width that cropped the near edge. Readability floor: never below MINPX screen px
+    // per world unit (fighters stay readable on Huge maps, which then follow the player inside the arena). Desktop/tablet unchanged.
+    let k = 1; if (phone) { const MINPX = 21; const need = Math.max((2 * HX + 2) / visW, (2 * HZ + 2.5) / visH) * 1.08; const cap = Math.max(1, (gfx.w / visW) / MINPX); k = Math.max(1, Math.min(need, cap)); }
+    gfx.follow = { dMin: d * k, dFull: d * k * 1.45, cx: 0, cz: 0.2, d: d * k, init: false, k: 1, big: HX > 10.5 || HZ > 6.5, fill: true, visW: visW * k, visH: visH * k, tz0: 0.2, fitK: +k.toFixed(3) };
+    cam.position.set(0, Math.sin(tilt) * d * k, Math.cos(tilt) * d * k).add(tgt); cam.lookAt(tgt); gfx.camBase.copy(cam.position); gfx.camTarget.copy(tgt); gfx.camDist = d * k;
     cam.setViewOffset(gfx.w, gfx.h, 0, 0, gfx.w, gfx.h); return;
   }
   const full = solve(HX, HZ); const big = HX > 10.5 || HZ > 6.5; const small = big ? solve(10, 6) : full;

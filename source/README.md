@@ -14,6 +14,12 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10.2 (iPhone / phone fixes)
+- **Online menu on iPhone:** tapping the Pause button in an online match now keeps the menu open (Safari's follow-up tap no longer closed it straight away), so Back, Fullscreen and Leave can be reached.
+- **Whole arena on phones:** in landscape on phone-sized screens the camera now fits the whole arena (or nearly) to the screen, both in the countdown and during play. Fighters keep a minimum size, so on Huge maps the camera still follows you. Portrait, tablets and desktop are unchanged.
+- **Hosting after switching apps:** if a host's connection to the room service drops (for example after switching away to share the room code), the host now re-registers the same room code when it comes back, so friends can still join. This targets reports that an iPhone-hosted room could not be joined from Android; the exact cause is not confirmed on real phones yet.
+- **Known limits:** tested in the WebKit engine and Chrome with phone-sized screens and real touch events, and over a local relay; not yet verified on real iPhones/Android phones or over direct peer-to-peer. iPhone Safari keeps its own toolbars; Add to Home Screen gives full-screen play.
+
 ## What's new in v4.10.1 (phone fixes)
 - **Online menu on phones:** the in-match online menu (Pause button) now reacts to taps; the touch controls no longer sit on top of it. Online matches keep running while the menu is open (they never pause).
 - **Wider phone camera:** on phone-sized landscape screens the close camera shows about 15% more of the arena. Tablets and desktop are unchanged.

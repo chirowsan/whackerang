@@ -139,3 +139,6 @@
 - 2026-11-07 local (unpublished): t393u online menu touch fix, t394u phone camera +15% + fullscreen on Play, t395u control labels. net_pause412 16/16 (before 8/16), controls412 9/0 x2.
 - t395u fix 2026-11-07 09:50: labels moved to #tlabs overlay (SHIELD/DASH/SPECIAL/DRAG: THROW/TAP NEAR: MELEE, 12px, opacity 1, charcoal pill); controls412 10/0 x2, touchmelee 11/0, net_pause412 16/16; calm frozen shots calm-{before,after}-*.png
 - Sat Nov 07 10:42 PST v4.10.1/code55 release (pt396u): mobile412 fix set only. Tests on release build: controls412 10/0 x2, touchmelee 11/0 x3, melee 46/0, loadout 18/0, bush 89/0, armory 11/0, tut 18/0, net_pause412 16/16, net_melee 25/25, left-handed labels on-screen/no-overlap at 1024/915/740. Fullscreen real-Android unverified.
+- Sat Nov 07 12:13 PST t397u iOS investigation (local): B ghost-click fix in input.js, C host relink in net.js/main.js; see /workspace/out/ios413
+- 12:21 PST t397u camera: phone landscape fits whole arena from map bounds (min 21 px/unit), LOCAL-dev-ios413
+- Sat Nov 07 13:53 PST v4.10.2/code56 release (pt398u): ios413 set (ghost-click, phone whole-arena fit, host relink). Release-build tests: see /workspace/out/rel4102/tests/summary. Real iPhone/Android and direct P2P unverified; iPhone-host cause unconfirmed.

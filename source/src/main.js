@@ -324,7 +324,7 @@ function boot() {
   window.addEventListener('blur', () => { if (app.mode === 'play' && !app.paused && !app.net && !S().settings.noAutoPause) app.pause(); });
   const unlock = () => { initAudio(); resumeAudio(); iosAudioKick(); applyVolumes(); if (!app.musicOn) { app.musicOn = true; music(app.mode === 'play' && app.game ? app.game.arenaId : 'menu'); } };
   ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); }); window.addEventListener('pageshow', () => resumeAudio()); window.addEventListener('focus', () => resumeAudio());
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeAudio(); if (!document.hidden && Net.isHost) Net.hostRelink(); }); // t397u: host back from background re-registers its room code window.addEventListener('pageshow', () => resumeAudio()); window.addEventListener('focus', () => resumeAudio());
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   let slowToast = false; window.addEventListener('bb-slow', () => { if (!slowToast && app.mode === 'play') { slowToast = true; UI.toast('Running slow? Settings > Graphics > Fast', 4200); } });
   resize(); app.startAttract(); UI.show('menu'); app.applyTouch();

@@ -6,6 +6,10 @@ const P1 = { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], fire
 const P2 = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'NumpadEnter'], dash: ['ShiftRight', 'Numpad0'], deflect: ['Slash', 'ControlRight', 'NumpadDecimal'], ult: ['Period', 'Numpad1'], melee: ['Comma', 'Numpad2'] };
 const SOLO = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'KeyZ'], dash: ['ShiftRight', 'KeyX'], deflect: ['Slash', 'KeyC'], ult: ['KeyV', 'Period'], melee: ['KeyB', 'Comma'] };
 
+// t397u: WebKit/iOS fires the tap's compatibility click AFTER touchend at the finger position. A control that acts on pointerdown and then
+// hides itself (pause -> online menu) let that click land on whatever is now under the finger (the HUD pause button -> menu closed again).
+// Swallow that one click near the press, for a short time only.
+function eatClick(e) { const x = e.clientX, y = e.clientY, t0 = performance.now(); const f = (c) => { if (performance.now() - t0 > 700) return done(); if (Math.abs(c.clientX - x) < 40 && Math.abs(c.clientY - y) < 40) { c.stopPropagation(); c.preventDefault(); done(); } }; const done = () => window.removeEventListener('click', f, true); window.addEventListener('click', f, true); setTimeout(done, 750); }
 export const Input = {
   keys: new Set(), edge: new Set(), solo: true, onPause: null, padConnected: false, lastUsed: 'kbd', unproject: null,
   mouse: { x: 0, y: 0, down: false, active: false, t: 0, edgeDeflect: false },
@@ -146,7 +150,7 @@ export function initTouch(root) {
   const btn = (el, key, hk, ms) => { el.addEventListener('pointerdown', (e) => { t[key] = true; Input.lastUsed = 'touch'; el.classList.add('down'); if (t.hud[hk] <= 0) vib(ms); e.preventDefault(); }); const up = () => el.classList.remove('down'); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); };
   btn(bDash, 'dash', 'dash', 10); btn(bDef, 'deflect', 'defl', 6); btn(bUlt, 'ult', 'ult0', 14);
   q('#btnEmo').addEventListener('pointerdown', (e) => { Input.onEmoteBtn && Input.onEmoteBtn(); e.preventDefault(); });
-  q('#btnPause').addEventListener('pointerdown', (e) => { Input.onPause && Input.onPause(); e.preventDefault(); });
+  q('#btnPause').addEventListener('pointerdown', (e) => { Input.onPause && Input.onPause(); e.preventDefault(); eatClick(e); });
   root.addEventListener('contextmenu', (e) => e.preventDefault());
   // per-frame visual sync (cooldown sweeps, charge ring, ammo). Purely cosmetic: never touches input state.
   const last = { charge: -1, dash: -1, defl: -1, ammo: -1, full: false };

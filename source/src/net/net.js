@@ -50,8 +50,8 @@ export const Net = {
     H.slots[0] = me; H.peers.set('host', me); this.mySlot = 0;
     // make a room code on the signaling server (retry if taken); if the broker is unreachable the room still works through manual codes
     let ok = false, lastErr = null; const useRly = relayOn() && !opts.noRelay && !(netCfg().noRelayHost);
-    const bindSig = (sig) => { H.sig = sig; sig.onmsg = (m) => this.hostSignal(m); sig.onclose = () => { H.sig = null; if (!H.closed) { this.signalOk = !!H.rly; this.setStatus(H.rly ? '' : 'Room link service dropped: friends already here stay connected. Reopen the lobby to invite more.'); this.emit(); } }; };
-    const bindRly = (hub) => { H.rly = hub; hub.onjoin = (g) => this.hostRelayJoin(g); hub.onclose = () => { H.rly = null; if (!H.closed) { this.signalOk = !!H.sig; this.emit(); } }; };
+    const bindSig = (sig) => { H.sig = sig; sig.onmsg = (m) => this.hostSignal(m); sig.onclose = () => { H.sig = null; if (!H.closed) { this.hostRelinkSoon(); this.signalOk = !!H.rly; this.setStatus(H.rly ? '' : 'Room link service dropped: friends already here stay connected. Reopen the lobby to invite more.'); this.emit(); } }; };
+    const bindRly = (hub) => { H.rly = hub; hub.onjoin = (g) => this.hostRelayJoin(g); hub.onclose = () => { H.rly = null; if (!H.closed) { this.hostRelinkSoon(); this.signalOk = !!H.sig; this.emit(); } }; };
     for (let i = 0; i < 6 && !ok; i++) {
       const code = opts.code || makeCode(); const sig = new Signal(ID_PREFIX + code, opts.relay); const hub = useRly ? new RelayHub(code) : null;
       let sOk = false, rOk = false, taken = false, sDone = false, rDone = !hub; const late = { sig: false, rly: false };
@@ -61,9 +61,22 @@ export const Net = {
       if (taken || !(sOk || rOk)) { sig.close(); hub && hub.close(); if (!taken || opts.code) break; continue; }
       ok = true; this.code = code; if (sOk) bindSig(sig); else late.sig = true; if (hub) { if (rOk) bindRly(hub); else late.rly = true; }
     }
+    H.relink = ok ? { relay: opts.relay, useRly, bindSig, bindRly, busy: false, n: 0 } : null; // t397u: lets the host re-register the same code after its sockets died (iOS Safari drops them in the background)
     this.signalOk = ok; if (!ok) { this.code = 'MANUAL'; this.error = null; this.setStatus('Relay unreachable: share codes manually (see "Add friend by code")'); }
     this.syncLobby(); this.hostTimers(); this.emit();
     return { code: this.code, signal: ok, err: lastErr && lastErr.message };
+  },
+  // t397u: iPhone host -> Android guest could not join while Android host -> iPhone guest worked. iOS Safari suspends a backgrounded page
+  // (e.g. while the host shares the code in Messages) and its signaling + relay WebSockets close; the room code then pointed at nobody
+  // and the host never re-registered it. Re-register the SAME code (same protocol, old clients unaffected) when a socket drops and when
+  // the page becomes visible again; bounded retries, only while this host's room is open.
+  hostRelinkSoon(ms = 1200) { const H = this.H; if (!H || H.closed || !H.relink || H.relink.tm) return; H.relink.tm = setTimeout(() => { if (H.relink) H.relink.tm = 0; this.hostRelink(); }, ms); },
+  hostRelink() {
+    const H = this.H, R = H && H.relink; if (!H || H.closed || !R || R.busy || this.H !== H) return; const needSig = !H.sig, needRly = R.useRly && !H.rly; if (!needSig && !needRly) { R.n = 0; return; }
+    if (R.n++ > 40) return; R.busy = true; const code = this.code; const jobs = [];
+    if (needSig) { const sig = new Signal(ID_PREFIX + code, R.relay); jobs.push(sig.connect(6000).then(() => { if (H.closed || this.H !== H || H.sig) return sig.close(); R.bindSig(sig); console.info('[net] host re-registered room code on signaling'); }).catch((e) => { try { sig.close(); } catch (x) {} console.info('[net] host relink signaling failed: ' + (e && e.message)); })); }
+    if (needRly) { const hub = new RelayHub(code); jobs.push(hub.connect(6500).then(() => { if (H.closed || this.H !== H || H.rly) return hub.close(); R.bindRly(hub); console.info('[net] host re-registered room on relay'); }).catch((e) => { try { hub.close(); } catch (x) {} console.info('[net] host relink relay failed: ' + (e && e.message)); })); }
+    Promise.all(jobs).then(() => { R.busy = false; if (!H.closed && this.H === H) { this.signalOk = !!(H.sig || H.rly); if (H.sig || H.rly) this.setStatus(''); this.emit(); if (!H.sig || (R.useRly && !H.rly)) this.hostRelinkSoon(R.n < 5 ? 2000 : 5000); } });
   },
   hostTimers() {
     const H = this.H;
