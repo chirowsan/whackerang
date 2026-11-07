@@ -66,6 +66,17 @@ export function initWakeLock() {
 
 // ---- orientation + fullscreen
 export function lockLandscape() { try { if (screen.orientation && screen.orientation.lock) return screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }
+// t394u: ask for browser fullscreen when a match starts from a real tap (Play / Start / Ready). Only on touch browsers that support it,
+// never in the installed app / iOS / standalone, never after the player left fullscreen themselves this session, failures are silent.
+let fsMine = false, fsOptOut = false;
+if (typeof document !== 'undefined') document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && fsMine) { fsOptOut = true; fsMine = false; } });
+export function fsOnPlay() {
+  try { if (IS_APP || IS_IOS || isStandalone() || fsOptOut || S().settings.autoFs === false || !matchMedia('(pointer:coarse)').matches) return false;
+    const d = document, el = d.documentElement; if (d.fullscreenElement || d.webkitFullscreenElement) return false; if (navigator.userActivation && !navigator.userActivation.isActive) return false;
+    const f = el.requestFullscreen || el.webkitRequestFullscreen; if (!f) return false; const r = f.call(el, { navigationUI: 'hide' }); fsMine = true;
+    if (r && r.then) r.then(() => lockLandscape()).catch(() => { fsMine = false; }); return true; } catch (e) { fsMine = false; return false; }
+}
+export const fsState = () => ({ mine: fsMine, optOut: fsOptOut });
 export function initFullscreenFirstTap(app) {
   if (IS_APP || IS_IOS) { if (isStandalone()) lockLandscape(); return; }
   if (isStandalone()) { const f = () => { lockLandscape(); }; window.addEventListener('pointerup', f, { once: true }); return; }
@@ -75,7 +86,7 @@ export function initFullscreenFirstTap(app) {
     if (S().settings.autoFs === false) return;
     const d = document, el = d.documentElement; if (d.fullscreenElement || d.webkitFullscreenElement) return;
     const f = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (f) { try { const r = f.call(el, { navigationUI: 'hide' }); const lock = () => lockLandscape(); r && r.then ? r.then(lock).catch(() => {}) : lock(); } catch (e) {} }
+    if (f) { try { const r = f.call(el, { navigationUI: 'hide' }); fsMine = true; const lock = () => lockLandscape(); r && r.then ? r.then(lock).catch(() => {}) : lock(); } catch (e) {} }
   };
   window.addEventListener('pointerup', first, true);
 }

@@ -14,6 +14,12 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10.1 (phone fixes)
+- **Online menu on phones:** the in-match online menu (Pause button) now reacts to taps; the touch controls no longer sit on top of it. Online matches keep running while the menu is open (they never pause).
+- **Wider phone camera:** on phone-sized landscape screens the close camera shows about 15% more of the arena. Tablets and desktop are unchanged.
+- **Fullscreen on start:** on browsers that support it, pressing Play / START on a touch device asks for fullscreen. If you leave fullscreen it is not forced back. Not yet verified on a real Android phone.
+- **Clearer touch labels:** high-contrast labels SHIELD, DASH, SPECIAL, and on the throw stick DRAG: THROW and TAP NEAR: MELEE. Labels never block touches; controls behave exactly as before.
+
 ## What's new in v4.10 (melee + character weapons)
 - **Every fighter has their own 3 weapons (24 in all, none shared):** e.g. Bao's Iron Wok / Cleaver / Rolling Pin, Nori's Shuriken / Kama / Tanto, Gus's Dumbbell / Title Belt / Kettlebell. They differ in swing pattern (Sweep, Thrust, Lunge, Spin 360), reach, speed and recovery, and some throws home in, pierce or briefly stun. Every hit is still one heart. All weapons are free.
 - **Melee swing:** tap the throw stick next to a visible rival to swing (drag + release always throws). Keys: G (P1), B (solo), Comma / Numpad 2 (P2), gamepad LT. Hidden rivals in bushes are not auto-targeted unless you are close enough to discover them.

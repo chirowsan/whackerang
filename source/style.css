@@ -583,3 +583,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .armory .arm-top .arm-who { flex: 0 0 auto; padding: 0 6px; }
 @media (max-width: 600px) { .armory .arm-top { flex-direction: column-reverse; align-items: stretch; } }
 @media (max-height: 460px) { .armory .wcard .prev { height: 40px; } .armory .arm-hero { min-height: 44px; padding: 3px 6px; flex-direction: row; gap: 5px; } .armory .arm-hero img { width: 28px; height: 28px; } }
+/* t395u: control labels in their own overlay (NOT inside the faded buttons), high contrast charcoal pill, never catch touches */
+#tlabs { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+#tlabs .tlab { position: absolute; transform: translate(-50%, 0); white-space: nowrap; pointer-events: none; font: 900 12px/1 system-ui, sans-serif; letter-spacing: .04em; color: #fff; padding: 2px 6px 3px; border-radius: 8px; background: rgba(14,10,34,.8); box-shadow: 0 0 0 1px rgba(255,255,255,.25); text-shadow: 0 1px 1px #000; }
+#tlabs .tl-def { left: var(--fx); top: calc(var(--fy) - var(--bf) / 2 - 18px); }
+#tlabs .tl-dash { left: var(--dx); top: calc(var(--dy) - var(--bd) / 2 - 18px); }
+#tlabs .tl-ult { left: var(--ux); top: calc(var(--uy) - var(--bu) / 2 - 18px); }
+#tlabs .tl-at { left: var(--ax); top: calc(var(--ay) - var(--sb) / 2 - 18px); }
+#tlabs .tl-ab { left: var(--ax); top: calc(var(--ay) + var(--sb) / 2 - 19px); }
+#tlabs .tl-at, #tlabs .tl-ab { left: auto; right: calc(100% - var(--ax) - var(--sb) / 2); transform: none; }
+#touch.left #tlabs .tl-at, #touch.left #tlabs .tl-ab { right: auto; left: calc(var(--ax) - var(--sb) / 2); }
+#tlabs .tl-at { top: calc(var(--ay) - var(--sb) / 2 + 9px); } #tlabs .tl-ab { top: auto; bottom: 2px; }
+#tlabs .tl-at, #tlabs .tl-ab { letter-spacing: .01em; padding: 2px 5px 3px; right: max(2px, calc(100% - var(--ax) - var(--sb) / 2 - 4px)); }

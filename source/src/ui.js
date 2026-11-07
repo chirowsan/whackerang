@@ -30,7 +30,7 @@ export const UI = {
     document.addEventListener('pointerdown', () => { Input.lastUsed = 'touch-or-mouse'; }, true);
     Input.onAnyKey = (e) => this.onKey(e);
   },
-  clear() { this.root.innerHTML = ''; this.cur = null; this.focusEl = null; },
+  clear() { const was = this.cur; this.root.innerHTML = ''; this.cur = null; this.focusEl = null; if (was === 'netPause' && this.app && this.app.applyTouch) this.app.applyTouch(); }, // t393u: whatever closes the online menu (round end, results) restores the touch controls
   show(name, props) { const same = this.cur === name; this.clear(); this.cur = name; const el = this[name](props || {}); if (same && el && el.classList) el.classList.add('still'); this.root.appendChild(el); this.shows = (this.shows || 0) + 1; this.setFocus(this.navList()[0] || null); return el; },
   toast(msg, ms = 1800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), ms); },
   banner(b1, b2, color) { const b = this.bannerRoot; b.innerHTML = ''; const d = h('div', 'b1', b1); if (color) d.style.color = color; b.appendChild(d); if (b2) b.appendChild(h('div', 'b2', b2)); clearTimeout(this._bt); this._bt = setTimeout(() => (b.innerHTML = ''), 1400); },

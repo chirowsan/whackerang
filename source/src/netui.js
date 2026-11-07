@@ -1,3 +1,4 @@
+import { fsOnPlay } from './pwa.js';
 // Online (v4.0) screens: menu, join, lobby, manual code exchange, errors, results, in-match menu, ping chip.
 import { UI, h, $ } from './ui.js';
 import { S, save } from './save.js';
@@ -178,7 +179,7 @@ Object.assign(UI, {
     main.appendChild(list); main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); if (s.settings.netDiag) main.appendChild(diagBox()); el.appendChild(main);
     { const cc = main.querySelector('.nl2-code'); if (cc) longPress(cc, () => { s.settings.netDiag = !s.settings.netDiag; save(); UI.toast(s.settings.netDiag ? 'Connection details on' : 'Connection details off', 1200); this.show('netLobby'); }); }
     const ft = h('div', 'netfoot nl2-foot');
-    if (isHost) { const can = Net.canStart(); ft.appendChild(this.btn('▶ START', 'primary big nl2-start' + (can ? '' : ' locked'), () => { if (!Net.canStart()) { sfx('deny'); return UI.toast('Need at least 2 players, or turn bots on in Options', 1800); } Net.startMatch(); }, { id: 'net-start' })); }
+    if (isHost) { const can = Net.canStart(); ft.appendChild(this.btn('▶ START', 'primary big nl2-start' + (can ? '' : ' locked'), () => { fsOnPlay(); if (!Net.canStart()) { sfx('deny'); return UI.toast('Need at least 2 players, or turn bots on in Options', 1800); } Net.startMatch(); }, { id: 'net-start' })); }
     else ft.appendChild(h('div', 'nl2-wait', 'Waiting for the host to start<i>.</i><i>.</i><i>.</i>', { id: 'net-wait' }));
     el.appendChild(ft);
     if (Net.status) { const nt = el.querySelector('#net-notes'); if (nt) nt.textContent = Net.status; }

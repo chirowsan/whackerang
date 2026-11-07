@@ -220,7 +220,7 @@ export function fitCamera(mode = gfx.camMode || 'play') {
   };
   const closeOn0 = S().settings.camera !== 'wide';
   if (closeOn0) { // v4.2 fill camera: the floor fills the screen edge to edge (controls float on top), the camera follows the players
-    const tgt = new THREE.Vector3(0, 0, 0.2); const wantW = Math.min(HX * 2 + 1.0, 21.4); const row = gfx.fillRow;
+    const tgt = new THREE.Vector3(0, 0, 0.2); const phone = gfx.h < 560; const wantW = phone ? Math.min(HX * 2 + 2.4, 24.6) : Math.min(HX * 2 + 1.0, 21.4); /* t394u: phones frame ~15% more arena (fighters keep the 1.15 phone scale) */ const row = gfx.fillRow;
     const fl = new THREE.Vector3(), fr = new THREE.Vector3(); const ray = new THREE.Raycaster();
     const hit = (nx, ny, out) => { ray.setFromCamera({ x: nx, y: ny }, cam); const o = ray.ray.origin, d = ray.ray.direction; const t = -o.y / d.y; out.copy(d).multiplyScalar(t).add(o); return out; };
     const place = (d) => { cam.position.set(0, Math.sin(tilt) * d, Math.cos(tilt) * d).add(tgt); cam.lookAt(tgt); cam.updateMatrixWorld(); cam.updateProjectionMatrix(); };

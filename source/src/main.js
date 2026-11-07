@@ -25,7 +25,7 @@ import { Match } from './net/match.js';
 import { STORE } from './flags.js';
 import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
 const HXc = () => _HX, HZc = () => _HZ;
-import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa } from './pwa.js';
+import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa , fsOnPlay, fsState } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
 const STEP = 1 / 60;
@@ -36,7 +36,7 @@ const app = {
   isTouchDevice() { return isCoarse() || ('ontouchstart' in window && !matchMedia('(hover:hover)').matches); },
   touchWanted() { const t = S().settings.touch; return t === 'on' || (t === 'auto' && this.isTouchDevice()); },
   applyTouch() {
-    const root = $('#touch'), st = S().settings; const want = this.touchWanted(); const inMatch = this.mode === 'play' && !this.paused;
+    const root = $('#touch'), st = S().settings; const want = this.touchWanted(); const inMatch = this.mode === 'play' && !this.paused && !(this.net && UI.cur === 'netPause'); // t393u: the online menu does not pause the sim, but the full-screen stick zones (z-index 5) must not sit on top of its buttons
     Input.touch.enabled = want; Input.solo = !!this.net || !(st && S().setup.players === 2 && this.mode === 'play');
     root.classList.toggle('off', !(want && inMatch)); root.classList.toggle('left', !!st.leftHanded);
     document.documentElement.style.setProperty('--cs', String(st.ctrlScale || 1)); document.body.classList.toggle('touch-on', want && inMatch);
@@ -120,7 +120,7 @@ const app = {
   },
   botDef(hero, o = {}) { return { hero, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: hero.name, diff: S().setup.diff, persona: PERSONAS[hero.id], wins: 0, weapon: pick(heroWeapons(hero.id)), ...o }; }, // v4.11 bots only pick their own character's weapons
   // ---- start a mode from the mode-select screen
-  startMode(modeId) {
+  startMode(modeId) { fsOnPlay(); /* t394u: fullscreen from the Play tap when supported */
     const s = S(), st = s.setup; st.mode = modeId; const nh = this.humans(); const players = [this.humanDef(0)]; if (nh === 2) players.push(this.humanDef(1));
     const used = new Set(players.map((p) => p.hero.id)); const pool = () => shuffle(HEROES.filter((h) => !used.has(h.id)));
     let need = 1, rulesMode = modeId;
@@ -354,6 +354,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { fs: fsState, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }
