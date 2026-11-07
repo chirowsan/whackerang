@@ -31,7 +31,9 @@ ok('catching advances to step 3 (DODGE)', await waitStep(3, 9000));
 await sleep(500); await page.screenshot({ path: OUT + '4-dodge.png' });
 ok('a real spike trap exists with warning pulse', await page.evaluate(() => { const t = __bg.app.game.traps.list.find((x) => x.type === 'pit'); return !!t && !!t.haz; }));
 // idle in the pit zone? step must NOT advance until the trap has fired and the player survived: step out immediately
-await ts.touchStart(jz.x, jz.y); await sleep(80); await ts.touchMove(jz.x + 50, jz.y);
+// v4.9: the tutorial layout is random (seedless) - step out on a side with no wall/crate next to the player, so a pillar on the right can't pin the test
+const esc = await page.evaluate(() => { const g = __bg.app.game, f = g.fighters[0], W = g.layout.w / 2, H = g.layout.h / 2; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { let ok = true; for (let k = 0.5; k <= 2.5; k += 0.5) if (g.solid(Math.floor(f.x + dx * k + W), Math.floor(f.z + dz * k + H))) ok = false; if (ok) return [dx, dz]; } return [1, 0]; });
+await ts.touchStart(jz.x, jz.y); await sleep(80); await ts.touchMove(jz.x + 50 * esc[0], jz.y + 50 * esc[1]);
 let fired = false; for (let i = 0; i < 60; i++) { await sleep(150); if (!fired) fired = await page.evaluate(() => !!__bg.app.tut.fired || __bg.app.tut.step >= 4); if ((await step()) >= 4) break; }
 await ts.touchEnd();
 ok('surviving the trap advances to DONE', (await step()) >= 4, { fired }); await sleep(400); await page.screenshot({ path: OUT + '5-done.png' });

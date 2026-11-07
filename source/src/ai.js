@@ -1,3 +1,4 @@
+import { canSee } from './stealth.js';
 // Bot brain: dodge incoming boomerangs, keep distance, aim with imperfect accuracy, avoid hazards.
 import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, angDiff, rr } from './util.js';
 import { T } from './arena.js';
@@ -80,6 +81,7 @@ export class Bot {
     // ---- decisions
     this.thinkT -= dt; if (this.thinkT <= 0) { this.thinkT = d.think * (0.8 + Math.random() * 0.4); this.think(); }
     // ---- aiming/throwing
+    if (this.target && !canSee(g, f.team, this.target)) this.target = null; // v4.9 bushes: a rival that slipped into cover is lost until it reveals itself / is found
     const tg = this.target;
     if (this.holding) {
       this.holdT -= dt; o.fire = this.holdT > 0; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
@@ -142,8 +144,8 @@ export class Bot {
   think() {
     const g = this.g, f = this.f, d = this.d;
     const R = g.rules; let tg = null, bd = 1e9;
-    for (const e of g.fighters) { if (!e.alive || !g.isFoe(f, e)) continue; let dist = Math.hypot(e.x - f.x, e.z - f.z); if (R.type === 'koth' && g.zone && Math.hypot(e.x - g.zone.x, e.z - g.zone.z) < 2.6) dist *= 0.6; if (R.type === 'bomb' && g.mst.holder === e && f !== g.mst.holder) dist *= 0.5; if (dist < bd) { bd = dist; tg = e; } }
-    if (R.type === 'bomb') { const hd = g.mst.holder; if (hd === f) { tg = null; bd = 1e9; for (const e of g.fighters) { if (e === f || !e.alive || e.tagImmune > 0) continue; const dist = Math.hypot(e.x - f.x, e.z - f.z); if (dist < bd) { bd = dist; tg = e; } } } }
+    for (const e of g.fighters) { if (!e.alive || !g.isFoe(f, e) || !canSee(g, f.team, e)) continue; let dist = Math.hypot(e.x - f.x, e.z - f.z); if (R.type === 'koth' && g.zone && Math.hypot(e.x - g.zone.x, e.z - g.zone.z) < 2.6) dist *= 0.6; if (R.type === 'bomb' && g.mst.holder === e && f !== g.mst.holder) dist *= 0.5; if (dist < bd) { bd = dist; tg = e; } }
+    if (R.type === 'bomb') { const hd = g.mst.holder; if (hd === f) { tg = null; bd = 1e9; for (const e of g.fighters) { if (e === f || !e.alive || e.tagImmune > 0 || !canSee(g, f.team, e)) continue; const dist = Math.hypot(e.x - f.x, e.z - f.z); if (dist < bd) { bd = dist; tg = e; } } } }
     this.target = tg; let gx = 0, gz = 0;
     // power-up goal
     let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < this.pm.pu) { pd = dist; pu = p; } }

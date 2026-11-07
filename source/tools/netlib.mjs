@@ -2,7 +2,7 @@
 import { createRequire } from 'module'; const require = createRequire('/tmp/pp/'); const puppeteer = require('/tmp/pp/node_modules/puppeteer-core');
 import { spawn } from 'child_process';
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-export const HTML = 'file:///workspace/boomerang-brawl/Whackerang.html';
+export const HTML = process.env.BB_HTML || 'file:///workspace/boomerang-brawl/Whackerang.html';
 export async function startRelay(port = 9100) { const p = spawn('node', ['/workspace/boomerang-brawl/server/relay/relay.mjs'], { env: { ...process.env, PORT: String(port) }, stdio: 'ignore' }); await sleep(700); return { port, url: `ws://127.0.0.1:${port}/peerjs?key=peerjs`, stop: () => p.kill() }; }
 // Chrome on this box gathers no host candidates, so tests use a local STUN/TURN server (node-turn) on 127.0.0.1:3478: real RTCPeerConnection + DataChannels.
 export async function startTurn() { const p = spawn('node', ['/workspace/boomerang-brawl/tools/netturn.mjs'], { stdio: 'ignore' }); await sleep(900); return { stop: () => p.kill() }; }

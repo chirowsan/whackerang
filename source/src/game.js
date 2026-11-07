@@ -15,6 +15,7 @@ import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
 import { Input } from './input.js';
 import { Traps } from './traps.js';
+import { keepMarkOn, STEALTH, stealthOn, stealthTick, stealthVis, canSee, reveal, bushClean } from './stealth.js';
 
 export const FR = 0.4, SPEED = 5.3, CURVE = 0.95, SUDDEN_AT = 48;
 const dirx = (a) => Math.sin(a), dirz = (a) => Math.cos(a);
@@ -27,7 +28,7 @@ class Fighter {
     this.alive = true; this.deadT = 0; this.mods = { speed: 1, dashCd: 1, charge: 1, catchR: 1, puDur: 1, ...(this.hero.mods || {}) };
     this.maxAmmo = 1; this.ammo = 1; this.charging = false; this.chargeT = 0; this.prevFire = false; this.lastAim = [0, 0]; this.throwCd = 0; this.throwT = 0;
     this.dashT = 0; this.dashCd = 0; this.dashDir = [0, 1]; this.deflectT = 0; this.deflectCd = 0; this.inv = 0; this.shield = false;
-    this.pu = { triple: 0, giant: 0, fire: 0, homing: 0, speed: 0, magnet: 0, slow: 0 }; this.slowK = 1; this.hurtT = 0; this.catchChain = 0; this.lastCatchT = -99; this.magT = 0; this.move = 0; this.kos = 0; this.pushed = false; this.fallT = 0; this.deathKind = ''; this.koVx = 0; this.koVz = 0; this.air = 0; this.spawnT = 0;
+    this.pu = { triple: 0, giant: 0, fire: 0, homing: 0, speed: 0, magnet: 0, slow: 0 }; this.slowK = 1; this.hurtT = 0; this.catchChain = 0; this.lastCatchT = -99; this.magT = 0; this.move = 0; this.kos = 0; this.pushed = false; this.fallT = 0; this.deathKind = ''; this.koVx = 0; this.koVz = 0; this.air = 0; this.hopY = 0; /* v4.9: jump height defaults to 0 (Traps Off never runs the trap jump tick) */ this.spawnT = 0;
     this.model = buildFighter(this.hero, def.hat || 'none', this.color); g.scene.add(this.model.root);
     this.bot = this.isBot ? new Bot(g, this, def.diff === undefined ? 1 : def.diff, def.persona) : null;
     this.wins = def.wins || 0; this.tmr = Math.random() * 10;
@@ -46,7 +47,7 @@ class Fighter {
     for (const k in this.pu) if (this.pu[k] > 0) this.pu[k] = Math.max(0, this.pu[k] - dt);
     this.hurtT = Math.max(0, this.hurtT - dt * 3); this.slowK = 1; for (const o of g.fighters) { if (o !== this && o.alive && o.pu.slow > 0 && o.team !== this.team && Math.hypot(o.x - this.x, o.z - this.z) < 4.6) { this.slowK = 0.6; break; } }
     if (this.pu.magnet > 0) { for (const p of g.powerups) { const dx = this.x - p.x, dz = this.z - p.z, d = Math.hypot(dx, dz); if (d < 7 && d > 0.3) { p.x += dx / d * 7 * dt; p.z += dz / d * 7 * dt; p.mesh.position.x = p.x; p.mesh.position.z = p.z; } } this.magT -= dt; if (this.magT <= 0) { this.magT = 0.09; const a = Math.random() * 6.28; fx.glow.spawn(this.x + Math.cos(a) * 2.6, 0.5, this.z + Math.sin(a) * 2.6, -Math.cos(a) * 9, 0.2, -Math.sin(a) * 9, 0.1, 0.28, 0xff6a7a, 0, 0, 0, -0.5); } }
-    if (this.chillT > 0) this.chillT -= dt; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 8) { this.regenT = 0; this.hp++; fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
+    if (this.chillT > 0) this.chillT -= dt; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 8) { this.regenT = 0; this.hp++; if (!this.hid) { fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
     this.emoteT = Math.max(0, this.emoteT - dt); this.frozenT = Math.max(0, this.frozenT - dt); this.stunT = Math.max(0, this.stunT - dt); this.tagImmune -= dt; this.tagCd -= dt; this.hitFlash = Math.max(0, this.hitFlash - dt); if (this.typeT > 0) { this.typeT -= dt; if (this.typeT <= 0) this.type = this.baseType; } if (this.ultT > 0) { this.ultT -= dt; if (this.ultT <= 0) g.endUlt(this); } if (g.state === 'play') this.ult = Math.min(100, this.ult + dt * (this.boss ? 0 : 1.4));
     this.dashCd -= dt; this.deflectCd -= dt; this.throwCd -= dt; this.throwT = Math.max(0, this.throwT - dt * 4); this.inv = Math.max(0, this.inv - dt); this.deflectT = Math.max(0, this.deflectT - dt);
     let inp = NOINP;
@@ -68,7 +69,7 @@ class Fighter {
     if (this.dashT > 0) {
       this.dashT -= dt; const sp = 17; this.vx = this.dashDir[0] * sp; this.vz = this.dashDir[1] * sp;
       if (this.dashT <= 0) { this.vx *= 0.35; this.vz *= 0.35; }
-      if (Math.random() < 0.7) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.2, 0.3, Math.random() < 0.5 ? this.hero.trail : this.color, 0, 0, 0, -0.2);
+      if (!this.hid && Math.random() < 0.3) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.16, 0.25, Math.random() < 0.5 ? this.hero.trail : this.color, 0, 0, 0, -0.2);
     } else {
       const sp = this.speed; const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * (g.mut && g.mut.grav ? 0.45 : 1) * dt; const stopping = (inp.mx === 0 && inp.mz === 0);
       const a2 = stopping ? (ice ? 1.6 : 34) * dt : acc;
@@ -81,7 +82,7 @@ class Fighter {
     g.traps.fighterTick(this, dt);
     g.moveSub(this, (this.vx + this.ex) * dt, (this.vz + this.ez) * dt, FR); // v4.7: sub-stepped (max 0.2 cell) so dashes / knockback / bumper pops never tunnel
     if (this.dashT > 0 && !this.pushed) g.tryPush(this);
-    this.stepT = (this.stepT || 0) - dt; if (this.move > 0.6 && this.dashT <= 0 && this.stepT <= 0) { this.stepT = 0.13; fx.glow.spawn(this.x - dirx(this.vface) * 0.15, 0.08, this.z - dirz(this.vface) * 0.15, (Math.random() - 0.5) * 0.4, 0.5, (Math.random() - 0.5) * 0.4, 0.09, 0.32, this.hero.trail, 0, 0, 0, -0.25); }
+    this.stepT = (this.stepT || 0) - dt; if (this.move > 0.6 && this.dashT <= 0 && this.stepT <= 0 && !this.hid) { this.stepT = 0.13; fx.glow.spawn(this.x - dirx(this.vface) * 0.15, 0.08, this.z - dirz(this.vface) * 0.15, (Math.random() - 0.5) * 0.4, 0.5, (Math.random() - 0.5) * 0.4, 0.09, 0.32, this.hero.trail, 0, 0, 0, -0.25); }
     const sp2 = Math.hypot(this.vx, this.vz); this.move += ((sp2 > 0.5 ? Math.min(1, sp2 / 5) : 0) - this.move) * Math.min(1, dt * 12);
     // --- aiming / throwing
     const aiming = inp.aimX !== 0 || inp.aimZ !== 0;
@@ -130,18 +131,18 @@ class Fighter {
     if (hazard && this.inv > 0 && !this.boss) { if (kind !== 'spike' && kind !== 'poison') g.rescue(this, false); return false; } // v4.7: invulnerable (just hit / respawned / saved) -> rescued for free, never a death
     if (this.hp > 1) {
       if (this.inv > 0 && !hazard) return false; // v4.7: brief invulnerability after losing a heart
-      this.hp--; this.regenT = 0; this.inv = this.boss ? 1.0 : 1.4; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0;
+      reveal(this, STEALTH.hurt); this.hp--; this.regenT = 0; this.inv = this.boss ? 1.0 : 1.4; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0;
       if (hazard || kind === 'bomb') { this.vx = this.vz = 0; if (kind !== 'spike' && kind !== 'bomb' && kind !== 'poison') g.rescue(this, true); } else { const l = Math.hypot(kx, kz) || 1; const kb = this.abil === 'gus' ? 4.5 : 9; this.vx = kx / l * kb; this.vz = kz / l * kb; }
       g.onHurt(this, killer, kind); return false;
     }
-    if (this.abil === 'kuma' && !this.nineUsed && !(this.inv > 0 && !hazard)) { this.nineUsed = true; this.inv = 1.6; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; if (kind === 'fall' || kind === 'lava') g.rescue(this, true); fx.popup('NINE LIVES!', this.x, this.z, 'pop-gold', 2); g.onHurt(this, killer, kind); return false; } /* v4.7 Salty: once per round a KO leaves him on 1 heart */
-    this.alive = false; this.deadT = 0; this.deathKind = kind; this.charging = false; this.frozenT = 0; this.stunT = 0; this.model.aim.visible = false; this.model.bubble.visible = false; this.model.deflect.visible = false; this.dmgTaken++;
+    if (this.abil === 'kuma' && !this.nineUsed && !(this.inv > 0 && !hazard)) { this.nineUsed = true; reveal(this, STEALTH.hurt); this.inv = 1.6; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; if (kind === 'fall' || kind === 'lava') g.rescue(this, true); fx.popup('NINE LIVES!', this.x, this.z, 'pop-gold', 2); g.onHurt(this, killer, kind); return false; } /* v4.7 Salty: once per round a KO leaves him on 1 heart */
+    this.alive = false; this.hid = false; this.seen = 0; this.revealT = 0; this.deadT = 0; this.deathKind = kind; this.charging = false; this.frozenT = 0; this.stunT = 0; this.model.aim.visible = false; this.model.bubble.visible = false; this.model.deflect.visible = false; this.dmgTaken++;
     if (this.ultT > 0) g.endUlt(this);
     const l = Math.hypot(kx, kz) || 1; this.koVx = kx / l * 9; this.koVz = kz / l * 9;
     this.lives--; this.respawnT = this.lives > 0 ? g.respawnDelay(this) : 0;
     g.onKO(this, killer, kind); return true;
   }
-  freezeFor(t) { this.frozenT = t; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; sfx('freeze'); fx.burst(this.x, 0.6, this.z, 10, [0xcff4ff, 0x8fdcff], { speed: 3, up: 3, size: 0.1 }); fx.ring(this.x, 0.2, this.z, 0x9ff0ff, 2.4, 0.35); }
+  freezeFor(t) { reveal(this, STEALTH.hurt); this.frozenT = t; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; sfx('freeze'); fx.burst(this.x, 0.6, this.z, 10, [0xcff4ff, 0x8fdcff], { speed: 3, up: 3, size: 0.1 }); fx.ring(this.x, 0.2, this.z, 0x9ff0ff, 2.4, 0.35); }
   giveAmmo() { this.ammo = Math.min(this.maxAmmo, this.ammo + 1); }
 }
 
@@ -164,7 +165,7 @@ class Boom {
       let speed;
       if (this.phase === 'out') {
         this.t += h; const k = this.t / this.tout; speed = this.v0 * (1 - 0.68 * Math.min(1, k)); this.th += this.w * h * (1 - 0.3 * k);
-        if (this.homing) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); this.th += clamp(angDiff(this.th, a), -3.4 * h, 3.4 * h); } }
+        if (this.homing) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); this.th += clamp(angDiff(this.th, a), -3.4 * h, 3.4 * h); } }
         if (this.t >= this.tout) { this.phase = 'ret'; this.retT = 0; }
       } else {
         this.retT += h; speed = 8 + 15 * Math.min(1, this.retT / 0.8); const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
@@ -203,14 +204,15 @@ export class Game {
   constructor(o) {
     this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this._base = new Set(gfx.scene.children); this.arenaId = o.arenaId; this.round = o.round || 1;
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
-    this.layout = genLayout(this.arenaId, o.netSeed); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
+    this.dens = o.dens || (typeof window !== "undefined" && window.__bbDens) || 4; /* v4.9 calmer maps: 1 = v4.8 layout/trap density (old hosts), 2 = v4.9 */ this.layout = genLayout(this.arenaId, o.netSeed, this.dens); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.bush = null; /* v4.9: no bushes in Boomerang Ball (a hidden ball carrier / goalie would be unfair) */ this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.layout.sol0 = this.layout.t.reduce((a, v) => a + (v === T.PILLAR || v === T.CRATE ? 1 : 0), 0); this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
     const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
     this.edgeHelp = o.edgeHelp !== undefined ? !!o.edgeHelp : S().settings.edgeHelp !== false; this.edgeSaves = o.edgeSaves || {}; this.edgeGrace = this.edgeHelp ? 0.25 : 0.12; this.edgeNear = 0; this.edgeTickT = 0;
     this.hole = new Float32Array(AW * AH); this.spk = new Float32Array(AW * AH); this.spkWarn = new Uint8Array(AW * AH); this.spkPh = new Float32Array(AW * AH);
     this.crateHp = new Uint8Array(AW * AH); this.sol = new Uint8Array(AW * AH);
     for (let k = 0; k < AW * AH; k++) { const t = this.layout.t[k]; if (t === T.CRATE) this.crateHp[k] = 2; this.sol[k] = (t === T.PILLAR || t === T.CRATE) ? 1 : 0; this.spkPh[k] = nrnd() * 4.2; }
     this.fighters = []; this.booms = []; this.powerups = []; this.pushes = [];
-    this.mut = o.mutator || null; { const _mr = Math.random; if (o.netSeed != null) Math.random = mulberry32((o.netSeed ^ 0x7a9) >>> 0); try { this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber) }); } finally { Math.random = _mr; } }
+    this.mut = o.mutator || null; { const _mr = Math.random; if (o.netSeed != null) Math.random = mulberry32((o.netSeed ^ 0x7a9) >>> 0); try { this.traps = new Traps(this, o.traps || 'some', this.arenaId, { none: o.noTraps, set: o.trapSet, rubber: !!(this.mut && this.mut.rubber), dens: this.dens }); } finally { Math.random = _mr; } }
+    bushClean(this); if (this.bushN) this.view.buildBushes(this.layout.bush);
     const n = o.players.length; this.nHumans = o.players.filter((p) => p.ctrl !== 'bot').length || 1; const order = this.rules.teams && n === 4 ? [0, 3, 1, 2] : n === 1 ? [0] : n === 2 ? [0, 1] : n === 3 ? [0, 1, 3] : [0, 1, 2, 3];
     o.players.forEach((d, i) => { const sp = spawns()[order[i]]; let p = [cx(sp[0]), cz(sp[1])]; if (!this.safeAt(p[0], p[1], true)) p = this.safeCell({ x: p[0], z: p[1] }, true) || p; this.fighters.push(new Fighter(this, d, i, p)); }); // v4.7: spawn always on solid floor
     this.nPlayers = n; this.time = 0; this.state = 'intro'; this.cdShort = !!o.cdShort; this.goAt = o.goAt || 0; this.introT = o.intro === undefined ? (this.cdShort ? 0.9 : CD_PRE + CD_LEN) : o.intro; this.lastCount = 9; this.cdDone = this.mode === 'attract'; this.poisonView = poisonOn(this) ? new PoisonView(this) : null; this.goWall = performance.now() + this.introT * 1000; this._pw = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
@@ -257,13 +259,13 @@ export class Game {
   }
   // -------- throwing
   isFoe(a, b) { return a !== b && a.team !== b.team; }
-  nearestEnemy(f, x, z, maxD, excl) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
+  nearestEnemy(f, x, z, maxD, excl, seen) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o)) || (seen && !canSee(this, f.team, o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
   pickAim(f, base, explicit) {
     const assist = f.isBot ? false : (f.netIn ? f.netIn.assist : S().settings.aimAssist); let tg = null;
     if (assist) {
       let bs = 1e9;
-      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = f.netIn ? f.netIn.touchy : Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
-      if (!tg && !explicit) tg = this.nearestEnemy(f, f.x, f.z, 1e9);
+      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || !canSee(this, f.team, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = f.netIn ? f.netIn.touchy : Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
+      if (!tg && !explicit) tg = this.nearestEnemy(f, f.x, f.z, 1e9, null, true);
     }
     if (!tg) return base;
     const dist = Math.hypot(tg.x - f.x, tg.z - f.z); const a = Math.atan2(tg.x - f.x, tg.z - f.z); const ft = Math.min(0.9, dist / 11); return a - 0.5 * CURVE * ft * 0.9;
@@ -272,7 +274,7 @@ export class Game {
     const ang = f.isBot ? base : this.pickAim(f, base, explicit); f.face = ang; f.vface = ang;
     const tri = f.pu.triple > 0; const angs = tri ? [ang - 0.3, ang, ang + 0.3] : [ang];
     angs.forEach((a, i) => this.booms.push(new Boom(this, f, f.x + dirx(a) * 0.6 * f.bs, f.z + dirz(a) * 0.6 * f.bs, a, c, { carry: i === 0 ? 1 : 0, giant: f.pu.giant > 0 || !!(this.mut && this.mut.giant), fire: f.pu.fire > 0, homing: f.pu.homing > 0, type: f.type })));
-    f.ammo--; f.throwCd = f.type === 'boom' ? 0.55 : 0.16; f.throwT = 1; sfx('throw', c); shake(0.04 + c * 0.05); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
+    reveal(f, STEALTH.reveal); f.ammo--; f.throwCd = f.type === 'boom' ? 0.55 : 0.16; f.throwT = 1; sfx('throw', c); shake(0.04 + c * 0.05); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
     this.onEvent('throw', { f });
   }
   boomCollide(b) {
@@ -302,13 +304,13 @@ export class Game {
         if (this.rules.stunOnly) { f.stunT = 1.4; f.charging = false; f.chargeT = 0; f.vx = Math.sin(b.th) * 7; f.vz = Math.cos(b.th) * 7; b.hit.add(f); sfx('hit'); fx.sparks(f.x, 0.7, f.z, 10, [0xffffff, own.color], { speed: 5, life: 0.4 }); fx.popup('BONK!', f.x, f.z, 'pop-cyan'); shake(0.12); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
         if (this.rules.type === 'bomb') { this.bombHit(b, f); b.hit.add(f); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
         if (f.frozenT > 0) { fx.burst(f.x, 0.6, f.z, 18, [0xcff4ff, 0x8fdcff, 0xffffff], { speed: 6, up: 4, size: 0.12 }); sfx('shatter'); this.onEvent('shatter', { f, killer: own }); f.frozenT = 0; const died = f.die(own, 'shatter', Math.sin(b.th), Math.cos(b.th)); if (died) own.kos++; this.gainUlt(own, 30); b.hit.add(f); if (!b.pierce && b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
-        if (f.shield) { f.shield = false; f.inv = 0.7; sfx('shieldpop'); fx.ring(f.x, 0.3, f.z, 0x6fffb0, 2.2, 0.35); fx.sparks(f.x, 0.6, f.z, 14, [0x6fffb0, 0xffffff], { speed: 5, life: 0.5 }); shake(0.15); f.hurtT = 0.6; fx.popup('SHIELD!', f.x, f.z, 'pop-cyan', 1.8); if (!f.isBot) fx.hurt(0.5); b.th += Math.PI + (Math.random() - 0.5) * 0.6; if (b.phase === 'out') b.t += 0.25; this.onEvent('shieldpop', { f }); continue; }
+        if (f.shield) { reveal(f, STEALTH.hurt); f.shield = false; f.inv = 0.7; sfx('shieldpop'); fx.ring(f.x, 0.3, f.z, 0x6fffb0, 2.2, 0.35); fx.sparks(f.x, 0.6, f.z, 14, [0x6fffb0, 0xffffff], { speed: 5, life: 0.5 }); shake(0.15); f.hurtT = 0.6; fx.popup('SHIELD!', f.x, f.z, 'pop-cyan', 1.8); if (!f.isBot) fx.hurt(0.5); b.th += Math.PI + (Math.random() - 0.5) * 0.6; if (b.phase === 'out') b.t += 0.25; this.onEvent('shieldpop', { f }); continue; }
         if (b.fire) { this.explode(b.x, b.z, own); b.caught(true); return; }
         b.hit.add(f);
-        if (b.freeze) { f.freezeFor(2.6); this.gainUlt(own, 18); this.onEvent('freeze', { f, killer: own }); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
+        if (b.freeze) { reveal(f, STEALTH.hurt); f.freezeFor(2.6); this.gainUlt(own, 18); this.onEvent('freeze', { f, killer: own }); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
         const died = f.die(own, 'boom', Math.sin(b.th), Math.cos(b.th)); if (died) own.kos++; else if (f.alive) { if (b.shock) f.stunT = Math.max(f.stunT, 0.6); if (own.abil === 'yuki') f.chillT = 1.5; } this.gainUlt(own, died ? 30 : 15); punch(Math.sin(b.th), Math.cos(b.th), 0.35);
         if (b.pierce) continue;
-        if (b.chains > 0) { const nx = this.nearestEnemy(own, b.x, b.z, 7.5, b.hit); if (nx) { b.chains--; b.chainHits++; b.th = Math.atan2(nx.x - b.x, nx.z - b.z); b.phase = 'out'; b.t = Math.min(b.t, b.tout * 0.45); b.v0 = Math.max(b.v0, 17); fx.sparks(b.x, 0.6, b.z, 14, [0xffd060, 0xffffff], { speed: 6, life: 0.3 }); sfx('chain'); if (b.chainHits >= 2 && died) this.onEvent('chainko', { f: own }); return; } }
+        if (b.chains > 0) { const nx = this.nearestEnemy(own, b.x, b.z, 7.5, b.hit, true); if (nx) { b.chains--; b.chainHits++; b.th = Math.atan2(nx.x - b.x, nx.z - b.z); b.phase = 'out'; b.t = Math.min(b.t, b.tout * 0.45); b.v0 = Math.max(b.v0, 17); fx.sparks(b.x, 0.6, b.z, 14, [0xffd060, 0xffffff], { speed: 6, life: 0.3 }); sfx('chain'); if (b.chainHits >= 2 && died) this.onEvent('chainko', { f: own }); return; } }
         if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return;
       }
     }
@@ -316,7 +318,7 @@ export class Game {
   reflect(b, f) {
     const o = b.owner; if (b.carry && o.alive) o.giveAmmo();
     b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z) + (Math.random() - 0.5) * 0.15; b.phase = 'out'; b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hit.clear();
-    f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.star(b.x, 0.6, b.z, 0x9ff0ff, 3.4, 0.32); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
+    reveal(f, STEALTH.reveal); f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.star(b.x, 0.6, b.z, 0x9ff0ff, 3.4, 0.32); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
     b.ribbon.release(); b.ribbon = fx.ribbon(f.color, b.giant ? 0.55 : 0.3, false);
     b.mesh.removeFromParent(); b.mesh = buildBoomerang(f.color, f.hero, f.skin, b.type); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
   }
@@ -436,7 +438,7 @@ export class Game {
     for (let k = 0; k < AW * AH; k++) {
       const h = this.hole[k]; if (h > 0) { this.hole[k] = h - dt; if (this.hole[k] <= 0) { this.hole[k] = -1; const i = k % AW, j = Math.floor(k / AW); if (this.crateHp[k]) { this.crateHp[k] = 0; this.sol[k] = 0; this.view.breakCrate(k); } const p = this.view.pillars.get(k); if (p) { this.view.pillars.delete(k); this.view.root.remove(p); this.sol[k] = 0; this.layout.t[k] = T.FLOOR; } fx.puff(cx(i), 0, cz(j), 4, 0xffffff, 0.3); } }
     }
-    for (const l of this.view.lavas) if (Math.random() < dt * 1.2) fx.glow.spawn(cx(l.i) + (Math.random() - 0.5) * 0.7, 0.2, cz(l.j) + (Math.random() - 0.5) * 0.7, 0, 1.2, 0, 0.1, 0.6, 0xffa030, 2.5);
+    for (const l of this.view.lavas) if (Math.random() < dt * 0.15) fx.glow.spawn(cx(l.i) + (Math.random() - 0.5) * 0.7, 0.2, cz(l.j) + (Math.random() - 0.5) * 0.7, 0, 1.2, 0, 0.1, 0.6, 0xffa030, 2.5);
     // pushed crates tween
     for (let n = this.pushes.length - 1; n >= 0; n--) { const p = this.pushes[n]; p.t += dt / 0.16; const k = Math.min(1, p.t); p.mesh.position.x = p.x0 + (p.x1 - p.x0) * k; p.mesh.position.z = p.z0 + (p.z1 - p.z0) * k; if (p.t >= 1) this.pushes.splice(n, 1); }
     // cracking ice
@@ -487,6 +489,7 @@ export class Game {
         this.endT += rdt; if (this.endT > 2.3 && !this.result) { this.result = 'done'; this.onEvent('roundEnd', { winner: this.winner, winTeam: this.winTeam }); } }
     }
     for (const f of this.fighters) f.update(dt);
+    stealthTick(this, dt);
     for (let i = this.booms.length - 1; i >= 0; i--) { const b = this.booms[i]; if (this.state !== 'intro') b.update(dt); if (!b.alive) this.booms.splice(i, 1); }
     for (let i = this.powerups.length - 1; i >= 0; i--) { const p = this.powerups[i]; p.t += dt; for (const f of this.fighters) { if (f.alive && !f.boss && Math.hypot(f.x - p.x, f.z - p.z) < (f.abil === 'pico' ? 2 : 0.8)) { this.applyPowerup(f, p.kind); this.scene.remove(p.mesh); this.powerups.splice(i, 1); break; } } }
     this.traps.update(dt); this.updateHazards(dt);
@@ -496,7 +499,7 @@ export class Game {
   vis(dt) {
     const t = this.time; this.edgeWatch(dt);
     for (const f of this.fighters) {
-      const m = f.model, r = m.root; r.position.set(f.x, f.alive ? f.hopY + (this.mut && this.mut.grav ? 0.18 + Math.sin(t * 2.2 + f.idx) * 0.1 : 0) : Math.max(f.air, -3), f.z); r.rotation.y = f.vface + (f.stunT > 0 ? Math.sin(t * 30) * 0.25 : 0);
+      const m = f.model, r = m.root; r.position.set(f.x, f.alive ? (f.hopY || 0) + (this.mut && this.mut.grav ? 0.18 + Math.sin(t * 2.2 + f.idx) * 0.1 : 0) : Math.max(f.air, -3), f.z); r.rotation.y = f.vface + (f.stunT > 0 ? Math.sin(t * 30) * 0.25 : 0);
       if (!f.alive) { r.position.y = f.air > -3 ? f.air : -3; if (f.deathKind === 'boom') r.position.y = Math.max(0, f.air); }
       { const hk = idx(ci(f.x), cj(f.z)); const onVoid = f.alive && !f.show && this.hole[hk] < 0 && !(f.dashT > 0) && !(f.airT > 0); const w0 = f.wobK || 0; f.wobK = onVoid ? Math.min(1, w0 + dt * 10) : Math.max(0, w0 - dt * 8);
         if (f.wobK > 0) { r.rotation.z = Math.sin(t * 46) * 0.34 * f.wobK; r.rotation.x = Math.cos(t * 39) * 0.2 * f.wobK; if (f.alive) r.position.y -= 0.12 * f.wobK; if (onVoid && Math.random() < dt * 24) fx.sparks(f.x, 0.15, f.z, 1, [0xffffff, 0x8ff6ff], { speed: 1.6, life: 0.3, size: 0.07 }); } else if (w0 > 0) { r.rotation.z = 0; r.rotation.x = 0; } }
@@ -504,7 +507,7 @@ export class Game {
       let scared = 0; if (f.alive) for (const b of this.booms) { if (b.owner !== f && b.alive && Math.abs(b.x - f.x) < 3.2 && Math.abs(b.z - f.z) < 3.2) { scared = 1; break; } }
       if (f.happyT > 0) f.happyT -= dt;
       m.update(dt, { move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT, air: f.alive ? 0 : 0, win: (f.show && f.show.win) || (this.state === 'roundEnd' && f.alive && (this.winTeam >= 0 ? f.team === this.winTeam : this.winner === f)), scared, happy: f.happyT > 0 ? 1 : 0, catchPop: f.catchPop > 0 ? f.catchPop : 0, hurt: Math.min(1, f.hitFlash * 2 + f.hurtT + (f.stunT > 0 ? 0.6 : 0)), emote: f.emoteT > 0 ? 1 : 0 });
-      if (m.mark) { m.mark.visible = f.alive && !f.show && this.mode !== 'attract'; if (m.mark.visible) m.mark.position.y = m.mark.userData.y0 + Math.sin(t * 4.5 + f.idx) * 0.07; }
+      if (m.mark) { m.mark.visible = f.alive && !f.show && this.mode !== 'attract'; if (m.mark.visible) { m.mark.position.y = m.mark.userData.y0 + Math.sin(t * 4.5 + f.idx) * 0.07; keepMarkOn(m); } }
       if (m.tbub) { m.tbub.visible = f.alive && f.pu.slow > 0; if (m.tbub.visible) { m.tbub.rotation.z = t * 0.6; m.tbub.material.opacity = 0.35 + Math.sin(t * 5) * 0.12; } }
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
@@ -517,8 +520,8 @@ export class Game {
       m.blob.visible = f.alive && !gfx.sun.castShadow;
     }
     for (const b of this.booms) b.vis(dt);
-    for (const p of this.powerups) { p.mesh.position.y = 0.25 + Math.sin(p.t * 3) * 0.12; p.mesh.userData.sp.scale.setScalar(0.95 + Math.sin(p.t * 6) * 0.05); }
-    this.traps.vis(dt); if (this.vis2) this.vis2(); if (this.poisonView) this.poisonView.update(dt); this.view.update(dt, this.time, this);
+    for (const p of this.powerups) { p.mesh.position.y = 0.05 + Math.sin(p.t * 3) * 0.06; p.mesh.userData.sp.scale.setScalar(0.68 + Math.sin(p.t * 6) * 0.03); }
+    stealthVis(this); this.traps.vis(dt); if (this.vis2) this.vis2(); if (this.poisonView) this.poisonView.update(dt); this.view.update(dt, this.time, this);
   }
 }
 installRules(Game, { Boom, Fighter }); installRules2(Game);

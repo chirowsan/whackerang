@@ -125,7 +125,7 @@ export const fx = {
     for (const m of this.scorches) { if (!m.visible) continue; const u = m.userData; u.t -= dt; if (u.t <= 0) { m.visible = false; continue; } m.material.opacity = u.a * Math.min(1, u.t / 2); }
     for (const r of this.rings) { const u = r.userData; if (!r.visible) continue; u.t -= dt; if (u.t <= 0) { r.visible = false; continue; } const k = 1 - u.t / u.life; r.scale.setScalar(0.3 + k * u.max); r.material.opacity = (1 - k) * 0.8; }
     if (this.amb) {
-      this.ambAcc += dt * 9 * gfx.density;
+      this.ambAcc += dt * 2.2 * gfx.density; // v4.9: was 9/s - ambient confetti dominated
       while (this.ambAcc > 1) {
         this.ambAcc -= 1; const x = (Math.random() - 0.5) * 30 * (this.ambK || 1), z = (Math.random() - 0.5) * 18 * (this.ambK || 1);
         if (this.amb === 'ice') this.glow.spawn(x, 8, z, (Math.random() - 0.5) * 0.4, -1.2 - Math.random() * 0.6, 0.2, 0.05 + Math.random() * 0.05, 6, 0xdff6ff);

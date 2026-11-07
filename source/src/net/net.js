@@ -136,6 +136,9 @@ export const Net = {
     const H = this.H; if (p.conn || p.hello) return; p.hello = true;
     const send = (o) => p.link.send('rel', JSON.stringify(o));
     if (m.proto !== PROTO) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
+    // v4.9: map-density capability. v4.8 guests send no 'dens' and only know the old layout. In the lobby that is fine (the host then builds every round with dens 1);
+    // mid-match the running round may already be dens 2, so an old client gets a clear update-required 'version' reject instead of a silently different map.
+    p.dens = Math.max(1, Math.min(4, m.dens | 0 || 1)); if (this.phase !== 'lobby' && this.app.game && p.dens < (this.app.game.dens || 1)) { send({ t: 'reject', r: 'version' }); setTimeout(() => p.link.close(), 300); return; }
     const cid = String(m.cid || '').replace(/[^a-z0-9]/gi, '').slice(0, 16) || rid(10); p.cid = cid;
     // v4.6.2: the same client (random per-tab id, never an IP) is back on a new link (e.g. direct -> relay) before its old link timed out: retire the old one so it is never counted twice
     { const old = H.slots.find((q, i) => i > 0 && q && q !== p && q.cid === cid && q.conn); if (old) this.dropPeer(old, 'replaced'); }
@@ -316,12 +319,14 @@ export const Net = {
     this.syncLobby(); app.nextRound(true); return true;
   },
   // app.nextRound (host) asks us to complete the Game options; we also announce the round to guests
+  // v4.9: calmer maps only when every connected guest can build them; any v4.8 guest -> the whole room plays the v4.8 layout/trap density
+  roomDens() { let d = 4; if (!this.H) return d; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) d = Math.min(d, p.dens || 1); return d; }, // v4.9: 4 = calm layout + bushes/stealth, 3 = calm layout, 2 = pass-2 dev builds, 1 = v4.8
   hostGameOpts(o) { const s = this.H.settings; // v4.5: the host's countdown is a 3 s real-time count after a pre-roll that grows with the worst peer ping, so slow links still see the 3 before it starts
     let worst = 0; for (const p of this.H.peers.values()) if (!p.isHost && p.conn) worst = Math.max(worst, p.ping || 0);
-    const pre = Math.min(1.2, Math.max(0.45, 0.45 + worst / 1000)); return { ...o, intro: CD_LEN + pre, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
+    const pre = Math.min(1.2, Math.max(0.45, 0.45 + worst / 1000)); return { ...o, intro: CD_LEN + pre, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), dens: this.roomDens(), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
   roundMsg() {
     const m = this.app.match, g = this.app.game, o = this.curOpts;
-    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
+    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, dens: g.dens, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
   },
   onGameCreated(g, opts) {
     this.curOpts = opts;
@@ -425,7 +430,7 @@ export const Net = {
     const d = link.pc.localDescription; return { type: d.type, sdp: d.sdp };
   },
   async joinManualAnswer(desc) { const G = this.G; if (!G || !G.link) return; await G.link.setAnswer(desc); this.setStatus('Connecting directly to the host...'); },
-  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, mm: 2, ...pr })); },
+  guestHello() { const pr = this.profile(); this.G.link.send('rel', JSON.stringify({ t: 'hello', proto: (window.__bbNet && window.__bbNet.proto) || PROTO, cid: this.cid, mm: 2, dens: (window.__bbNet && window.__bbNet.dens) || 4, ...pr })); },
   gSend(o) { const G = this.G; if (G && G.link) G.link.send('rel', JSON.stringify(o)); },
   guestRel(d) {
     if (typeof d !== 'string' || d.length > 20000) return; let m; try { m = JSON.parse(d); } catch (e) { return; } if (!m || typeof m.t !== 'string') return; const G = this.G; if (!G) return; G.lastRx = now();

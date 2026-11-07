@@ -1,0 +1,42 @@
+// v4.9 mixed-version online check over the local relay (real browsers, real messages): v4.9 <-> v4.8 peers never build different maps.
+// usage: node tools/net_mixed49.mjs [relay=ws://localhost:8799] [new.html] [old.html]
+import http from 'node:http'; import fs from 'node:fs';
+import { startRelay, openN, ev, sleep, waitFor } from './netlib.mjs';
+const RLY = process.argv[2] || 'ws://localhost:8799'; const NEW = process.argv[3] || '/workspace/boomerang-brawl/Whackerang.html', OLD = process.argv[4] || '/workspace/out/v4.9/before.html', P2 = '/workspace/out/v4.9/pass2.html', P3 = '/workspace/out/v4.9/pass3.html';
+const PORT = 8400 + (process.pid % 40);
+const srv = http.createServer((q, r) => { const f = q.url.startsWith('/p3') ? P3 : q.url.startsWith('/p2') ? P2 : q.url.startsWith('/old') ? OLD : q.url.startsWith('/new') ? NEW : null; if (!f) { r.writeHead(200, { 'content-type': 'text/javascript' }); return r.end(''); } r.writeHead(200, { 'content-type': 'text/html' }); r.end(fs.readFileSync(f)); }).listen(PORT);
+const U = (v) => `http://localhost:${PORT}/${v}`; const sig = await startRelay(9134);
+let pass = 0, fail = 0; const ok = (n, c, x) => { if (c) pass++; else fail++; console.log((c ? 'PASS ' : 'FAIL ') + n + (x !== undefined ? ' ' + JSON.stringify(x).slice(0, 500) : '')); };
+const snap = () => { const g = __bg.app.game; if (!g) return null; let h = 0, n = 0; for (let k = 0; k < g.layout.t.length; k++) { h = (h * 31 + g.layout.t[k]) | 0; if (g.sol[k]) n++; } const bush = g.layout.bush ? Array.from(g.layout.bush).join('') : ''; return { bush, bushN: g.bushN || 0, dens: g.dens || 'v4.8', arena: g.arenaId, round: g.round, h, solid: n, traps: g.traps.list.map((t) => t.type + '@' + t.x.toFixed(2) + ',' + t.z.toFixed(2)).join(' ') }; };
+async function room(vers, label, fn) {
+  const T = await openN(vers.length, { relay: sig.url, rly: RLY, url: U('new'), w: 640, h: 360, extra: { forceRelay: true } });
+  try { const P = T.pages.map((p) => p.page);
+    for (let i = 0; i < vers.length; i++) { if (vers[i] !== 'new') { await P[i].goto(U(vers[i])); await sleep(1800); } await ev(T.pages[i], () => { const s = __bg.S(); s.tutorialDone = true; s.settings.events = 'off'; s.settings.speed = 'fast'; }); }
+    await fn(T.pages, label);
+  } finally { await T.browser.close(); }
+}
+const join = async (H, G, code) => { await ev(G, (c) => { __bg.net.join(c).catch(() => {}); }, code); return await waitFor(async () => (await ev(G, () => __bg.net.phase)) === 'lobby', 45000); };
+const start = async (H, Gs) => { await ev(H, () => { __bg.net.setSetting('mode', 'classic'); __bg.net.setSetting('size', 'large'); __bg.net.setSetting('traps', 'some'); }); for (const G of Gs) await ev(G, () => __bg.net.setReady(true)); await sleep(1500); await ev(H, () => __bg.net.startMatch());
+  return await waitFor(async () => { const all = await Promise.all([H, ...Gs].map((p) => ev(p, () => __bg.app.game && __bg.app.game.state))); return all.every((s) => s === 'play'); }, 30000, 200); };
+const same = async (label, H, G, wantDens) => { await sleep(800); const [a, b] = [await ev(H, snap), await ev(G, snap)]; ok(`${label}: identical map + traps (host dens ${a && a.dens}, guest dens ${b && b.dens}, solid ${a && a.solid})`, a && b && a.h === b.h && a.traps === b.traps && a.arena === b.arena && a.bush === b.bush && (wantDens === undefined || a.dens === wantDens), { a, b }); };
+if (!process.env.ONLY_C) await room(['new', 'new'], 'A new host + new guest', async ([H, G], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: lobby`, await join(H, G, h.code)); ok(`${L}: both playing`, await start(H, [G])); await same(L, H, G, 4);
+  // v4.9 bushes over the wire: the host hides its own fighter in a bush; the guest must stop drawing it, then see it again after a throw
+  const sp = await ev(H, () => { const g = __bg.app.game, [HX, HZ] = __bg.hxz(), AW = HX * 2, B = g.layout.bush; let s = null; for (let k = 0; k < B.length && !s; k++) if (B[k] && B[k + 1] && B[k + AW] && B[k + AW + 1]) s = [k % AW - HX + 1, ((k / AW) | 0) - HZ + 1]; const f = g.fighters.find((q) => !q.isBot && q.def.slot === 0); window.__hold = setInterval(() => { f.x = s[0]; f.z = s[1]; f.vx = f.vz = 0; }, 5); g.fighters.forEach((q) => { if (q.bot) q.bot.update = () => ({ mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false }); if (q !== f && Math.hypot(q.x - s[0], q.z - s[1]) < 3) { q.x = 0; q.z = 0; } }); return { s, idx: g.fighters.indexOf(f) }; });
+  await ev(G, () => { const g = __bg.app.game; const me = g.fighters[g.viewIdx]; window.__gh = setInterval(() => { if (me) { me.x = 0; me.z = 0; } }, 5); });
+  const hidG = await waitFor(async () => { const r = await ev(G, (i) => { const g = __bg.app.game, f = g.fighters[i]; return f && f.hid && !f.model.root.visible ? { hid: f.hid, vis: f.model.root.visible, me: g.viewIdx } : null; }, sp.idx); return r; }, 8000, 100);
+  const hidH = await ev(H, (i) => { const g = __bg.app.game, f = g.fighters[i]; return { hid: f.hid, selfVis: f.model.root.visible, ghost: f.model._gk }; }, sp.idx);
+  ok(`${L}: bush stealth host-authoritative: host's hidden fighter vanishes on the guest screen, host still sees itself (faded)`, !!hidG && hidH.hid && hidH.selfVis && hidH.ghost === 0.6 /* GHOST.body (src/stealth.js) */, { sp, hidG, hidH });
+  await ev(H, (i) => { const g = __bg.app.game, f = g.fighters[i]; f.ammo = 1; f.throwCd = 0; g.throwFrom(f, Math.PI / 2, true, 0.5); }, sp.idx);
+  const rev = await waitFor(async () => await ev(G, (i) => { const f = __bg.app.game.fighters[i]; return f && !f.hid && f.model.root.visible ? true : null; }, sp.idx), 3000, 50);
+  ok(`${L}: a throw from the bush reveals the host on the guest screen`, !!rev);
+  await ev(H, () => clearInterval(window.__hold)); await ev(G, () => clearInterval(window.__gh)); });
+if (!process.env.ONLY_C) await room(['new', 'p3'], 'F new host + calm-only (pass-3) guest (lobby): calm map, no bushes', async ([H, G], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: lobby`, await join(H, G, h.code)); ok(`${L}: both playing`, await start(H, [G])); await same(L, H, G, 3); const bn = await ev(H, () => __bg.app.game.bushN || 0); ok(`${L}: no bushes / stealth in the fallback room`, bn === 0, bn); });
+if (!process.env.ONLY_C) await room(['new', 'p2'], 'E new host + pass-2 dev guest (lobby)', async ([H, G], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: lobby`, await join(H, G, h.code)); ok(`${L}: both playing`, await start(H, [G])); await same(L, H, G, 2); });
+if (!process.env.ONLY_C) await room(['new', 'old'], 'B new host + v4.8 guest (lobby)', async ([H, G], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: v4.8 guest reached the lobby`, await join(H, G, h.code)); ok(`${L}: both playing`, await start(H, [G])); await same(L, H, G, 1); });
+if (!process.env.ONLY_C) await room(['old', 'new'], 'D v4.8 host + new guest', async ([H, G], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: lobby`, await join(H, G, h.code)); ok(`${L}: both playing`, await start(H, [G])); await same(L, H, G, 'v4.8'); const gd = await ev(G, () => __bg.app.game.dens); ok(`${L}: new guest fell back to dens 1`, gd === 1, gd); });
+for (const OV of ['old', 'p3']) await room(['new', 'new', OV], `C ${OV === 'old' ? 'v4.8' : 'calm-only pass-3'} guest joins a running bush round`, async ([H, G, O], L) => { const h = await ev(H, async () => await __bg.net.host()); ok(`${L}: lobby`, await join(H, G, h.code)); ok(`${L}: playing dens 4`, (await start(H, [G])) && (await ev(H, () => __bg.app.game.dens)) === 4);
+  await ev(O, (c) => { window.__jerr = null; __bg.net.join(c).catch((e) => { window.__jerr = (e && (e.code || e.message)) || String(e); }); }, h.code);
+  const got = await waitFor(async () => { const r = await ev(O, () => ({ ph: __bg.net.phase, err: window.__jerr, last: __bg.net.lastErr, e: __bg.net.error })); return /version/.test(JSON.stringify(r)) ? r : null; }, 40000, 300);
+  const st = await ev(O, () => ({ ph: __bg.net.phase, err: window.__jerr, lastErr: __bg.net.lastErr, msg: (document.body.innerText.match(/[^\n]*(update|version)[^\n]*/i) || [''])[0].slice(0, 120), game: !!(__bg.app.game && __bg.app.game.mode === 'vs') }));
+  ok(`${L}: older client gets an update-required version reject and never enters the round`, !!got && !st.game, { got, st }); });
+console.log(`${pass}/${pass + fail} passed`); srv.close(); sig.stop(); process.exit(fail ? 1 : 0);

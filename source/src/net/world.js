@@ -73,6 +73,7 @@ export function encodeFast(g, st) {
   const ak = Object.keys(st.acks); w.u8(ak.length); for (const s of ak) w.u8(+s).u32(st.acks[s]);
   if (st.wind) w.u8(Math.round(st.wind.k * 100)).qi8(st.wind.dx, 40).qi8(st.wind.dz, 40);
   if (fxJson) { w.u16(fxJson.length).bytes(fxJson); }
+  if (g.bushN > 0) { w.u8(0xB5).u8(g.fighters.length); for (const f of g.fighters) w.u8((f.hid ? 1 : 0) | (f.bushIn ? 2 : 0)).u8(f.seen || 0); } // v4.9 bushes (bush-capable rooms only): host-decided concealment per fighter
   return w.out();
 }
 export function encodeCrates(g, seq) { const w = new BinWriter(256); w.u8(PK.CRATES).u16(seq); const L = []; for (let k = 0; k < AW * AH; k++) if (g.crateHp[k] > 0) L.push(k | (g.crateHp[k] === 1 ? 0x8000 : 0)); w.u16(L.length); for (const v of L) w.u16(v); return w.out(); }
@@ -129,6 +130,7 @@ export function decodeFastRest(S, type, crumble) {
   S.m = m; S.acks = {}; const na = r.u8(); for (let i = 0; i < na; i++) { const s = r.u8(); S.acks[s] = r.u32(); }
   if (S.hasWind) S.wind = { k: r.u8() / 100, dx: r.i8() / 40, dz: r.i8() / 40 };
   if (S.hasFx) { const n = r.u16(); try { S.fx = JSON.parse(dec.decode(r.bytes(n))); } catch (e) { S.fx = []; } }
+  if (r.left >= 2 && r.u8() === 0xB5) { const n = r.u8(); S.st = []; for (let i = 0; i < n && r.left >= 2; i++) S.st.push([r.u8(), r.u8()]); }
   delete S.rest; return S;
 }
 
@@ -139,7 +141,7 @@ export class GuestWorld {
     this.buf = []; this.off = null; this.offs = []; this.interp = 0.1; this.lastSeq = -1; this.tk = 0; this.hist = []; this.ackTick = 0; this.lastAck = 0; this.inFrames = []; this.fxSeen = new Set(); this.fxQ = []; this.lastRecv = performance.now();
     this.booms = new Map(); this.pus = new Map(); this.coinMap = new Map(); this.me = null; this.disp = null; this.suppress = {}; this.holeT = new Float32Array(AW * AH); this.sendAcc = 0; this.stats = { snaps: 0, late: 0, starved: 0, errs: 0, corr: 0, maxErr: 0 };
     this.jit = 0; this.lastArrive = 0; this.hostSpeed = o.speed; this.wind = null; this.windAcc = 0; this.pseq = { crates: -1, holes: -1, items: -1, traps: -1 };
-    const f0 = g.fighters[this.localIdx]; this.lf = f0;
+    const f0 = g.fighters[this.localIdx]; this.lf = f0; g.viewIdx = this.localIdx; /* v4.9 bushes: this screen views as its own fighter */
     for (const f of g.fighters) { f.hopY = 0; f.die = () => false; f.deadT = 0; f.alive = true; f.spawnT = 1; f._wasAlive = true; f.pu = { triple: 0, giant: 0, fire: 0, homing: 0, speed: 0, magnet: 0, slow: 0 }; }
     // the guest never simulates gameplay: crate breaks are visual only (no random power-up drops), explosions cannot hurt
     g.breakCrate = (k) => { if (g.crateHp[k] === 0) return; g.crateHp[k] = 0; g.sol[k] = 0; g.layout.t[k] = T.FLOOR; g.view.breakCrate(k); };
@@ -273,6 +275,7 @@ export class GuestWorld {
       else { const s0 = fa || fs; x = s0.x + s0.vx * ex; z = s0.z + s0.vz * ex; f.face = s0.face; }
       const own = fs.i === this.localIdx;
       this.applyFighter(f, fs, x, z, dt, own);
+      { const st = S.st && S.st[fs.i]; f.hid = !!(st && (st[0] & 1) && f.alive); f.bushIn = !!(st && (st[0] & 2)); f.seen = st ? st[1] : 0; } // v4.9 bushes: host-authoritative
     }
     // boomerangs (id-matched; interpolated)
     const seen = new Set(); const bB = new Map(); if (b) for (const q of b.b) bB.set(q.id, q); const aB = new Map(); for (const q of a.b) aB.set(q.id, q);

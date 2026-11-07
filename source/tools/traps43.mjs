@@ -8,7 +8,7 @@ let pass = 0, fail = 0; const ok = (n, c, x = '') => { if (c) pass++; else fail+
 const LETHAL = ['pit', 'saw', 'laser', 'trapdoor', 'fire', 'crusher'], SOFT = ['hammer', 'boulder', 'fence'];
 const seenL = new Set(), seenS = new Set();
 for (const a of arenas) {
-  await page.evaluate((a) => { const s = __bg.S(); s.setup.arena = a; s.setup.size = 'large'; s.setup.traps = 'wild'; s.setup.bots = 1; s.setup.diff = 0; __bg.app.startMode('classic'); }, a);
+  await page.evaluate((a) => { { let sd = 0; for (const ch of String(a)) sd = (sd * 31 + ch.charCodeAt(0)) >>> 0; sd = sd || 1; Math.random = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; }; } /* v4.9: seeded per arena -> stable check counts */ const s = __bg.S(); s.setup.arena = a; s.setup.size = 'large'; s.setup.traps = 'wild'; s.setup.bots = 1; s.setup.diff = 0; __bg.app.startMode('classic'); }, a);
   await sleep(300);
   const r = await page.evaluate((LETHAL, SOFT) => {
     const g = __bg.app.game; g.fighters.forEach((f) => { f.inv = 1e9; f.bot = null; f.isBot = false; }); __bg.step(200); const S1 = () => { g.fighters.forEach((q) => { q.lives = 99; }); __bg.step(1); if (g.state !== 'play') g.state = 'play'; };
@@ -57,7 +57,7 @@ for (const a of arenas) {
 ok('lethal set covers pit/saw/laser/crusher/fire/trapdoor somewhere', ['saw', 'laser', 'crusher', 'fire', 'pit', 'trapdoor'].filter((t) => seenL.has(t)).length >= 5, JSON.stringify([...seenL]));
 ok('non-lethal set seen: hammer, boulder, fence', ['hammer', 'boulder', 'fence'].every((t) => seenS.has(t)), JSON.stringify([...seenS]));
 // bots use switches sensibly
-await page.evaluate(() => { const s = __bg.S(); s.setup.arena = 'dojo'; s.setup.size = 'large'; s.setup.traps = 'wild'; s.setup.bots = 1; s.setup.diff = 1; __bg.app.startMode('classic'); }); await sleep(300);
+await page.evaluate(() => { const a = 'dojo-tail'; { let sd = 0; for (const ch of String(a)) sd = (sd * 31 + ch.charCodeAt(0)) >>> 0; sd = sd || 1; Math.random = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; }; } /* v4.9: seeded per arena -> stable check counts */ const s = __bg.S(); s.setup.arena = 'dojo'; s.setup.size = 'large'; s.setup.traps = 'wild'; s.setup.bots = 1; s.setup.diff = 1; __bg.app.startMode('classic'); }); await sleep(300);
 let bot = null;
 for (let attempt = 0; attempt < 6 && !(bot && bot.armed && bot.owner); attempt++) bot = await page.evaluate((attempt) => {
   const g = __bg.app.game; if (attempt === 0) __bg.step(200); const human = g.fighters.find((f) => !f.bot && !f.isBot) || g.fighters[0], bf = g.fighters.find((f) => f.bot); if (!bf) return { err: 'no bot' };

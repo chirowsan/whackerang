@@ -21,8 +21,9 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   // team ring
   const ring = new THREE.Mesh(geo('ring', () => new THREE.RingGeometry(0.5, 0.64, 28)), new THREE.MeshBasicMaterial({ color: teamColor, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; root.add(ring); m.ring = ring;
+  { const sep = new THREE.Mesh(geo('ringsep', () => new THREE.RingGeometry(0.64, 0.72, 28)), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false })); sep.rotation.x = -Math.PI / 2; sep.position.y = 0.024; ring.add(sep); sep.rotation.x = 0; sep.position.y = 0; } // v4.9: thin dark halo so the team ring reads on light and dark floors
   // blob shadow (visible on low where real shadows are off), tinted by the hero colour
-  const blob = new THREE.Mesh(geo('blob', () => new THREE.PlaneGeometry(1.25, 1.25)), new THREE.MeshBasicMaterial({ map: softTex(), color: new THREE.Color(h.color).multiplyScalar(0.12), transparent: true, opacity: 0.62, depthWrite: false }));
+  const blob = new THREE.Mesh(geo('blob', () => new THREE.PlaneGeometry(1.25, 1.25)), new THREE.MeshBasicMaterial({ map: softTex(), color: new THREE.Color(h.color).multiplyScalar(0.12), transparent: true, opacity: 0.74, depthWrite: false }));
   blob.rotation.x = -Math.PI / 2; blob.position.y = 0.02; root.add(blob); m.blob = blob;
   // shield bubble
   const bub = new THREE.Mesh(SPH(0.78, 18, 12), new THREE.MeshBasicMaterial({ color: 0x6fffb0, transparent: true, opacity: 0.28, depthWrite: false })); bub.position.y = 0.55; bub.visible = false; root.add(bub); m.bubble = bub;
@@ -60,13 +61,15 @@ function labelTex(text, color) {
 }
 function makeMarker(m, color, label, big) {
   if (m.mark) { m.root.remove(m.mark); }
-  const g = new THREE.Group(); const y0 = m.headY + (big ? 1.15 : 0.78); g.position.y = y0; g.userData.y0 = y0;
+  const g = new THREE.Group(); const y0 = m.headY + (big ? 1.15 : 0.78); g.position.y = y0; g.userData.y0 = y0; g.userData.big = !!big;
   const col = new THREE.Color(color);
   const cone = new THREE.Mesh(geo(big ? 'mkB' : 'mkS', () => new THREE.ConeGeometry(big ? 0.34 : 0.17, big ? 0.58 : 0.3, 4)), new THREE.MeshBasicMaterial({ color: col, depthTest: !big, transparent: true, opacity: big ? 1 : 0.85 }));
   cone.rotation.x = Math.PI; cone.rotation.y = Math.PI / 4; cone.renderOrder = 9; g.add(cone);
   if (big) { const ol = new THREE.Mesh(cone.geometry, new THREE.MeshBasicMaterial({ color: 0x140a30, side: THREE.BackSide, depthTest: false })); ol.scale.setScalar(1.25); ol.rotation.copy(cone.rotation); ol.renderOrder = 8; g.add(ol); }
   if (label) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex(label, color), transparent: true, depthTest: false })); sp.scale.set(1.35, 0.59, 1); sp.position.y = 0.66; sp.renderOrder = 10; g.add(sp); }
   m.root.add(g); m.mark = g;
+  if (m.youRing) { m.root.remove(m.youRing); m.youRing = null; }
+  if (big) { const yr = new THREE.Mesh(geo('youring', () => new THREE.RingGeometry(0.74, 0.86, 36)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false })); yr.rotation.x = -Math.PI / 2; yr.position.y = 0.027; m.root.add(yr); m.youRing = yr; } // v4.9: unmistakable own-player ring
 }
 
 function addHat(m, id, sh0) {
@@ -160,8 +163,8 @@ function powerIcon(kind) {
 }
 export function buildPowerup(kind) {
   const g = new THREE.Group(); const col = POWERUPS[kind].color;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: powerIcon(kind), transparent: true })); sp.scale.set(0.95, 0.95, 1); sp.position.y = 0.85; g.add(sp);
-  const glow = glowSprite(col, 1.9, 0.55); glow.position.y = 0.85; g.add(glow);
-  const base = new THREE.Mesh(CYL(0.34, 0.4, 0.1, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.8 })); base.position.y = 0.06; g.add(base);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: powerIcon(kind), transparent: true })); sp.scale.set(0.68, 0.68, 1); sp.position.y = 0.7; g.add(sp);
+  const glow = glowSprite(col, 1.0, 0.28); glow.position.y = 0.7; /* v4.9 compact pickup */ g.add(glow);
+  const base = new THREE.Mesh(CYL(0.26, 0.3, 0.06, 16), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7 })); base.position.y = 0.06; g.add(base);
   g.userData = { sp, glow }; return g;
 }

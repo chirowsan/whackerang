@@ -1,3 +1,5 @@
+import * as STEALTHM from './stealth.js'; gfx.touchCtl = () => Input.touch.enabled; /* v4.9: arena view presses foliage flat under the touch buttons */ const { shownHere } = STEALTHM;
+import { encodeFast as _encF, decodeFast as _decF, decodeFastRest as _decFR } from './net/world.js';
 import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
 import { S, save, loadSave } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, TRAILS } from './data.js';
@@ -53,7 +55,7 @@ const app = {
   // ---------- game lifecycle ----------
   camFollow(dt) {
     const g = app.game; if (!g || g.mode === 'attract') return; const pts = [], hum = [];
-    for (const f of g.fighters) { if (!f.alive) continue; const p = [f.x, f.z]; pts.push(p); if (!f.isBot || f.autoHuman) hum.push(p); }
+    for (const f of g.fighters) { if (!f.alive || !shownHere(g, f)) continue; const p = [f.x, f.z]; pts.push(p); if (!f.isBot || f.autoHuman) hum.push(p); }
     if (g.camPoints) for (const p of g.camPoints()) pts.push(p); if (g.camFocus) for (const p of g.camFocus()) { pts.push(p); if (hum.length) hum.push(p); }
     followCam(dt, pts, hum); UI.edgeUpdate(g);
   },
@@ -259,7 +261,7 @@ const app = {
     const s = c.speed && SPEEDS[c.speed] ? SPEEDS[c.speed] : SPEEDS.chill;
     this.match = { mode: c.mode, rulesMode: c.mode, players: c.players, round: c.round, need: c.need, arena: c.arena, size: c.size, traps: c.traps, trapSet: c.trapSet, mutator: c.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {}, online: true, curRules: c.rules };
     UI.clear(); this.paused = false; this.resultShown = false; this.mode = 'play';
-    this.setGame({ mode: 'vs', arenaId: c.arena, players: c.players, round: c.round, rules: c.rules, size: c.size, traps: c.traps, trapSet: c.trapSet, mutator: c.mutator, netSeed: c.seed, netCfg: s, net: Net, goAt: Net.goAtFor(c) });
+    this.setGame({ mode: 'vs', arenaId: c.arena, players: c.players, round: c.round, rules: c.rules, size: c.size, traps: c.traps, trapSet: c.trapSet, mutator: c.mutator, netSeed: c.seed, dens: c.dens || 1 /* v4.9: v4.8 hosts send no dens -> legacy layout/traps */, netCfg: s, net: Net, goAt: Net.goAtFor(c) });
     music(c.mode === 'bomb' ? 'bomb' : c.mode === 'koth' ? 'koth' : c.arena); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
   },
   net_roundEnd(m) {
@@ -349,6 +351,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

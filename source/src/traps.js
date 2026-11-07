@@ -96,13 +96,18 @@ const SETS = {
   space: [['laser', 'x2', { axis: 'z' }], ['jump', 'q4'], ['tele', 'q4'], ['fence', 'r2'], ['switch', 'r2', { link: 'fence' }]],
   haunted: [['fence', 'r2'], ['goo', 'q4'], ['crusher', 'r2'], ['trapdoor', 'r2'], ['switch', 'r2', { link: 'fence' }]],
 };
+// v4.9 pass 3 calm sets: [pair kind, centre kind (large), second pair kind (huge)]. Encounters: small 2, large 3, huge 4 (volcano's 2 lava patches count, so its traps start at large).
+const CALM = {
+  dojo: [['saw', { len: 4 }], ['crusher'], ['hammer']], rooftop: [['fence'], ['crusher'], ['bumper']], jungle: [['pit'], ['goo'], ['goo']], ice: [['bumper'], ['crusher'], ['saw', { len: 4 }]],
+  volcano: [null, ['fire'], ['fire']], pirate: [['trapdoor'], ['hammer'], ['hammer']], space: [['fence'], ['trapdoor'], ['trapdoor']], haunted: [['trapdoor'], ['crusher'], ['goo']],
+};
 const RACE_SET = [['saw', 'r2', { len: 6 }], ['pit', 'q4'], ['hammer', 'r2'], ['fire', 'q4'], ['laser', 'x2', { axis: 'z' }], ['jump', 'r2']];
 
 export class Traps {
   constructor(g, level, arenaId, o = {}) {
     this.g = g; this.level = level || 'some'; this.list = []; this.sw = []; this.t = 0; this.scene = g.scene; this.root = new THREE.Group(); this.scene.add(this.root); this.mats = []; this.owner = null;
     this.speed = this.level === 'wild' ? 1.3 : 1; this.on = this.level !== 'off' && g.mode !== 'attract' && !o.none;
-    this.rubber = !!o.rubber;
+    this.rubber = !!o.rubber; this.dens = o.dens || 2;
     if (!this.on) return;
     const sizeK = AW >= 32 ? 2 : AW >= 26 ? 1.5 : 1; let set = (o.set || SETS[arenaId] || SETS.dojo).slice();
     // scale by map size (repeat the non-switch entries) and by 'wild'
@@ -110,6 +115,18 @@ export class Traps {
     let extra = []; if (sizeK > 1) for (let i = 0; i < Math.round(base.length * (sizeK - 1)); i++) extra.push(base[i % base.length]);
     if (this.level === 'wild') for (let i = 0; i < Math.ceil(base.length / 2); i++) extra.push(base[(i * 2 + 1) % base.length]);
     if (AW <= 20 && this.level === 'some') set = base.filter((e) => ['switch'].indexOf(e[0]) < 0).slice(0, 3).concat(sws.slice(0, 1)); else set = base.concat(extra, sws);
+    if (this.dens >= 3 && !o.set && this.level !== 'wild') { // calm default; 'wild' keeps the pass-2 mayhem below
+      const C = CALM[arenaId] || CALM.dojo, small = AW <= 20, huge = AW >= 32; set = [];
+      if (C[0]) set.push([C[0][0], 'r2', C[0][1] || {}]);
+      if (!small && !huge && C[1]) set.push([C[1][0], 'c', C[1][1] || {}]);
+      if (huge && C[2]) set.push([C[2][0], 'r2', C[2][1] || {}]);
+      this.spaceK = 1.3; this.spawnPad = small ? 0 : 1.0; this.calm = true;
+    } else if (this.dens >= 2 && !o.set) { // v4.9: about half the traps. Mirrored fours become pairs, map-size repeats are mostly dropped, and the theme keeps its signature trap first.
+      const keep = AW <= 20 ? 2 : sizeK >= 2 ? 4 : 3; const lv = this.level === 'wild' ? 1 : 0; const seen = new Set();
+      let b2 = base.map((e) => (e[1] === 'q4' ? [e[0], 'r2', e[2]] : e)).filter((e) => { const k = e[0]; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, keep + lv);
+      set = b2.concat(sws.filter((s) => b2.some((e) => e[0] === (s[2] || {}).link)));
+      this.spaceK = AW <= 20 ? 1 : 1.15; this.spawnPad = AW <= 20 ? 0 : 1.0;
+    }
     this.occ = []; this.build(set);
   }
   // ---------- placement helpers
@@ -118,10 +135,10 @@ export class Traps {
   free(x, z, rad) {
     const g = this.g; const n = 1; const orad = rad; rad = Math.min(rad, 2.2);
     for (let j = cj(z) - n; j <= cj(z) + n; j++) for (let i = ci(x) - n; i <= ci(x) + n; i++) {
-      if (!inb(i, j)) return false; if (AW <= 20 && i !== ci(x) && j !== cj(z)) continue; const k = idx(i, j); const t = g.layout.t[k]; if ((g.sol[k] && !g.crateHp[k]) || t === T.LAVA || t === T.SPIKE || t === T.CONV || g.hole[k] !== 0) return false;
+      if (!inb(i, j)) return false; if (AW <= 20 && i !== ci(x) && j !== cj(z)) continue; const k = idx(i, j); const t = g.layout.t[k]; if (g.layout.bush && g.layout.bush[k]) return false; if ((g.sol[k] && !g.crateHp[k]) || t === T.LAVA || t === T.SPIKE || t === T.CONV || g.hole[k] !== 0) return false;
     }
-    for (const sp of spawns()) if (Math.hypot(cx(sp[0]) - x, cz(sp[1]) - z) < (AW <= 20 ? 2.7 : 3.6) + rad * (AW <= 20 ? 0.25 : 0.5)) return false;
-    for (const o of this.occ) if (Math.hypot(o[0] - x, o[1] - z) < (o[2] + rad) * (AW <= 20 ? 0.6 : 0.75)) return false;
+    for (const sp of spawns()) if (Math.hypot(cx(sp[0]) - x, cz(sp[1]) - z) < (AW <= 20 ? 2.7 : 3.6) + (this.spawnPad || 0) + rad * (AW <= 20 ? 0.25 : 0.5)) return false;
+    for (const o of this.occ) if (Math.hypot(o[0] - x, o[1] - z) < (o[2] + rad) * (AW <= 20 ? 0.6 : 0.75) * (this.spaceK || 1)) return false;
     return true;
   }
   clear(x, z, rad) { const g = this.g; const n = Math.ceil(Math.min(rad, 2)); for (let j = cj(z) - n; j <= cj(z) + n; j++) for (let i = ci(x) - n; i <= ci(x) + n; i++) { if (!inb(i, j)) continue; const k = idx(i, j); if (g.crateHp[k]) { g.crateHp[k] = 0; g.sol[k] = 0; g.layout.t[k] = T.FLOOR; g.view.breakCrate(k); } } }
@@ -186,9 +203,9 @@ export class Traps {
     H.glow.material.opacity = L === 2 ? 0.42 + Math.sin(t * 30) * 0.12 : L === 1 ? (blink ? 0.5 : 0.12) : 0.07 + 0.05 * Math.sin(t * 3);
     if (H.badge) { const k = L === 1 ? 1 + (blink ? 0.22 : 0) : L === 2 ? 1.1 : 1 + 0.04 * Math.sin(t * 3); H.badge.scale.set(H.bs * k, H.bs * k, 1); }
     if (H.ring) { H.ring.material.opacity = L === 2 ? 0.95 : L === 1 ? (blink ? 0.95 : 0.3) : 0.3 + 0.2 * Math.sin(t * 3); }
-    for (const m of H.frame) m.opacity = L === 1 ? (blink ? 1 : 0.55) : 1;
+    for (const m of H.frame) m.opacity = L === 1 ? (blink ? 1 : 0.55) : L === 2 ? 1 : 0.28; /* v4.9: idle frames calmer; the telegraph blink + active state stay loud */
     if (tr.lethal && L === 0) { // DORMANT: dim, no glow - it only wakes up when somebody presses a switch / hits it
-      H.glow.material.opacity = 0.02; for (const m of H.frame) m.opacity = 0.42; if (H.badge) { H.badge.material.opacity = 0.5; H.badge.scale.set(H.bs, H.bs, 1); } if (H.ring) H.ring.material.opacity = 0.12;
+      H.glow.material.opacity = 0.0; for (const m of H.frame) m.opacity = 0.18; if (H.badge) { H.badge.material.opacity = 0.35; H.badge.scale.set(H.bs, H.bs, 1); } if (H.ring) H.ring.material.opacity = 0.08;
     } else if (H.badge) H.badge.material.opacity = 1;
   }
   // ---------- trap constructors (each returns array of trap objects)
@@ -340,7 +357,7 @@ export class Traps {
   mk_goo(layout, o) {
     const ps = this.spots(layout, 1.6, { min: 2.5, edge: 2.2 }); if (!ps) return null; const out = [];
     ps.forEach(([x, z], n) => {
-      const gm = new THREE.MeshToonMaterial({ color: 0x6aff4a, transparent: true, opacity: 0.78, gradientMap: null }); this.mats.push(gm); const grp = new THREE.Group(); grp.position.set(x, 0.02, z); this.root.add(grp);
+      const gm = new THREE.MeshToonMaterial({ color: 0x5fcf48, transparent: true, opacity: 0.5, gradientMap: null }); /* v4.9: calmer goo (same footprint) */ this.mats.push(gm); const grp = new THREE.Group(); grp.position.set(x, 0.02, z); this.root.add(grp);
       for (let a = 0; a < 6; a++) { const r = a ? rr(0.5, 0.9) : 1.45; const m = this.add(G.disc, gm, a ? rr(-0.9, 0.9) : 0, 0.004 * a, a ? rr(-0.8, 0.8) : 0, r, 1, r, grp); m.rotation.x = -Math.PI / 2; }
       const bub = []; for (let a = 0; a < 3; a++) { const b = this.add(G.sph, this.mat(0xc0ffa0, 0.6), rr(-0.8, 0.8), 0.1, rr(-0.7, 0.7), 0.16, 0.16, 0.16, grp); bub.push([b, rr(0, 6)]); }
       const tr = { type: 'goo', x, z, bub, update() { }, vis(t) { this.bub.forEach(([b, p]) => { const k = (t * 0.6 + p) % 1; b.scale.setScalar(0.05 + Math.sin(k * Math.PI) * 0.2); }); },
@@ -402,7 +419,7 @@ export class Traps {
     if (this.groups.boulder) return null;
     // lanes: rows of cells with the fewest solids
     const g = this.g; const rows = []; for (let j = 2; j < AH - 2; j++) { let n = 0; for (let i = 0; i < AW; i++) if (g.sol[idx(i, j)] || g.layout.t[idx(i, j)] === T.LAVA) n++; rows.push([j, n]); }
-    rows.sort((a, b) => a[1] - b[1]); const lanes = []; const nl = AH >= 20 ? 3 : AH >= 16 ? 2 : 1;
+    rows.sort((a, b) => a[1] - b[1]); const lanes = []; const nl = this.dens >= 2 ? (AH >= 20 ? 2 : 1) : AH >= 20 ? 3 : AH >= 16 ? 2 : 1; // v4.9: fewer full-width boulder lanes
     for (const [j] of rows) { const z = cz(j); if (lanes.every((l) => Math.abs(l - z) > 3.2) && Math.abs(z) > 0.5) { lanes.push(z); if (lanes.length >= nl) break; } }
     const out = [];
     lanes.forEach((z, n) => {
@@ -437,7 +454,7 @@ export class Traps {
         onFire() { this.py = 0.1; warnS(x, z, 'explode'); shake(0.45); fx.puff(x, 0.3, z, 14, 0xffffff, 0.6); fx.shockwave(x, z, 0xffb060, 4); this.landed = true; },
         onEnd() { this.landed = false; },
         update(dt) { if (this.st === 1) this.py += (4.5 - this.py) * Math.min(1, dt * 8); else if (this.st === 0 && this.py < 11) this.py = Math.min(11, this.py + dt * 7); },
-        vis(t) { this.plate.position.y = this.py; this.sh.opacity = this.st === 1 ? 0.3 + Math.abs(Math.sin(t * 18)) * 0.2 : this.st === 2 ? 0.45 : 0; this.edge.material.opacity = this.st === 1 ? 0.6 : 0; lp.set(this.st > 0, this.st === 2); },
+        vis(t) { this.plate.position.y = this.py; this.plate.visible = this.py < 9; /* v4.9: parked plate sat at camera height and read as a giant prop */ this.sh.opacity = this.st === 1 ? 0.3 + Math.abs(Math.sin(t * 18)) * 0.2 : this.st === 2 ? 0.45 : 0; this.edge.material.opacity = this.st === 1 ? 0.6 : 0; lp.set(this.st > 0, this.st === 2); },
         hits(f) { return this.st === 2 && this.py < 1 && Math.abs(f.x - x) < h + 0.15 && Math.abs(f.z - z) < h + 0.15 ? 'crush' : null; },
         zone(px, pz, pad = 0) { return Math.abs(px - x) < h + 0.15 + pad && Math.abs(pz - z) < h + 0.15 + pad; },
         danger(px, pz) { if (this.st === 0) return 0; return Math.abs(px - x) < h + 0.5 && Math.abs(pz - z) < h + 0.5 ? 8 : 0; },
@@ -450,8 +467,8 @@ export class Traps {
   mk_switch(layout, o) {
     const ps = o.at ? o.at.slice() : this.spots(layout === 'c' ? 'c' : 'r2', o.relax ? 0.5 : 0.8, o.relax ? { min: 1.5, edge: 1.4 } : { min: 3, edge: 1.8 }); if (!ps) return null; const cols = [0xffd23c, 0xffffff, 0xffa030]; const color = cols[this.sw.length % 3];
     ps.forEach(([x, z], n) => {
-      const base = this.add(G.cyl, this.mat(0x2a2d3a), x, 0.18, z, 0.6, 0.36); const bm = this.mat(color, 1.2); const cap = this.add(G.cyl, bm, x, 0.42, z, 0.4, 0.14);
-      const ring = this.add(G.ring, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }), x, 0.03, z, 0.9, 1, 0.9); ring.rotation.x = -Math.PI / 2;
+      const base = this.add(G.cyl, this.mat(0x2a2d3a), x, 0.06, z, 0.5, 0.12, 0.5); const bm = this.mat(color, 0.8); const cap = this.add(G.cyl, bm, x, 0.15, z, 0.34, 0.08, 0.34); /* v4.9 (sz was missing before: a 1 u deep oval): low floor plate instead of a 0.5 u tall glowing drum (same 0.6 u trigger) */
+      const ring = this.add(G.ring, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }), x, 0.03, z, 0.6, 1, 0.6); ring.rotation.x = -Math.PI / 2; /* v4.9: compact */
       this.sw.push({ x, z, link: o.link, color, cap, bm, ring, cd: 0, targets: [] });
     }); return [];
   }
@@ -510,7 +527,7 @@ export class Traps {
   vis(dt) {
     if (!this.on) return; const t = this.g.time;
     for (const tr of this.list) { tr.vis(t); if (tr.haz) this.hazVis(tr, t); }
-    for (const s of this.sw) { const r = s.cd > 0 ? 0.25 : 1; s.bm.emissiveIntensity = s.cd > 0 ? 0.15 : 1.0 + Math.sin(t * 5) * 0.4; s.cap.position.y = s.cd > 0 ? 0.36 : 0.43; s.ring.material.opacity = s.cd > 0 ? 0.25 : 0.55 + Math.sin(t * 5) * 0.3; }
+    for (const s of this.sw) { const r = s.cd > 0 ? 0.25 : 1; s.bm.emissiveIntensity = s.cd > 0 ? 0.1 : 0.6 + Math.sin(t * 5) * 0.25; s.cap.position.y = s.cd > 0 ? 0.11 : 0.15; s.ring.material.opacity = s.cd > 0 ? 0.15 : 0.35 + Math.sin(t * 5) * 0.12; }
   }
   describe() { const names = new Set(this.list.map((t) => t.type)); if (this.sw.length) names.add('switch'); return [...names].map((n) => TRAP_INFO[n]).filter(Boolean); }
   dispose() { this.scene.remove(this.root); this.mats.forEach((m) => m.dispose()); this.root.traverse((o) => { if (o.material && o.material.dispose && !this.mats.includes(o.material)) o.material.dispose(); }); this.list.length = 0; }

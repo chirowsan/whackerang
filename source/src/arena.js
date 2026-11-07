@@ -1,16 +1,16 @@
 // Arena layouts + visuals (4 original themes).
-import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, RIM } from './gfx.js';
+import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, RIM, toScreen as toScreenB } from './gfx.js';
 import { AW, AH, HX, HZ, cx, cz, idx, inb, rnd, shuffle, mulberry32, arenaScale } from './util.js';
 import { buildCrate } from './models.js';
-import { buildScenery, patchFloor, updateScenery } from './scenery.js';
+import { buildScenery, patchFloor, updateScenery, tileTex, TILE_K } from './scenery.js';
 
 export const T = { FLOOR: 0, PILLAR: 1, CRATE: 2, SPIKE: 3, LAVA: 4, CONV: 5 };
 export const spawns = () => [[2, 2], [AW - 3, AH - 3], [AW - 3, 2], [2, AH - 3]]; // cells; order picks far-apart pairs for 2 players
 
 export const THEMES = {
-  dojo: { bg: 0xbfe3ff, fog: 0xd9eeff, a: 0xd7edb0, b: 0xc3e096, rim: 0x6b4a2e, rimTop: 0xa77d52, hemi: [0xffffff, 0x9fb4a0, 1.0], sun: 1.9, ambient: 'dojo' },
+  dojo: { bg: 0xbfe3ff, fog: 0xd9eeff, a: 0xe2bd8a, b: 0xd9b07c, /* v4.9 warm wooden dojo boards (was green check) */ rim: 0x6b4a2e, rimTop: 0xa77d52, hemi: [0xffffff, 0x9fb4a0, 1.0], sun: 1.9, ambient: 'dojo' },
   rooftop: { bg: 0x0c0d2e, fog: 0x0c0d2e, a: 0x252a5c, b: 0x1d2150, rim: 0x151a40, rimTop: 0xff2bd6, hemi: [0x8aa0ff, 0x221a50, 0.9], sun: 1.0, ambient: 'rooftop' },
-  jungle: { bg: 0x1e5a44, fog: 0x2a7a58, a: 0x8ea46a, b: 0x7c9459, rim: 0x5c6b46, rimTop: 0x93a56f, hemi: [0xe6ffd0, 0x44603a, 1.0], sun: 1.7, ambient: 'jungle' },
+  jungle: { bg: 0x1e5a44, fog: 0x2a7a58, a: 0x9aa06a, b: 0x8c9460, /* v4.9 mossy earth */ rim: 0x5c6b46, rimTop: 0x93a56f, hemi: [0xe6ffd0, 0x44603a, 1.0], sun: 1.7, ambient: 'jungle' },
   volcano: { bg: 0x240a08, fog: 0x3a120c, a: 0x57444a, b: 0x463840, rim: 0x2a1a1a, rimTop: 0xff7a1a, hemi: [0xffb080, 0x401a10, 0.9], sun: 1.35, ambient: 'volcano' },
   pirate: { bg: 0x6fc8e8, fog: 0x9adcf0, a: 0xc29560, b: 0xae8250, rim: 0x6b4a2e, rimTop: 0xdcb26e, hemi: [0xfff4dc, 0x5aa0c0, 1.0], sun: 1.8, ambient: 'pirate' },
   space: { bg: 0x04061a, fog: 0x070a24, a: 0x44507a, b: 0x364166, rim: 0x1c2240, rimTop: 0x36e0ff, hemi: [0xa8c4ff, 0x151a40, 0.9], sun: 1.15, ambient: 'space' },
@@ -18,16 +18,31 @@ export const THEMES = {
   ice: { bg: 0x9cc8ea, fog: 0xb2d6f0, a: 0xa6d6f2, b: 0x8cc4e6, rim: 0x6aa6d6, rimTop: 0xcdeaff, hemi: [0xf4faff, 0x6f9fd0, 0.95], sun: 1.55, ambient: 'ice' },
 };
 
-export function genLayout(id, seed) {
+export function genLayout(id, seed, dens = 2) {
   const r = mulberry32(seed || (Math.random() * 1e9) | 0); const [kx, kz] = arenaScale(); const area = kx * kz, HW = AW / 2, HH = AH / 2;
   const t = new Uint8Array(AW * AH), dx = new Int8Array(AW * AH), dz = new Int8Array(AW * AH);
   const set = (i, j, v) => { if (i >= 0 && j >= 0 && i < AW && j < AH) t[idx(i, j)] = v; };
   const quad = (i, j, v) => { set(i, j, v); set(AW - 1 - i, j, v); set(i, AH - 1 - j, v); set(AW - 1 - i, AH - 1 - j, v); };
   const sp = spawns(); const nearSpawn = (i, j) => sp.some(([a, b]) => Math.abs(i - a) <= 1 && Math.abs(j - b) <= 1);
   const free = (i, j) => t[idx(i, j)] === 0 && !nearSpawn(i, j) && !nearSpawn(AW - 1 - i, j) && !nearSpawn(i, AH - 1 - j) && !nearSpawn(AW - 1 - i, AH - 1 - j);
-  const randQuad = (n, v, filter) => { n = Math.round(n * area); let c = 0, tries = 0; while (c < n && tries++ < 400) { const i = Math.floor(r() * HW), j = Math.floor(r() * HH); if (!free(i, j) || (filter && !filter(i, j))) continue; quad(i, j, v); c++; } };
+  const thin = dens >= 2 ? { [T.CRATE]: 0.5, [T.PILLAR]: 0.5, [T.LAVA]: 0.6, [T.SPIKE]: 0.6 } : {}; // v4.9: about half the scattered clutter -> wider fight lanes
+  const randQuad = (n, v, filter) => { n = Math.round(n * area * (thin[v] || 1)); let c = 0, tries = 0; while (c < n && tries++ < 400) { const i = Math.floor(r() * HW), j = Math.floor(r() * HH); if (!free(i, j) || (filter && !filter(i, j))) continue; quad(i, j, v); c++; } };
   const S = (i, j) => [Math.min(HW - 1, Math.round(i * kx)), Math.min(HH - 1, Math.round(j * kz))]; // scale a small-map quadrant cell
   const sq = (list, v) => list.forEach(([i, j]) => { const [a, b] = S(i, j); quad(a, b, v); });
+  if (dens >= 3) { // v4.9 pass 3 "calm" layout: open centre, cover in a few mirrored clusters, at most one environmental signature hazard (volcano lava, 2 patches)
+    const cl = (ci0, cj0, cells) => { const [a, b] = S(ci0, cj0); for (const [di, dj, v] of cells) { const i = Math.min(HW - 1, a + di), j = Math.min(HH - 1, b + dj); if (!nearSpawn(i, j)) quad(i, j, v); } };
+    const P = T.PILLAR, C = T.CRATE;
+    cl(5, 2, [[0, 0, P], [1, 0, C], [0, 1, C]]);            // one L of cover per quadrant (4 clusters)
+    if (area > 1.6) cl(2, 5, [[0, 0, C], [1, 0, P]]);        // huge: a second, small pair near the side walls
+    if (id === 'volcano') { const [a, b] = S(7, 4); for (const [i, j] of [[a, b], [a + 1, b]]) { set(i, j, T.LAVA); set(AW - 1 - i, AH - 1 - j, T.LAVA); } }
+    let bush = null;
+    if (dens >= 4) { // v4.9 bushes: a few small non-solid hiding pockets on the flanks / behind cover, mirrored 4 ways, never on the centre lane or a spawn
+      bush = new Uint8Array(AW * AH); const bq = (i, j) => { for (const [a, b] of [[i, j], [AW - 1 - i, j], [i, AH - 1 - j], [AW - 1 - i, AH - 1 - j]]) if (a >= 0 && b >= 0 && a < AW && b < AH && t[idx(a, b)] === 0 && !nearSpawn(a, b)) bush[idx(a, b)] = 1; };
+      for (let i = 1; i <= 2; i++) for (let j = HH - 2; j < HH; j++) bq(i, j);                 // side-wall flank pockets (2 x 4 after mirroring)
+      if (AW > 20) { const [a, b] = S(5, 2); for (const [di, dj] of [[2, -2], [3, -2], [2, -1], [3, -1]]) bq(a + di, Math.max(1, b + dj)); } // large / huge: a 2 x 2 pocket behind each cover L, against the top / bottom wall
+    }
+    return { id, t, dx, dz, bush, w: AW, h: AH };
+  }
   if (id === 'dojo') { sq([[5, 1], [6, 4], [3, 5]], T.PILLAR); randQuad(2, T.SPIKE); randQuad(7, T.CRATE); if (area > 1) randQuad(1.2, T.PILLAR); }
   else if (id === 'rooftop') {
     const jA = HH - 2, jB = HH + 1; for (let i = 3; i <= AW - 4; i++) { set(i, jA, T.CONV); dx[idx(i, jA)] = 1; set(i, jB, T.CONV); dx[idx(i, jB)] = -1; }
@@ -41,18 +56,18 @@ export function genLayout(id, seed) {
     const i0 = Math.floor(AW * 0.3), i1 = AW - 1 - i0, j0 = Math.floor(AH * 0.3), j1 = AH - 1 - j0;
     for (let i = i0; i <= i1; i++) { set(i, j0, T.CONV); dx[idx(i, j0)] = 1; set(i, j1, T.CONV); dx[idx(i, j1)] = -1; }
     for (let j = j0 + 1; j < j1; j++) { set(i1, j, T.CONV); dz[idx(i1, j)] = 1; set(i0, j, T.CONV); dz[idx(i0, j)] = -1; }
-    for (let j = j0 + 1; j < j1; j++) for (let i = i0 + 1; i < i1; i++) if ((i + j) % 3 === 0) set(i, j, T.PILLAR);
+    for (let j = j0 + 1; j < j1; j++) for (let i = i0 + 1; i < i1; i++) if ((i + j) % (dens >= 2 ? 4 : 3) === 0) set(i, j, T.PILLAR);
     randQuad(4, T.CRATE, (i, j) => i < i0 - 1 || j < j0 - 1); randQuad(1.5, T.PILLAR, (i, j) => i < i0 - 1 || j < j0 - 1);
   } else if (id === 'haunted') { sq([[3, 2], [6, 1], [5, 4], [8, 3]], T.PILLAR); randQuad(5, T.CRATE); randQuad(2, T.SPIKE); }
   else { sq([[5, 2], [8, 4], [3, 5]], T.PILLAR); randQuad(8, T.CRATE); }
-  return { id, t, dx, dz };
+  return { id, t, dx, dz, bush: null, w: AW, h: AH };
 }
 
 const BOXG = new THREE.BoxGeometry(1, 1, 1);
 function chevronTex() {
   const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d'); x.scale(2, 2);
-  x.fillStyle = '#10143a'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#00e5ff'; x.lineWidth = 12; x.lineCap = 'round'; x.lineJoin = 'round';
-  for (const y of [18, 74]) { x.beginPath(); x.moveTo(28, y + 30); x.lineTo(64, y); x.lineTo(100, y + 30); x.stroke(); }
+  x.fillStyle = '#1a1f44'; x.fillRect(0, 0, 128, 128); x.strokeStyle = '#3fb8d0'; x.lineWidth = 9; x.lineCap = 'round'; x.lineJoin = 'round'; /* v4.9: one calmer chevron per tile */
+  for (const y of [46]) { x.beginPath(); x.moveTo(28, y + 30); x.lineTo(64, y); x.lineTo(100, y + 30); x.stroke(); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 
@@ -70,9 +85,9 @@ export class ArenaView {
     // floor tiles (instanced, animatable)
     const fm = toon(0xffffff, { }); const floor = new THREE.InstancedMesh(new THREE.BoxGeometry(0.997, 0.5, 0.997), fm, AW * AH); floor.receiveShadow = true;
     floor.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(AW * AH * 3), 3); floor.instanceColor.setUsage(THREE.DynamicDrawUsage); floor.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.floor = floor; this.cA = new THREE.Color(th.a); this.cB = new THREE.Color(th.b); this.cWarn = new THREE.Color(0x10e0ff);
+    this.floor = floor; this.cA = new THREE.Color(th.a); this.cB = new THREE.Color(th.b); { const mid = this.cA.clone().lerp(this.cB, 0.5); this.cA.lerp(mid, 0.8); this.cB.lerp(mid, 0.8); /* v4.9: the material texture carries the detail; just a hint of grid */ this.cA.offsetHSL(0, -0.04, 0); this.cB.offsetHSL(0, -0.04, 0); } /* v4.9: quieter checker so fighters and traps pop */ this.cWarn = new THREE.Color(0x10e0ff);
     const m4 = new THREE.Matrix4(); const col = new THREE.Color();
-    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { m4.makeTranslation(cx(i), -0.25, cz(j)); floor.setMatrixAt(idx(i, j), m4); col.copy((i + j) % 2 ? this.cA : this.cB); col.offsetHSL(0, 0, this.id === 'ice' ? ((i * 7 + j * 3) % 5) * 0.006 : (((i * 7 + j * 13) % 5) - 2) * 0.008); floor.setColorAt(idx(i, j), col); }
+    for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { m4.makeTranslation(cx(i), -0.25, cz(j)); floor.setMatrixAt(idx(i, j), m4); col.copy((i + j) % 2 ? this.cA : this.cB); col.offsetHSL(0, 0, this.id === 'ice' ? ((i * 7 + j * 3) % 5) * 0.004 : (((i * 7 + j * 13) % 5) - 2) * 0.004); /* v4.9: quieter checker so fighters pop */ floor.setColorAt(idx(i, j), col); }
     R.add(floor);
     // v4.4 abyss: the same dark, hazy drop under EVERY arena (never floor-coloured), so a missing tile always reads as "drop"
     this.buildAbyss();
@@ -89,7 +104,7 @@ export class ArenaView {
       else if (v === T.LAVA) this.addLava(i, j);
       else if (v === T.CONV) this.addConv(i, j);
     }
-    const pat = buildScenery(this, this.id, L); this.initAO(); patchFloor(fm, pat, this.aoTex); RIM.c.value.set(this.rim || 0x9ec0ff); { const vg = document.getElementById('vig'); if (vg) vg.style.setProperty('--vt', { dojo: '40,16,10', rooftop: '10,0,40', jungle: '0,24,8', ice: '10,30,70', volcano: '60,10,0', pirate: '0,30,50', space: '0,0,40', haunted: '30,0,50' }[this.id]); }
+    const pat = buildScenery(this, this.id, L); this.initAO(); patchFloor(fm, pat, this.aoTex, (this.tileT = tileTex(this.id)), TILE_K[this.id]); fm.userData.tex.push(this.tileT); RIM.c.value.set(this.rim || 0x9ec0ff); { const vg = document.getElementById('vig'); if (vg) vg.style.setProperty('--vt', { dojo: '40,16,10', rooftop: '10,0,40', jungle: '0,24,8', ice: '10,30,70', volcano: '60,10,0', pirate: '0,30,50', space: '0,0,40', haunted: '30,0,50' }[this.id]); }
     if (gfx.quality === 'low') this.mergeLow();
   }
   // v4.2 baked contact shadows: soft dark pools under every crate/pillar and along the inner walls, painted into one small texture the floor shader multiplies in (0 extra draw calls)
@@ -119,6 +134,18 @@ export class ArenaView {
     else if (id === 'space') { mesh(BOXG, toon(0x4a5588), g, { pos: [0, 0.55, 0], scale: [0.85, 1.1, 0.85], outline: 0.03 }); mesh(BOXG, glowMat(0x36e0ff, 1.7), g, { pos: [0, 0.8, 0.43], scale: [0.6, 0.3, 0.03], cast: false }); mesh(BOXG, glowMat(0xff4fd8, 1.5), g, { pos: [0, 0.45, 0.43], scale: [0.4, 0.1, 0.03], cast: false }); mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.3, 10), toon(0x2a3060), g, { pos: [0, 1.25, 0] }); }
     else if (id === 'haunted') { mesh(BOXG, toon(0x6a6a7a), g, { pos: [0, 0.2, 0], scale: [0.8, 0.4, 0.5], outline: 0.03 }); mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.2, 12, 1, false, 0, Math.PI), toon(0x8a8a9a), g, { pos: [0, 1.15, 0], rot: [Math.PI / 2, 0, 0], outline: 0.03 }); mesh(BOXG, toon(0x8a8a9a), g, { pos: [0, 0.75, 0], scale: [0.68, 0.8, 0.2], outline: 0.03 }); mesh(BOXG, glowMat(0x9a7aff, 1.3), g, { pos: [0, 0.8, 0.11], scale: [0.14, 0.4, 0.02], cast: false }); mesh(BOXG, glowMat(0x9a7aff, 1.3), g, { pos: [0, 0.9, 0.11], scale: [0.4, 0.12, 0.02], cast: false }); }
     else { mesh(new THREE.ConeGeometry(0.42, 1.3, 5), new THREE.MeshToonMaterial({ color: 0x8fd4ff, gradientMap: toon(0).gradientMap, transparent: true, opacity: 0.95 }), g, { pos: [0, 0.65, 0], outline: 0.03 }); mesh(new THREE.ConeGeometry(0.22, 0.8, 5), toon(0xc9efff), g, { pos: [0.3, 0.4, 0.2], rot: [0, 0, -0.4] }); }
+  }
+  // v4.9 bushes: low leafy clumps (one instanced draw) on a slightly darker ground patch; non-solid, no shadows cast, no sparkle
+  buildBushes(B) {
+    if (this.bushG) { this.root.remove(this.bushG); this.bushG = null; } if (!B) return; const cells = []; for (let k = 0; k < B.length; k++) if (B[k]) cells.push(k); if (!cells.length) return;
+    const P = { dojo: [0x5f9a48, 0x4a7f3a], rooftop: [0x2f8a6a, 0x23664f], jungle: [0x3f8f3a, 0x2f6f2c], ice: [0x8fc8c0, 0x6aa8a4], volcano: [0x6f7a3a, 0x525a2c], pirate: [0x4f9a4a, 0x3a7a3a], space: [0x7a5ac8, 0x5a3fa0], haunted: [0x6a5a7a, 0x4f4462] }[this.id] || [0x4f9a4a, 0x3a7a3a];
+    this.bushBase = []; this.bushK = new Float32Array(cells.length * 4).fill(1); const G = new THREE.Group(); this.bushG = G; this.root.add(G); const per = 4, geo = new THREE.IcosahedronGeometry(0.36, 1); const mat = toon(0xffffff);
+    const im = new THREE.InstancedMesh(geo, mat, cells.length * per); im.castShadow = false; im.receiveShadow = true; const o = new THREE.Object3D(), c0 = new THREE.Color(P[0]), c1 = new THREE.Color(P[1]), col = new THREE.Color(); let q = 0;
+    const gm = new THREE.MeshBasicMaterial({ color: new THREE.Color(P[1]).multiplyScalar(0.45), transparent: true, opacity: 0.38, depthWrite: false }); const pg = new THREE.PlaneGeometry(1.0, 1.0);
+    for (const k of cells) { const i = k % AW, j = (k / AW) | 0, x = cx(i), z = cz(j); const h = (a) => { const v = Math.sin(k * 12.9898 + a * 78.233) * 43758.5453; return v - Math.floor(v); };
+      const pl = new THREE.Mesh(pg, gm); pl.rotation.x = -Math.PI / 2; pl.position.set(x, 0.006, z); pl.renderOrder = 1; G.add(pl);
+      for (let n = 0; n < per; n++) { const a = n / per * Math.PI * 2 + h(n) * 0.8, r = 0.18 + h(n + 9) * 0.1; o.position.set(x + Math.cos(a) * r, 0.2 + h(n + 3) * 0.08, z + Math.sin(a) * r); const sc = 0.85 + h(n + 5) * 0.3; o.scale.set(sc, 0.62 + h(n + 7) * 0.18, sc); o.rotation.set(0, h(n + 11) * 6.28, 0); o.updateMatrix(); im.setMatrixAt(q, o.matrix); this.bushBase.push([x, z, o.position.x, o.position.y, o.position.z, o.rotation.y, o.scale.x, o.scale.y]); col.copy(c0).lerp(c1, h(n + 13)); im.setColorAt(q, col); q++; } }
+    im.count = q; G.add(im); this.bushIm = im;
   }
   addCrate(i, j) { const g = buildCrate(this.id); g.position.set(cx(i), 0, cz(j)); this.root.add(g); this.crates.set(idx(i, j), g); return g; }
   addSpike(i, j) {
@@ -178,7 +205,15 @@ export class ArenaView {
     this.edgeCount = { void: sets.core.length, warn: sets.warn.length };
   }
   breakCrate(k) { const g = this.crates.get(k); if (g) { this.root.remove(g); this.crates.delete(k); this.aoWait = 0.05; } }
+  // v4.9: foliage that projects under the on-screen controls (bottom corners) is pressed flat (ground patch stays), so it never adds clutter around the buttons
+  bushUnderHud(dt) {
+    const im = this.bushIm; if (!im || !this.bushBase) return; const o = this._bo || (this._bo = new THREE.Object3D()); let dirty = false; const ctl = !!(gfx.touchCtl && gfx.touchCtl());
+    for (let q = 0; q < this.bushBase.length; q++) { const b = this.bushBase[q]; const [px, py] = toScreenB(b[0], 0.3, b[1]); const under = ctl && py > 0.58 && (px < 0.24 || px > 0.70); const tk = under ? 0.22 : 1; const k0 = this.bushK[q]; const k = k0 + (tk - k0) * Math.min(1, dt * 8); if (Math.abs(k - k0) < 1e-3 && k0 === tk) continue; this.bushK[q] = Math.abs(k - tk) < 0.01 ? tk : k;
+      o.position.set(b[2], 0.02 + (b[3] - 0.02) * this.bushK[q], b[4]); o.rotation.set(0, b[5], 0); o.scale.set(b[6], b[7] * this.bushK[q], b[6]); o.updateMatrix(); im.setMatrixAt(q, o.matrix); dirty = true; }
+    if (dirty) im.instanceMatrix.needsUpdate = true;
+  }
   update(dt, t, game) {
+    this.bushUnderHud(dt);
     if (this.aoWait > 0) { this.aoWait -= dt; if (this.aoWait <= 0) this.bakeAO(); }
     updateScenery(this, t, dt);
     if (game && game.hole && this.rimCore) {

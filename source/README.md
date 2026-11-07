@@ -14,6 +14,12 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.9 (calmer maps, bushes)
+- **Calmer, clearer maps.** Fewer walls and crates, and fewer traps: by default 2 / 3 / 4 hazards on Small / Large / Huge. Lethal traps stay dormant for the first seconds of a round. Each arena has a themed floor, shadows and switches are easier to read, and hit effects are quieter.
+- **Bushes for hiding and surprise attacks.** Step into a bush and rivals lose sight of you, while you and your teammates see you faded. You show up again for **1.5 s** after you throw, parry, use your ULT or get hit, and anyone within **1.8 units** of you can spot you. Bushes under the touch controls are drawn flat so they never cover the buttons. Boomerang Ball has no bushes.
+- **Online:** a room uses the new layout and bushes only when every player runs v4.9. A room with an older client falls back to the older layout with no bushes. Bush hiding only changes what the game draws: positions are still sent over the network, so this is not anti-cheat and a modified client could see hidden players.
+- **Fix:** turning Traps Off (and the tutorial) no longer breaks the hop animation.
+
 ## What's new in v4.8 (shrinking poison zone)
 - **At the 2:00 mark the poison closes in.** In Classic, Team, Crumble, Bomb tag and King of the Hill, purple poison starts at the rim of the arena and slowly creeps toward the middle, so a round can't stall forever.
   - **Warning:** 10 s before, a "☣ POISON IN 10s" banner appears, a warning sound plays with beeps at 3-2-1, and the rim glows green. The HUD timer counts down (during sudden death it shows ☠ ☣m:ss).

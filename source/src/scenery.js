@@ -234,14 +234,14 @@ export function floorPattern(view, id, layout, rd) {
   });
   t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-export function patchFloor(mat, tex, ao) {
-  const prev = mat.onBeforeCompile; const u = { value: tex }, ua = { value: ao }; mat.userData.tex = [tex, ao]; // so disposeTree can free them (they only live in this closure)
+export function patchFloor(mat, tex, ao, tile, tileK = 0.6) {
+  const prev = mat.onBeforeCompile; const u = { value: tex }, ua = { value: ao }, ut = { value: tile || null }, uk = { value: tile ? tileK : 0 }; mat.userData.tex = [tex, ao]; // so disposeTree can free them (they only live in this closure)
   mat.onBeforeCompile = (sh, r) => {
-    prev && prev(sh, r); sh.uniforms.uPat = u; sh.uniforms.uAO = ua;
-    sh.vertexShader = 'varying vec2 vPatUv;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n vec4 pw = modelMatrix * instanceMatrix * vec4(position, 1.0); vPatUv = vec2((pw.x + ${HX.toFixed(1)}) / ${AW.toFixed(1)}, 1.0 - (pw.z + ${HZ.toFixed(1)}) / ${AH.toFixed(1)});`);
-    sh.fragmentShader = 'uniform sampler2D uPat; uniform sampler2D uAO; varying vec2 vPatUv;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n { vec4 pt = texture2D(uPat, vPatUv); float lum = dot(pt.rgb, vec3(0.333)); diffuseColor.rgb = mix(diffuseColor.rgb, pt.rgb, pt.a * 0.55) ; diffuseColor.rgb *= 1.0 - texture2D(uAO, vPatUv).a * 0.46; }');
+    prev && prev(sh, r); sh.uniforms.uPat = u; sh.uniforms.uAO = ua; sh.uniforms.uTile = ut; sh.uniforms.uTileK = uk;
+    sh.vertexShader = 'varying vec2 vPatUv; varying vec2 vWXZ;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\n vec4 pw = modelMatrix * instanceMatrix * vec4(position, 1.0); vWXZ = pw.xz; vPatUv = vec2((pw.x + ${HX.toFixed(1)}) / ${AW.toFixed(1)}, 1.0 - (pw.z + ${HZ.toFixed(1)}) / ${AH.toFixed(1)});`);
+    sh.fragmentShader = 'uniform sampler2D uPat; uniform sampler2D uAO; uniform sampler2D uTile; uniform float uTileK; varying vec2 vPatUv; varying vec2 vWXZ;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n { if (uTileK > 0.0) { vec3 tl = texture2D(uTile, vWXZ * 0.5).rgb; diffuseColor.rgb *= mix(vec3(1.0), tl * 2.0, uTileK); } /* v4.9 themed material (wood/earth/panels/...), 2x2 cells per repeat */ vec4 pt = texture2D(uPat, vPatUv); float lum = dot(pt.rgb, vec3(0.333)); diffuseColor.rgb = mix(diffuseColor.rgb, pt.rgb, pt.a * 0.18); /* v4.9: calmer floor art (pass 3: emblem quieter) */ vec2 cq = vPatUv - 0.5; diffuseColor.rgb *= 1.04 - dot(cq, cq) * 0.32; /* soft centre light, darker rim */ diffuseColor.rgb *= 1.0 - texture2D(uAO, vPatUv).a * 0.58; }');
   };
-  mat.customProgramCacheKey = () => 'rimtoon-floorpat'; mat.needsUpdate = true;
+  mat.customProgramCacheKey = () => 'rimtoon-floorpat-' + AW + 'x' + AH; /* v4.9 fix: the arena size is baked into this shader; one shared key reused a program from another map size, so baked AO / floor art landed off the obstacles (the dark floating smudges) */ mat.needsUpdate = true;
 }
 export function buildScenery(view, id, layout) {
   const rd = mulberry32(11 + id.length * 31); const [kx, kz] = arenaScale(); const big = kx > 1.01 || kz > 1.01;
@@ -255,3 +255,35 @@ export function buildScenery(view, id, layout) {
   return floorPattern(view, id, layout, rd);
 }
 export function updateScenery(view, t, dt) { for (const f of view.anim) f(t, dt); }
+
+// ---------- v4.9 themed floor materials: grey-centred detail (128 = no change), seamless, 256 px = 2x2 cells. Low contrast on purpose: fighters and hazards stay the loudest thing.
+export function tileTex(id) {
+  const rd = mulberry32(({ dojo: 11, rooftop: 12, jungle: 13, ice: 14, volcano: 15, pirate: 16, space: 17, haunted: 18 })[id] || 19); const S = 256;
+  const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, S, S);
+  const wrap = (fn) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { x.save(); x.translate(ox, oy); fn(); x.restore(); } };
+  const g = (v, a = 1) => `rgba(${v},${v},${v},${a})`;
+  const blobs = (n, r0, r1, lo, hi, a) => { const L = []; for (let i = 0; i < n; i++) L.push([rd() * S, rd() * S, r0 + rd() * (r1 - r0), rd() < 0.5 ? lo : hi]); wrap(() => { for (const [X, Y, r, v] of L) { const gr = x.createRadialGradient(X, Y, 0, X, Y, r); gr.addColorStop(0, g(v, a)); gr.addColorStop(1, g(v, 0)); x.fillStyle = gr; x.fillRect(X - r, Y - r, r * 2, r * 2); } }); };
+  const planks = (vert, ph, seamV) => { // plank boards with grain + staggered butt joints
+    x.save(); if (vert) { x.translate(S, 0); x.rotate(Math.PI / 2); }
+    for (let r = 0; r < S / ph; r++) { const y0 = r * ph, tone = 120 + rd() * 18; x.fillStyle = g(tone | 0); x.fillRect(0, y0, S, ph);
+      for (let k = 0; k < 7; k++) { x.strokeStyle = g(rd() < 0.5 ? 108 : 142, 0.45); x.lineWidth = 1 + rd(); x.beginPath(); const yy = y0 + 3 + rd() * (ph - 6); x.moveTo(0, yy); for (let X = 0; X <= S; X += 32) x.lineTo(X, yy + Math.sin(X / 40 + k + r) * 1.4); x.stroke(); }
+      x.fillStyle = g(seamV, 0.9); x.fillRect(0, y0, S, 2); x.fillStyle = g(150, 0.5); x.fillRect(0, y0 + 2, S, 1);
+      const j = ((r * 97) % 4) * 64 + 20; x.fillStyle = g(seamV, 0.8); x.fillRect(j, y0, 2, ph); x.fillRect((j + 128) % S, y0, 2, ph); }
+    x.restore(); };
+  if (id === 'dojo') { planks(false, 32, 84); blobs(10, 30, 60, 116, 140, 0.25); }
+  else if (id === 'pirate') { planks(true, 42, 80); x.fillStyle = g(70, 0.8); for (let cx0 = 0; cx0 < S; cx0 += 42) for (const y of [10, 138]) { x.beginPath(); x.arc(cx0 + 10, y, 2.2, 0, 7); x.arc(cx0 + 32, y, 2.2, 0, 7); x.fill(); } blobs(10, 30, 70, 112, 138, 0.3); }
+  else if (id === 'jungle') { blobs(46, 14, 46, 104, 150, 0.5); x.strokeStyle = g(156, 0.55); x.lineWidth = 1.5; for (let i = 0; i < 160; i++) { const X = rd() * S, Y = rd() * S; x.beginPath(); x.moveTo(X, Y); x.lineTo(X + (rd() - 0.5) * 4, Y - 4 - rd() * 4); x.stroke(); } x.fillStyle = g(100, 0.45); for (let i = 0; i < 24; i++) { x.beginPath(); x.ellipse(rd() * S, rd() * S, 2 + rd() * 4, 1.5 + rd() * 3, rd() * 3, 0, 7); x.fill(); } }
+  else if (id === 'space' || id === 'rooftop') { const sp = id === 'space'; blobs(18, 30, 60, 120, 136, 0.35);
+    for (const o of [0, 128]) for (const p of [0, 128]) { x.fillStyle = g(150, 0.7); x.fillRect(o + 3, p + 3, 122, 2); x.fillRect(o + 3, p + 3, 2, 122); x.fillStyle = g(92, 0.8); x.fillRect(o + 3, p + 123, 122, 2); x.fillRect(o + 123, p + 3, 2, 122);
+      if (sp) { x.fillStyle = g(100, 0.6); x.fillRect(o + 30, p + 62, 68, 3); x.fillStyle = g(160, 0.7); for (const [a, b] of [[12, 12], [116, 12], [12, 116], [116, 116]]) { x.beginPath(); x.arc(o + a, p + b, 3, 0, 7); x.fill(); } }
+      else { x.fillStyle = g(110, 0.5); x.fillRect(o + 64, p + 4, 2, 120); } }
+    x.fillStyle = g(70, 0.9); for (const o of [0, 126, 254]) { x.fillRect(o, 0, 2, S); x.fillRect(0, o, S, 2); } }
+  else if (id === 'ice') { blobs(30, 20, 60, 116, 152, 0.45); x.strokeStyle = g(168, 0.5); x.lineWidth = 1.2; for (let i = 0; i < 9; i++) { let X = rd() * S, Y = rd() * S; x.beginPath(); x.moveTo(X, Y); for (let k = 0; k < 4; k++) { X += (rd() - 0.5) * 50; Y += (rd() - 0.5) * 50; x.lineTo(X, Y); } x.stroke(); } x.fillStyle = g(150, 0.4); x.fillRect(0, 0, S, 2); x.fillRect(0, 128, S, 2); x.fillRect(0, 0, 2, S); x.fillRect(128, 0, 2, S); }
+  else if (id === 'volcano' || id === 'haunted') { // flagstones / cobbles: jittered cells with dark mortar
+    const n = id === 'volcano' ? 3 : 4, cs = S / n; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const off = id === 'haunted' && j % 2 ? cs / 2 : 0; const X = i * cs + off, Y = j * cs, tone = 116 + rd() * 26;
+      const draw = (ox) => { x.fillStyle = g(tone | 0); x.beginPath(); x.roundRect(X + ox + 4, Y + 4, cs - 8, cs - 8, id === 'haunted' ? 16 : 6); x.fill(); x.fillStyle = g(150, 0.35); x.fillRect(X + ox + 8, Y + 6, cs - 18, 3); };
+      x.fillStyle = g(78); x.fillRect(X, Y, cs, cs); draw(0); if (X + cs > S) { x.fillStyle = g(78); x.fillRect(X - S, Y, cs, cs); draw(-S); } }
+    blobs(12, 20, 50, 110, 140, 0.3); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; return t;
+}
+export const TILE_K = { dojo: 0.7, pirate: 0.7, jungle: 0.6, space: 0.75, rooftop: 0.6, ice: 0.5, volcano: 0.7, haunted: 0.65 };

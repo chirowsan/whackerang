@@ -34,3 +34,6 @@
 - 09:40 run6 (large-only, poison, instrumented, idle box): PASS 3 matches/10 rounds/3102 samples, 0 fails, max rx gap 0.62 s, no drop. Earlier drops (run1/2/4) concluded environmental/load-related (not reproduced idle; no-poison control passed) → logged as risk, moving on.
 - 09:44 net_poison48 10/10 EXIT 0. Starting release: tools/apk48.sh
 - 09:47 PDT APK/AAB built, signed with same key (SHA-256 6e59e14a…d8de), versionCode 52 / 4.8.0 verified (apksigner, keytool, aapt2). Next: dist build.
+- 09:48 PDT dist built (v4.8.0-20261031); source zip 405 files 15.7 MB, 0 key files. Next: Pages deploy.
+- 09:48 PDT Pages pushed 38a4f90. Next: gh release v4.8.0.
+- 09:49 PDT RELEASED: https://github.com/chirowsan/whackerang/releases/tag/v4.8.0 (4 assets). Pages build 38a4f90 'built' 09:49 PDT; live index.html + sw.js serve v4.8.0-20261031. DONE.
