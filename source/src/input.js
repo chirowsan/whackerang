@@ -74,13 +74,13 @@ Input.read = function (slot, f) {
     }
     if (!o.mx && !o.mz) { o.mx = t.mx; o.mz = t.mz; }
     if (t.fire || t.fireQ > 0) { o.fire = true; if (t.aimX || t.aimZ) { o.aimX = t.aimX; o.aimZ = t.aimZ; } if (t.fireQ > 0 && !t.fire) t.fireQ--; }
-    if (t.dash) { o.dash = true; t.dash = false; } if (t.deflect) { o.deflect = true; t.deflect = false; }
+    if (t.dash) { o.dash = true; t.dash = false; } if (t.deflect) { o.deflect = true; t.deflect = false; } if (t.melee) { o.melee = true; t.melee = false; }
     if (t.ult) { o.ult = true; t.ult = false; }
     if (t.tapQ > 0) { o.tap = true; t.tapQ--; } // v4.10: a quick tap (no drag) is offered to the game as a contextual swing on its release tick
   }
   return o;
 };
-Input.flush = function () { Input.edge.clear(); const t = Input.touch; t.tapQ = 0; t.dash = false; t.deflect = false; t.ult = false; t.fireQ = 0; Input.mouse.edgeDeflect = false; };
+Input.flush = function () { Input.edge.clear(); const t = Input.touch; t.tapQ = 0; t.dash = false; t.deflect = false; t.melee = false; t.ult = false; t.fireQ = 0; Input.mouse.edgeDeflect = false; };
 Input.menuPoll = function () {
   const gps = navigator.getGamepads ? navigator.getGamepads() : []; const out = {}; let up = 0, down = 0, left = 0, right = 0, ok = 0, back = 0;
   for (const g of gps) { if (!g || !g.connected) continue; const b = (i) => g.buttons[i] && g.buttons[i].pressed; const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
@@ -100,10 +100,11 @@ export function initTouch(root) {
   const chargeSvg = `<circle cx="60" cy="60" r="62" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5" class="chtrack"/><circle id="chg" cx="60" cy="60" r="62" fill="none" stroke="url(#chgrad)" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="${CH.toFixed(1)}" stroke-dashoffset="${CH.toFixed(1)}" transform="rotate(-90 60 60)"/><defs><linearGradient id="chgrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe45a"/><stop offset=".6" stop-color="#ff9a2e"/><stop offset="1" stop-color="#ff3b3b"/></linearGradient></defs>`;
   const sh = 'stroke="#1a1030" stroke-width="3" stroke-linejoin="round" paint-order="stroke"';
   const icoDash = `<svg viewBox="0 0 48 48" class="ico"><g stroke="#fff" stroke-width="3.4" stroke-linecap="round" opacity=".85"><path d="M4 17h7M2 24h9M4 31h7"/></g><path d="M15 11l13 13-13 13-5.5-5.5L17 24l-7.5-7.5z" fill="#fff" ${sh}/><path d="M29 11l13 13-13 13-5.5-5.5L31 24l-7.5-7.5z" fill="#fff" ${sh}/></svg>`;
+  const icoMelee = `<svg viewBox="0 0 48 48" class="ico"><path d="M10 34l20-20 4 4-20 20z" fill="#fff" stroke="#1a1030" stroke-width="3" stroke-linejoin="round" paint-order="stroke"/><path d="M28 12l4-4 4 4-4 4z" fill="#ffd23c" stroke="#1a1030" stroke-width="2" stroke-linejoin="round" paint-order="stroke"/><path d="M8 36c6 2 12 2 18 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>`;
   const icoDef = `<svg viewBox="0 0 48 48" class="ico"><path d="M24 4.5l15 5.5v13c0 10-6.5 17.2-15 20.5C15.5 40.2 9 33 9 23V10z" fill="#fff" ${sh}/><path d="M24 10.500l9.500 3.500v9c0 6.800-4 11.800-9.500 14.400C18.500 34.800 14.5 29.800 14.500 23v-9z" fill="currentColor"/><path d="M29 20.500h-8.500a4.500 4.500 0 0 0 0 9H26" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M28.500 15.800l5.200 4.700-5.200 4.700z" fill="#fff"/></svg>`;
-  const cdBtn = (id, cls, ico) => `<button id="${id}" class="tbtn ${cls}" aria-label="${id === 'btnDash' ? 'Dash' : 'Deflect'}"><span class="face"></span>${ico}<span class="sw"></span><span class="cdn"></span></button>`; // t395u short labels
-  root.innerHTML = `<div id="joyzone"></div><div id="aimzone"></div><div id="tlabs" aria-hidden="true"><span class="tlab tl-def">SHIELD</span><span class="tlab tl-dash">DASH</span><span class="tlab tl-ult">SPECIAL</span><span class="tlab tl-at">DRAG: THROW</span><span class="tlab tl-ab">TAP NEAR: MELEE</span></div>${stick('joybase', 'joy', 'joyknob', '')}${stick('aimbase', 'aim', 'aimknob', chargeSvg, boom)}<div id="tbtns">${cdBtn('btnDef', 'small', icoDef)}${cdBtn('btnDash', 'big', icoDash)}<button id="btnUlt" class="tbtn ult" aria-label="Ultimate"><span class="face"></span><svg viewBox="0 0 48 48" class="ico"><path d="M27 3L10 27h11l-4 18 21-26H27z" fill="#fff" stroke="#1a1030" stroke-width="3" stroke-linejoin="round" paint-order="stroke"/></svg><span class="ulr"></span></button></div><button id="btnEmo" class="tpause emo" aria-label="Quick chat"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg></button><button id="btnPause" class="tpause" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg></button>`;
-  const q = (s) => root.querySelector(s); const jz = q('#joyzone'), az = q('#aimzone'), jb = q('#joybase'), jk = q('#joyknob'), ab = q('#aimbase'), ak = q('#aimknob'), chg = q('#chg'), boomEl = q('#aimknob .boom'), bDash = q('#btnDash'), bDef = q('#btnDef'), bUlt = q('#btnUlt');
+  const cdBtn = (id, cls, ico) => `<button id="${id}" class="tbtn ${cls}" aria-label="${id === 'btnDash' ? 'Dash' : id === 'btnMelee' ? 'Melee' : 'Deflect'}"><span class="face"></span>${ico}<span class="sw"></span><span class="cdn"></span></button>`; // t395u short labels
+  root.innerHTML = `<div id="joyzone"></div><div id="aimzone"></div><div id="tlabs" aria-hidden="true"><span class="tlab tl-def" data-hint="def">SHIELD</span><span class="tlab tl-dash" data-hint="dash">DASH</span><span class="tlab tl-ult" data-hint="ult">SPECIAL</span><span class="tlab tl-melee" data-hint="melee">MELEE</span><span class="tlab tl-at" data-hint="throw">THROW</span></div>${stick('joybase', 'joy', 'joyknob', '')}${stick('aimbase', 'aim', 'aimknob', chargeSvg, boom)}<div id="tbtns">${cdBtn('btnDef', 'small', icoDef)}${cdBtn('btnDash', 'big', icoDash)}${cdBtn('btnMelee', 'melee', icoMelee)}<button id="btnUlt" class="tbtn ult" aria-label="Ultimate"><span class="face"></span><svg viewBox="0 0 48 48" class="ico"><path d="M27 3L10 27h11l-4 18 21-26H27z" fill="#fff" stroke="#1a1030" stroke-width="3" stroke-linejoin="round" paint-order="stroke"/></svg><span class="ulr"></span></button></div><button id="btnEmo" class="tpause emo" aria-label="Quick chat"><svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg></button><button id="btnPause" class="tpause" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.6"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.6"/></svg></button>`;
+  const q = (s) => root.querySelector(s); const jz = q('#joyzone'), az = q('#aimzone'), jb = q('#joybase'), jk = q('#joyknob'), ab = q('#aimbase'), ak = q('#aimknob'), chg = q('#chg'), boomEl = q('#aimknob .boom'), bDash = q('#btnDash'), bDef = q('#btnDef'), bMelee = q('#btnMelee'), bUlt = q('#btnUlt');
   // safe-area probe
   const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'; document.body.appendChild(probe);
   const safe = () => { const c = getComputedStyle(probe); return { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 }; };
@@ -117,12 +118,14 @@ export function initTouch(root) {
     // Thumb cluster, bottom corner of the throwing hand: boomerang (aim) stick in the corner, DASH to its left, DEFLECT up-left on the arc.
     const ax = w - sr - mar - B / 2, ay = h - sb - 5 - B / 2;
     const arc = (deg, r) => [ax + Math.cos(deg * Math.PI / 180) * r, ay - Math.sin(deg * Math.PI / 180) * r];
-    let [dx, dy] = arc(184, B / 2 + D / 2 + gp); dy = Math.min(dy, h - sb - 4 - D / 2);
+        let [dx, dy] = arc(184, B / 2 + D / 2 + gp); dy = Math.min(dy, h - sb - 4 - D / 2);
     let [fx, fy] = arc(122, B / 2 + F / 2 + gp); fy = Math.max(fy, h * 0.4);
     const U = F * 0.9; let [ux, uy] = arc(150, B / 2 + F / 2 + gp + U + 8); uy = Math.max(uy, h * 0.4);
+    // t401u: dedicated MELEE sits on the arc between DASH and the throw stick (thumb reach), size ~dash
+    const Msz = D * 0.88; let mx = dx - (D / 2 + Msz / 2 + gp + 2), my = dy; /* t401u: left of DASH so centres never overlap throw stick or DASH */ my = Math.min(my, h - sb - 4 - Msz / 2);
     const X = (x) => (left ? w - x : x);
     const rs = document.documentElement.style; rs.setProperty('--sb', B + 'px'); rs.setProperty('--bd', D + 'px'); rs.setProperty('--bf', F + 'px');
-    rs.setProperty('--bu', U + 'px'); rs.setProperty('--ux', X(ux) + 'px'); rs.setProperty('--uy', uy + 'px'); rs.setProperty('--dx', X(dx) + 'px'); rs.setProperty('--dy', dy + 'px'); rs.setProperty('--fx', X(fx) + 'px'); rs.setProperty('--fy', fy + 'px'); rs.setProperty('--ax', X(ax) + 'px'); rs.setProperty('--ay', ay + 'px'); /* t395u label overlay */
+    rs.setProperty('--bu', U + 'px'); rs.setProperty('--bm', Msz + 'px'); rs.setProperty('--ux', X(ux) + 'px'); rs.setProperty('--uy', uy + 'px'); rs.setProperty('--dx', X(dx) + 'px'); rs.setProperty('--dy', dy + 'px'); rs.setProperty('--fx', X(fx) + 'px'); rs.setProperty('--fy', fy + 'px'); rs.setProperty('--mx', X(mx) + 'px'); rs.setProperty('--my', my + 'px'); rs.setProperty('--ax', X(ax) + 'px'); rs.setProperty('--ay', ay + 'px'); /* t395u label overlay */
     rs.setProperty('--sail', sa.l + 'px'); rs.setProperty('--sair', sa.r + 'px'); rs.setProperty('--saib', sa.b + 'px'); rs.setProperty('--sait', sa.t + 'px');
     const joyW = mar + B + 10, clW = Math.max(w - dx + D / 2, w - ux + U / 2) - 22; // arena may tuck slightly under the dash button's outer edge
     const bx = sl + mar + B / 2, by = ay;
@@ -145,10 +148,16 @@ export function initTouch(root) {
   az.addEventListener('pointermove', (e) => { if (e.pointerId !== aId) return; let vx = e.clientX - acx, vy = e.clientY - acy; const d = Math.hypot(vx, vy); const sx = d > R ? vx / d * R : vx, sy = d > R ? vy / d * R : vy; ak.style.transform = `translate(calc(-50% + ${sx * 0.7}px), calc(-50% + ${sy * 0.7}px))`;
     if (d > 26) { aDragged = true; const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; boomEl.style.transform = `rotate(${(Math.atan2(vx, -vy) * 57.2958).toFixed(0)}deg)`; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
   const aend = (e) => { if (e.pointerId !== aId) return; aId = null; ab.classList.remove('active'); rest();
-    const quick = !aDragged && performance.now() - aT0 < 340; t.fire = false; if (quick) { t.fireQ = 2; t.tapQ = 3; } else { t.fireQ = 1; t.tapQ = 0; } /* keep last aim for the release tick */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
+    const quick = !aDragged && performance.now() - aT0 < 340; t.fire = false; if (quick) { t.fireQ = 2; t.tapQ = 0; t.markHint && t.markHint('throw'); } else { t.fireQ = 1; t.tapQ = 0; if (aDragged) t.markHint && t.markHint('throw'); } /* t401u: throw-only stick; quick tap = auto-aim throw (no melee) */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
   az.addEventListener('pointerup', aend); az.addEventListener('pointercancel', (e) => { if (e.pointerId === aId) { aId = null; t.fire = false; t.aimX = t.aimZ = 0; ab.classList.remove('active'); rest(); } }); az.addEventListener('lostpointercapture', (e) => { if (e.pointerId === aId) aend(e); });
   const btn = (el, key, hk, ms) => { el.addEventListener('pointerdown', (e) => { t[key] = true; Input.lastUsed = 'touch'; el.classList.add('down'); if (t.hud[hk] <= 0) vib(ms); e.preventDefault(); }); const up = () => el.classList.remove('down'); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); };
-  btn(bDash, 'dash', 'dash', 10); btn(bDef, 'deflect', 'defl', 6); btn(bUlt, 'ult', 'ult0', 14);
+  btn(bDash, 'dash', 'dash', 10); btn(bDef, 'deflect', 'defl', 6); btn(bMelee, 'melee', 'melee', 10); btn(bUlt, 'ult', 'ult0', 14);
+  // t401u: teach-once labels — count uses, fade after a few / after first match
+  const hintKey = 'whk.ctrlHints.v1'; const loadHints = () => { try { return JSON.parse(localStorage.getItem(hintKey) || '{}'); } catch (e) { return {}; } }; let hints = loadHints(); const saveHints = () => { try { localStorage.setItem(hintKey, JSON.stringify(hints)); } catch (e) {} };
+  const markHint = (k) => { hints[k] = (hints[k] | 0) + 1; if (hints[k] === 3 || hints.matchDone) applyHints(); saveHints(); };
+  const applyHints = () => { const done = !!hints.matchDone; for (const el of root.querySelectorAll('#tlabs .tlab')) { const k = el.dataset.hint; const n = hints[k] | 0; el.classList.toggle('fade', done || n >= 3); } };
+  applyHints(); t.markHint = markHint; t.finishHints = () => { hints.matchDone = true; applyHints(); saveHints(); };
+  bDash.addEventListener('pointerdown', () => markHint('dash')); bDef.addEventListener('pointerdown', () => markHint('def')); bMelee.addEventListener('pointerdown', () => markHint('melee')); bUlt.addEventListener('pointerdown', () => markHint('ult'));
   q('#btnEmo').addEventListener('pointerdown', (e) => { Input.onEmoteBtn && Input.onEmoteBtn(); e.preventDefault(); });
   q('#btnPause').addEventListener('pointerdown', (e) => { Input.onPause && Input.onPause(); e.preventDefault(); eatClick(e); });
   root.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -163,6 +172,6 @@ export function initTouch(root) {
     { const u = Math.round((d.ult || 0) * 50) / 50; if (u !== last.ult) { last.ult = u; bUlt.style.setProperty('--u', u); bUlt.classList.toggle('rdy', u >= 1); } }
     if (d.ammo !== last.ammo) { last.ammo = d.ammo; ab.classList.toggle('empty', d.ammo <= 0); }
   };
-  t.setWeapon = (id) => { const k = wpnOf(id); if (boomEl.dataset.w !== k) { boomEl.dataset.w = k; boomEl.innerHTML = WICON[k]; } }; // v4.10: aim knob shows the equipped weapon
+  t.setWeapon = (id) => { const k = wpnOf(id); if (boomEl.dataset.w !== k) { boomEl.dataset.w = k; /* t402u: throw stick always shows the original boomerang (pan/wok WICON read as a magnifying glass) */ boomEl.innerHTML = WICON.boom; } };
   layout(); rest(); window.addEventListener('resize', () => { if (jId === null && aId === null) { layout(); rest(); } }, { passive: true });
 }

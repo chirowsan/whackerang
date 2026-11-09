@@ -9,10 +9,16 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 ## Controls
 | | Move | Throw | Dash (i-frames) | Deflect |
 |---|---|---|---|---|
-| Touch | left stick | right side: drag to aim, release to throw (hold = charge); quick tap = auto-aim | ▶▶ button | shield button |
+| Touch | left stick | throw stick: drag aim, release throw (tap = auto-aim); **Melee** button | ▶▶ Dash | Shield |
 | Keyboard P1 | WASD | mouse aim + click, or F | Space | E / right-click |
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
+
+## What's new in v4.10.3 (dedicated Melee button)
+- **Dedicated Melee button on phones:** a new Melee control sits next to Dash; the throw stick is throw-only (drag to aim, release to throw; a quick tap is an auto-aim throw). Desktop keyboard/gamepad and online melee rules are unchanged.
+- **Teach-once labels:** SHIELD / DASH / SPECIAL / MELEE / THROW fade after a few uses or after your first match (saved on the device). The buttons themselves always stay.
+- **Clearer throw icon:** the throw stick shows the original boomerang icon (it no longer looks like a magnifying glass when Bao's Iron Wok is equipped).
+- **Maps unchanged:** arena floors, props, bushes and traps match v4.10.2 exactly.
 
 ## What's new in v4.10.2 (iPhone / phone fixes)
 - **Online menu on iPhone:** tapping the Pause button in an online match now keeps the menu open (Safari's follow-up tap no longer closed it straight away), so Back, Fullscreen and Leave can be reached.

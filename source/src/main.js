@@ -248,7 +248,7 @@ const app = {
     if (mode === 'bomb') rows.push(['Bombs passed', String(m.st.passes)]);
     if (m.stage) { const stg = m.stage; stars = evalStars(stg, st); const cur = s.camp.stars[stg.n - 1] || 0; prevStars = cur; firstClear = won && cur === 0; if (stars > cur) { s.camp.stars[stg.n - 1] = stars; } if (stg.kind === 'boss' && won) { track('boss', 0); s.camp.bosses = s.camp.bosses || {}; if (!s.camp.bosses[stg.n]) { s.camp.bosses[stg.n] = 1; track('boss', 1); } } const tot = s.camp.stars.reduce((a, b) => a + (b || 0), 0); track('stars', tot); if (won) { coins += 15 * stars + (firstClear ? 60 : 0); xp += 12 * stars + (firstClear ? 50 : 0); } rows.push(['Time', fmtT(g.playTime)], ['Times KO\u2019d', String(m.st.deaths)]); }
     if (m.tutorial) { s.tutorialDone = true; coins = 40; xp = 60; rows.length = 0; rows.push(['Tutorial', 'Complete!']); }
-    addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd';
+    addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {}
     if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); }
     const lv = levelInfo();
     const base = { won, mode, stage: m.stage || null, stars, prevStars, firstClear, rows, coins, xp, lvBefore, lv, ups, winnerName: o.winnerName, champ: o.champ, info: o.info, tutorial: !!m.tutorial };
@@ -274,7 +274,7 @@ const app = {
     UI.banner(t1, `Next round starting...`, '#ffd23c'); sfx('round');
   },
   net_matchEnd(res) {
-    this.mode = 'matchEnd'; const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) fx.confetti(f.x, f.z, 80, 1.6); } this.applyTouch();
+    this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {} const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) fx.confetti(f.x, f.z, 80, 1.6); } this.applyTouch();
     setTimeout(() => { if (this.mode === 'matchEnd' && this.net) { UI.show('netResults'); this.applyTouch(); } }, 900);
   },
   netToLobby() { this.match = null; this.mode = 'menu'; this.paused = false; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show('netLobby'); this.applyTouch(); },

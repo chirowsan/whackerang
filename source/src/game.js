@@ -126,9 +126,9 @@ class Fighter {
   meleeTick(dt, inp) {
     this.slCd -= dt; const M = W(this.wpn).melee;
     if (this.slT >= 0) { const t0 = this.slT; this.slT += dt; if (this.slT >= M.wind && t0 < M.wind + M.act) this.g.slashHits(this, M); if (this.slT >= M.wind + M.act + M.rec) this.slT = -1; }
-    if (inp.melee && this.canSlash()) { // explicit swing key: aim direction if aiming, else toward a visible rival in reach (aim assist), else straight ahead
+    if (inp.melee && this.canSlash()) { // explicit swing: aim stick / move dir if set, else face the nearest visible rival in reach (t401u phone MELEE button)
       let a = this.face; if (inp.aimX || inp.aimZ) a = Math.atan2(inp.aimX, inp.aimZ); else if (Math.hypot(inp.mx, inp.mz) > 0.2) a = Math.atan2(inp.mx, inp.mz);
-      const o = this.slashTarget(0.35); if (o) { const ta = Math.atan2(o.x - this.x, o.z - this.z); if (Math.abs(angDiff(a, ta)) < 1.2) a = ta; } this.startSlash(a);
+      const o = this.slashTarget(0.35); if (o) { const ta = Math.atan2(o.x - this.x, o.z - this.z); if (!(inp.aimX || inp.aimZ) || Math.abs(angDiff(a, ta)) < 1.2) a = ta; } this.startSlash(a);
     }
   }
   release() {

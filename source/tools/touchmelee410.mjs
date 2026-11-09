@@ -1,4 +1,4 @@
-// v4.10 touch melee, DETERMINISTIC: real CDP touches on the throw stick, but the sim is driven by the test with a fixed dt (the page's
+// v4.10 touch melee, DETERMINISTIC: real CDP touches: #btnMelee for swings, throw stick for throws (t401u dedicated melee), but the sim is driven by the test with a fixed dt (the page's
 // rAF loop is detached from game.update), Math.random is seeded, the rival bot is frozen, and inv/shield/parry/cooldowns are set explicitly.
 // Stealth semantics: detect = 1.8 < boom swing reach (~2.06 + 0.25 slack), so a bush rival INSIDE 1.8 is correctly seen and swung at;
 // the "hidden" case is a real bush rival at 2.1 (in reach, outside detection) and asserts hid && !canSee at input time.
@@ -34,19 +34,26 @@ const ts = page.touchscreen;
 // real touchstart/touchend back to back, measure the actual press length from the page's own touch events, and assert it was a quick tap.
 // the page must be warm (shader compile on the first scenario delayed touchend by ~320+ ms -> input.js correctly saw a long press = throw)
 const smooth = () => page.evaluate(() => new Promise((res) => { let last = performance.now(), good = 0, n = 0; const f = (t) => { const d = t - last; last = t; good = d < 40 ? good + 1 : 0; if (good >= 20 || ++n > 600) res({ good, n }); else requestAnimationFrame(f); }; requestAnimationFrame(f); }));
+const meleeBtn = async () => page.evaluate(() => { const e = document.querySelector('#btnMelee'); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+const meleeTap = async () => { await smooth(); const c = await meleeBtn(); if (!c) throw new Error('no #btnMelee');
+  // pointerdown on the dedicated button (same path as real thumb); advance the DETACHED sim via __step
+  await page.evaluate(({ x, y }) => { const el = document.elementFromPoint(x, y) || document.querySelector('#btnMelee'); el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: x, clientY: y, pointerId: 7, pointerType: 'touch' })); }, c);
+  await step(45);
+  await page.evaluate(() => { const el = document.querySelector('#btnMelee'); el && el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 7, pointerType: 'touch' })); });
+};
 const tap = async () => { await smooth(); const c = await aimC(); await page.evaluate(() => { window.__press = null; const z = document.querySelector('#aimzone'); if (!window.__pl) { window.__pl = true; z.addEventListener('touchstart', () => { window.__ps = performance.now(); }, true); z.addEventListener('touchend', () => { window.__press = performance.now() - window.__ps; }, true); } });
   await ts.touchStart(c.x, c.y); await ts.touchEnd(); await step(45); const ms = await page.evaluate(() => window.__press); if (!(ms < 200)) await ok('precondition: tap was a quick press (< 200 ms, well under the 340 ms tap window)', false, { ms }); return ms; };
 const drag = async (dx, dy) => { await smooth(); const c = await aimC(); await ts.touchStart(c.x, c.y); await step(3); for (let i = 1; i <= 5; i++) { await ts.touchMove(c.x + dx * i / 5, c.y + dy * i / 5); await step(3); } await step(10); await ts.touchEnd(); await step(45); };
 const cnt = () => page.evaluate(() => ({ slash: __cnt.slash, throw: __cnt.throw, hp: __bg.app.game.fighters[1].hp }));
 let s0, c;
-s0 = await setup(1.0, false); await tap(); c = await cnt(); await ok('quick tap next to a visible rival = swing (no throw), exactly one heart', c.slash === 1 && c.throw === 0 && c.hp === 2, { ...c, pre: s0 });
+s0 = await setup(1.0, false); await meleeTap(); c = await cnt(); await ok('MELEE button next to a visible rival = swing (no throw), exactly one heart', c.slash === 1 && c.throw === 0 && c.hp === 2, { ...c, pre: s0 });
 s0 = await setup(6, false); await tap(); c = await cnt(); await ok('quick tap with no rival in reach = normal auto-aim throw', c.slash === 0 && c.throw === 1, c);
 s0 = await setup(1.0, false); await drag(60, -10); c = await cnt(); await ok('drag + release next to a rival = deliberate throw, never a swing', c.slash === 0 && c.throw === 1, c);
 s0 = await setup(2.1, true); await ok('precondition: bush rival at 2.1 is inside swing reach+slack but outside detection, hidden and NOT visible at input time', s0.bushIn && s0.hid && !s0.canSee && s0.d > s0.detect && s0.d <= s0.reach + 0.25, s0);
 await tap(); c = await cnt(); await ok('quick tap with a HIDDEN rival in reach does not auto-swing (throws instead)', c.slash === 0 && c.throw === 1, c);
 s0 = await setup(1.0, true); await ok('precondition: bush rival at 1.0 is inside detection range, so hidden-but-discovered (visible to the tapper)', s0.bushIn && s0.hid && s0.canSee && s0.d < s0.detect, s0);
-await tap(); c = await cnt(); await ok('quick tap next to a DISCOVERED bush rival = swing, one heart', c.slash === 1 && c.throw === 0 && c.hp === 2, c);
-s0 = await setup(1.0, false); await tap(); await drag(50, 0); c = await cnt(); await ok('swing does not lock the next deliberate throw', c.slash === 1 && c.throw === 1, c);
+await meleeTap(); c = await cnt(); await ok('MELEE button next to a DISCOVERED bush rival = swing, one heart', c.slash === 1 && c.throw === 0 && c.hp === 2, c);
+s0 = await setup(1.0, false); await meleeTap(); await drag(50, 0); c = await cnt(); await ok('swing does not lock the next deliberate throw', c.slash === 1 && c.throw === 1, c);
 await ok('parry / dash / ult buttons still present', await page.evaluate(() => ['#btnDef', '#btnDash', '#btnUlt'].every((q) => { const e = document.querySelector(q); const r = e && e.getBoundingClientRect(); return r && r.width > 20; })));
 await ok('throw stick shows the equipped weapon icon', await page.evaluate(() => { const S = __bg.S(); S.hero = 'bao'; S.loadout = [{ bao: 'bao_pin' }, {}]; __bg.app.startMode('classic'); return document.querySelector('#aimknob .boom').dataset.w === 'bao_pin'; }));
 const pe = errors.filter((e) => !/REQFAIL|ERR_FILE/.test(e)); await ok('no page errors', !pe.length, pe.slice(0, 2));

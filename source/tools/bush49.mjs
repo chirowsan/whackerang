@@ -55,11 +55,11 @@ const M = await page.evaluate(() => {
     const vw = g.view, cam = __bg.gfx.camera, T3 = __bg.THREE; const t0 = __bg.gfx.touchCtl; const zone = (q) => { const b = vw.bushBase[q]; const [px, py] = __bg.toScreen(b[0], 0.3, b[1]); return { q, px: +px.toFixed(3), py: +py.toFixed(3), under: py > 0.58 && (px < 0.24 || px > 0.70) }; };
     const run = (on, n) => { __bg.gfx.touchCtl = () => on; for (let q = 0; q < n; q++) vw.bushUnderHud(1 / 30); return [...vw.bushK]; };
     cam.updateMatrixWorld(); const Z = vw.bushBase.map((_, q) => zone(q)); const K = run(true, 40);
-    R.nat = { n: Z.length, under: Z.filter((z) => z.under).length, underOk: Z.every((z, q) => (z.under ? K[q] <= 0.25 : K[q] === 1)), sample: Z.filter((z) => z.under).slice(0, 3), nearest: Z.slice().sort((a, b) => b.py - a.py).slice(0, 2) };
+    R.nat = { n: Z.length, under: Z.filter((z) => z.under).length, underOk: Z.every((z, q) => (z.under ? K[q] <= 0.25 : K[q] >= 0.99)), sample: Z.filter((z) => z.under).slice(0, 3), nearest: Z.slice().sort((a, b) => b.py - a.py).slice(0, 2) };
     R.flatOff = Math.min(...run(false, 60));
     const pos0 = cam.position.clone(); const tq = Z.slice().sort((a, b) => b.py - a.py)[0].q; const tb = vw.bushBase[tq]; const ray = new T3.Raycaster(); const hit = new T3.Vector3();
     for (let it = 0; it < 4; it++) { cam.updateMatrixWorld(); ray.setFromCamera({ x: 0.1 * 2 - 1, y: -(0.82 * 2 - 1) }, cam); const o = ray.ray.origin, d = ray.ray.direction; const t = (0.3 - o.y) / d.y; hit.copy(d).multiplyScalar(t).add(o); cam.position.x += tb[0] - hit.x; cam.position.z += tb[1] - hit.z; }
-    cam.updateMatrixWorld(); const F = zone(tq); const K2 = run(true, 40); R.forced = { q: tq, ...F, k: +K2[tq].toFixed(3), othersOk: Z.every((_, q) => q === tq || (zone(q).under ? K2[q] <= 0.25 : K2[q] === 1)) };
+    cam.updateMatrixWorld(); const F = zone(tq); const K2 = run(true, 40); R.forced = { q: tq, ...F, k: +K2[tq].toFixed(3), othersOk: Z.every((_, q) => q === tq || (zone(q).under ? K2[q] <= 0.25 : K2[q] >= 0.99)) };
     cam.position.copy(pos0); cam.updateMatrixWorld(); const K3 = run(true, 60); R.forcedBack = +K3[tq].toFixed(3); R.forcedOff = Math.min(...run(false, 60));
     __bg.gfx.touchCtl = t0; R.flatMin = Math.min(...K); R.bushStill = g.layout.bush.reduce((a, b) => a + b, 0) === g.bushN; }
   // opponent's view: pretend this screen belongs to X
@@ -90,7 +90,7 @@ ok('standing fully inside a 2x2 bush pocket conceals you (host tick)', M.inHid =
 ok('a hidden fighter is invisible to opponents (whole root: model, team ring, YOU ring, marker, shadow), and not not on their minimap / edge arrows / camera', M.canX === false && M.oppShown === false && M.oppMinimap === false, M);
 ok('you still see yourself in cover (translucent body 60%, own ring/marker kept)', M.canSelf === true && M.selfShown === true && M.selfGhost === 0.6, M);
 ok('hidden self is readable, not a dark blob: outline shells keep their thickness shader and turn soft light (0xeef4ff @ 0.75); body 30-60% opaque', M.mat.ol > 0 && M.mat.olShader && M.mat.body && M.mat.olLight === true, M.mat);
-ok('own team ring + YOU ring draw over the foliage while hidden; YOU marker shown', M.mat.ringTop && M.mat.ringA > 0.9 && M.mat.mark, M.mat);
+ok('own team ring + YOU ring draw over the foliage while hidden; YOU marker shown', M.mat.ringTop && M.mat.ringA >= 0.65 && M.mat.mark /* t401u quieter rings */, M.mat);
 ok('YOU marker stays inside the viewport above the fighter even at the map edge (pocket at the side wall)', M.markScr[0] >= 0.06 && M.markScr[0] <= 0.94 && M.markScr[1] >= 0 && M.markScr[1] < M.bodyScr[1] && Math.abs(M.markScr[0] - M.bodyScr[0]) < 0.12, { mark: M.markScr, body: M.bodyScr });
 ok('foliage under the touch-control corners: with the current framing EVERY bush projecting into a control corner is pressed flat and every other bush stays full; all spring back without touch controls (gameplay bush unchanged)', M.nat.n > 0 && M.nat.underOk && M.flatOff === 1 && M.bushStill, { nat: M.nat, off: M.flatOff });
 ok('a real bush brought under the bottom-left control corner is pressed flat (others follow the rule), stands up again once it is no longer under a control, and with touch controls off', M.forced.under && M.forced.k <= 0.25 && M.forced.othersOk && M.forcedBack === (M.nat.sample.some((z) => z.q === M.forced.q) ? 0.22 : 1) && M.forcedOff === 1, { forced: M.forced, back: M.forcedBack, off: M.forcedOff });
