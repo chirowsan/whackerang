@@ -180,7 +180,7 @@ class Boom {
     this.wpn = wpnOf(o.wpn || owner.wpn); { const WP = W(this.wpn); this.v0 *= WP.v; this.hitR *= WP.hitR; this.tout *= WP.tout; this.w *= clamp(WP.curve, 0.5, 1.35); /* t404u: keep weapon identity, clamp extreme curves for readable paths */ const X = WP.fx || {}; this.homeK = X.home || 0; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; } // v4.10 Armory: per-weapon flight
     this.mesh = buildWeapon(this.wpn, owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
     const tr = TRAILS[owner.trail] || TRAILS.none; const rcol = owner.trail !== 'none' ? tr.color : (this.type !== 'classic' ? BOOM_TYPES[this.type].color : owner.color);
-    this.ribbon = fx.ribbon(rcol, o.giant ? 0.62 : 0.36, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null;
+    this.ribbon = fx.ribbon(rcol, o.giant ? 0.4 : 0.2, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null; /* t405u: thinner ribbon */
   }
   update(dt) {
     const g = this.g, o = this.owner; this.total += dt; this.spin += dt * 19;
@@ -208,7 +208,7 @@ class Boom {
       if (!this.alive) return;
     }
     if (this.total > 7) { this.caught(true); return; }
-    fx.trail(this.x, 0.5, this.z, this.owner.color, this.giant ? 0.22 : 0.1); /* t404u: faint consistent flight trail */
+    if ((this._tr = (this._tr | 0) + 1) % 3 === 0) fx.trail(this.x, 0.5, this.z, this.owner.color, this.giant ? 0.14 : 0.06); /* t405u: shorter/fainter flight trail */
   }
   caught(quiet) {
     const o = this.owner; if (o.alive && this.carry) o.giveAmmo(); this.kill();
@@ -310,19 +310,22 @@ export class Game {
     }
   }
   nearestEnemy(f, x, z, maxD, excl, seen) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o)) || (seen && !canSee(this, f.team, o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
-  // t404u: simulate the real out-and-back path (no walls) so the aim preview matches flight
-  predictBoomPath(f, ang, c, n = 14) {
+  // t404u/t405u: simulate boom path (no walls). opt.outOnly + opt.frac → short outbound hint only
+  predictBoomPath(f, ang, c, n = 14, opt = null) {
+    const outOnly = !!(opt && opt.outOnly); const frac = clamp((opt && opt.frac) || 1, 0.05, 1);
     const WP = W(f.wpn); const curveK = clamp(WP.curve, 0.5, 1.35);
     let v0 = (13 + 8 * c) * (WP.v || 1), tout = (0.8 + 0.7 * c) * (WP.tout || 1), w = CURVE * (1 - 0.35 * c) * curveK;
     let x = f.x + dirx(ang) * 0.6 * f.bs, z = f.z + dirz(ang) * 0.6 * f.bs, th = ang, t = 0, phase = 'out', retT = 0;
-    const raw = [[x, z]], h = 1 / 40, homeK = (WP.fx && WP.fx.home) || 0;
+    const raw = [[x, z]], h = 1 / 40, homeK = (WP.fx && WP.fx.home) || 0; const tOut = tout * frac;
     for (let i = 0; i < 160; i++) {
       let speed;
       if (phase === 'out') {
         t += h; const k = t / tout; speed = v0 * (1 - 0.68 * Math.min(1, k)); th += w * h * (1 - 0.3 * k);
         if (homeK) { const tg = this.nearestEnemy(f, x, z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - x, tg.z - z); th += clamp(angDiff(th, a), -homeK * h, homeK * h); } }
+        if (outOnly && t >= tOut) { x += dirx(th) * speed * h; z += dirz(th) * speed * h; raw.push([x, z]); break; }
         if (t >= tout) { phase = 'ret'; retT = 0; }
       } else {
+        if (outOnly) break;
         retT += h; speed = 8 + 15 * Math.min(1, retT / 0.8);
         const a = Math.atan2(f.x - x, f.z - z); const rate = 5.5 + retT * 7; th += clamp(angDiff(th, a), -rate * h, rate * h);
         if (Math.hypot(f.x - x, f.z - z) < 0.65 && retT > 0.12) { raw.push([x, z]); break; }
@@ -605,21 +608,32 @@ export class Game {
       if (m.tbub) { m.tbub.visible = f.alive && f.pu.slow > 0; if (m.tbub.visible) { m.tbub.rotation.z = t * 0.6; m.tbub.material.opacity = 0.35 + Math.sin(t * 5) * 0.12; } }
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
-      // aim arrow
-      const showAim = f.charging && !f.isBot && f.alive; m.aim.visible = showAim;
-      if (showAim) {
-        // t404u: preview the actual curved out-and-back route (same sim as flight), original dots styling
-        const c = Math.min(1, f.chargeT / 0.7); const explicit = Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
-        const base = explicit ? Math.atan2(f.lastAim[0], f.lastAim[1]) : f.face; const ang = this.pickAim(f, base, explicit);
-        const pts = this.predictBoomPath(f, ang, c, m.aimDots.length); const cf = Math.cos(f.vface), sf = Math.sin(f.vface);
-        m.aim.rotation.y = 0; const col = c > 0.95 ? 0xff7a3a : 0xffffff;
-        m.aimDots.forEach((d, i) => {
-          const [px, pz] = pts[i] || pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
-          const lx = dx * cf - dz * sf, lz = dx * sf + dz * cf; d.position.set(lx, 0.06, lz);
-          const u = i / Math.max(1, m.aimDots.length - 1); d.scale.setScalar(0.55 + u * 0.55); d.material.color.setHex(col);
-          d.material.opacity = 0.35 + 0.5 * (1 - Math.abs(u - 0.45)); // faint mid-return, clearer outbound
-        });
-        { const [px, pz] = pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z; m.aimTip.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf); m.aimTip.material.color.setHex(col); }
+      // t405u: short faint outbound aim hint (no return leg). Touch: only while stick dragged past deadzone. Mouse/kbd: only with explicit aim (as before). Never taps / AI / remotes.
+      {
+        const online = !!(this.net && this.net.phase === 'match');
+        const isMe = !f.isBot && (f.def.slot === 0 || (!online && f.def.slot === 1));
+        const touchDrag = !!(Input.touch && Input.touch.aimDrag);
+        const mouseAim = Input.lastUsed !== 'touch' && Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
+        const want = isMe && f.alive && f.charging && (touchDrag || mouseAim);
+        f._aimFade = want ? Math.min(1, (f._aimFade || 0) + dt / 0.08) : 0; // ~80 ms fade-in, instant out
+        const showAim = (f._aimFade || 0) > 0.02; m.aim.visible = showAim;
+        if (showAim) {
+          const c = Math.min(1, f.chargeT / 0.7); const explicit = Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
+          const base = explicit ? Math.atan2(f.lastAim[0], f.lastAim[1]) : f.face; const ang = this.pickAim(f, base, explicit);
+          const N = 5; const pts = this.predictBoomPath(f, ang, c, N, { outOnly: true, frac: 0.34 });
+          const cf = Math.cos(f.vface), sf = Math.sin(f.vface); m.aim.rotation.y = 0;
+          const fade = f._aimFade; const col = 0xffffff;
+          m.aimDots.forEach((d, i) => {
+            if (i >= N) { d.visible = false; return; }
+            d.visible = true; const [px, pz] = pts[i] || pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
+            d.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf);
+            const u = i / Math.max(1, N - 1); d.scale.setScalar(0.28 + u * 0.22);
+            d.material.color.setHex(col); d.material.opacity = (0.18 + 0.22 * u) * fade; // low-alpha tapered dots
+          });
+          { const [px, pz] = pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
+            m.aimTip.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf); m.aimTip.scale.setScalar(0.55);
+            m.aimTip.material.color.setHex(col); m.aimTip.material.opacity = 0.35 * fade; }
+        } else { m.aimDots.forEach((d) => { d.visible = true; }); }
       }
       if (f.frozenT > 0 && f.alive) { if (!m.ice) { m.ice = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), new THREE.MeshBasicMaterial({ color: 0xaee8ff, transparent: true, opacity: 0.5, depthWrite: false })); m.ice.position.y = 0.75; m.root.add(m.ice); } m.ice.visible = true; m.ice.scale.setScalar(1 + Math.sin(t * 8) * 0.01); } else if (m.ice) m.ice.visible = false;
       m.ring.material.opacity = f.alive ? 0.95 : 0.2;
