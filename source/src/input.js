@@ -1,6 +1,7 @@
 // Unified input: keyboard (+mouse aim), gamepads, touch (move stick, aim-throw stick, dash/deflect buttons).
 import { S } from './save.js';
 import { WICON, wpnOf } from './weapons.js';
+import { gfx } from './gfx.js';
 
 const P1 = { up: ['KeyW'], down: ['KeyS'], left: ['KeyA'], right: ['KeyD'], fire: ['KeyF', 'KeyJ'], dash: ['Space', 'KeyK'], deflect: ['KeyE', 'KeyQ', 'KeyL'], ult: ['KeyR', 'KeyU'], melee: ['KeyG', 'KeyH'] }; // v4.10 melee swing
 const P2 = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right: ['ArrowRight'], fire: ['Enter', 'NumpadEnter'], dash: ['ShiftRight', 'Numpad0'], deflect: ['Slash', 'ControlRight', 'NumpadDecimal'], ult: ['Period', 'Numpad1'], melee: ['Comma', 'Numpad2'] };
@@ -143,10 +144,11 @@ export function initTouch(root) {
   const jend = (e) => { if (e.pointerId !== jId) return; jId = null; t.tx = 0; t.tz = 0; jb.classList.remove('active'); rest(); };
   jz.addEventListener('pointerup', jend); jz.addEventListener('pointercancel', jend); jz.addEventListener('lostpointercapture', jend);
   // aim stick: drag = aim, release = throw, quick tap = auto-aim throw
-  const SIN = 0.82; // approx. vertical foreshortening of tilted camera
+  // t404u: match camera foreshortening (was hard-coded 0.82; phone tilt ~62–66° → sin≈0.88–0.91)
+  const aimSin = () => Math.max(0.55, Math.sin(gfx.tilt_ || (62 * Math.PI / 180)));
   az.addEventListener('pointerdown', (e) => { if (aId !== null) return; aId = e.pointerId; az.setPointerCapture(e.pointerId); Input.lastUsed = 'touch'; acx = e.clientX; acy = e.clientY; place(ab, acx, acy); ab.classList.add('active'); aT0 = performance.now(); aDragged = false; t.fire = true; t.aimX = 0; t.aimZ = 0; });
   az.addEventListener('pointermove', (e) => { if (e.pointerId !== aId) return; let vx = e.clientX - acx, vy = e.clientY - acy; const d = Math.hypot(vx, vy); const sx = d > R ? vx / d * R : vx, sy = d > R ? vy / d * R : vy; ak.style.transform = `translate(calc(-50% + ${sx * 0.7}px), calc(-50% + ${sy * 0.7}px))`;
-    if (d > 26) { aDragged = true; const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; boomEl.style.transform = `rotate(${(Math.atan2(vx, -vy) * 57.2958).toFixed(0)}deg)`; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
+    if (d > 26) { aDragged = true; const SIN = aimSin(); const wx = vx, wz = vy / SIN; const l = Math.hypot(wx, wz); t.aimX = wx / l; t.aimZ = wz / l; boomEl.style.transform = `rotate(${(Math.atan2(vx, -vy) * 57.2958).toFixed(0)}deg)`; } else if (aDragged && d < 10) { aDragged = false; t.aimX = 0; t.aimZ = 0; } });
   const aend = (e) => { if (e.pointerId !== aId) return; aId = null; ab.classList.remove('active'); rest();
     const quick = !aDragged && performance.now() - aT0 < 340; t.fire = false; if (quick) { t.fireQ = 2; t.tapQ = 0; t.markHint && t.markHint('throw'); } else { t.fireQ = 1; t.tapQ = 0; if (aDragged) t.markHint && t.markHint('throw'); } /* t401u: throw-only stick; quick tap = auto-aim throw (no melee) */ setTimeout(() => { if (!t.fire) { t.aimX = 0; t.aimZ = 0; } }, 60); if (t.hud.ammo > 0) vib(quick ? 8 : 14); };
   az.addEventListener('pointerup', aend); az.addEventListener('pointercancel', (e) => { if (e.pointerId === aId) { aId = null; t.fire = false; t.aimX = t.aimZ = 0; ab.classList.remove('active'); rest(); } }); az.addEventListener('lostpointercapture', (e) => { if (e.pointerId === aId) aend(e); });

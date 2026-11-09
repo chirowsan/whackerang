@@ -9,10 +9,77 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 ## Controls
 | | Move | Throw | Dash (i-frames) | Deflect |
 |---|---|---|---|---|
-| Touch | left stick | right side: drag to aim, release to throw (hold = charge); quick tap = auto-aim | ▶▶ button | shield button |
+| Touch | left stick | throw stick: drag aim, release throw (tap = auto-aim); **Melee** button | ▶▶ Dash | Shield |
 | Keyboard P1 | WASD | mouse aim + click, or F | Space | E / right-click |
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
+
+## What's new in v4.10.4 (clearer boomerang aim)
+- **Throws go where you aim:** on phones, aim assist only gently nudges toward a rival who is already near your aim line (about ±12°), and never swaps the throw toward someone off to the side. A quick tap still auto-aims, but only at rivals in front of you.
+- **Curved path preview:** while you hold the throw stick, the dots show the real out-and-back curve your boomerang will take (same flight as the throw), not a straight line. A faint trail follows it in flight.
+- **Predictable weapons:** each character's weapons keep their feel, with extreme curves slightly clamped so paths stay readable. Shield bounces and parries no longer add random spin.
+
+## What's new in v4.10.3 (dedicated Melee button)
+- **Dedicated Melee button on phones:** a new Melee control sits next to Dash; the throw stick is throw-only (drag to aim, release to throw; a quick tap is an auto-aim throw). Desktop keyboard/gamepad and online melee rules are unchanged.
+- **Teach-once labels:** SHIELD / DASH / SPECIAL / MELEE / THROW fade after a few uses or after your first match (saved on the device). The buttons themselves always stay.
+- **Clearer throw icon:** the throw stick shows the original boomerang icon (it no longer looks like a magnifying glass when Bao's Iron Wok is equipped).
+- **Maps unchanged:** arena floors, props, bushes and traps match v4.10.2 exactly.
+
+## What's new in v4.10.2 (iPhone / phone fixes)
+- **Online menu on iPhone:** tapping the Pause button in an online match now keeps the menu open (Safari's follow-up tap no longer closed it straight away), so Back, Fullscreen and Leave can be reached.
+- **Whole arena on phones:** in landscape on phone-sized screens the camera now fits the whole arena (or nearly) to the screen, both in the countdown and during play. Fighters keep a minimum size, so on Huge maps the camera still follows you. Portrait, tablets and desktop are unchanged.
+- **Hosting after switching apps:** if a host's connection to the room service drops (for example after switching away to share the room code), the host now re-registers the same room code when it comes back, so friends can still join. This targets reports that an iPhone-hosted room could not be joined from Android; the exact cause is not confirmed on real phones yet.
+- **Known limits:** tested in the WebKit engine and Chrome with phone-sized screens and real touch events, and over a local relay; not yet verified on real iPhones/Android phones or over direct peer-to-peer. iPhone Safari keeps its own toolbars; Add to Home Screen gives full-screen play.
+
+## What's new in v4.10.1 (phone fixes)
+- **Online menu on phones:** the in-match online menu (Pause button) now reacts to taps; the touch controls no longer sit on top of it. Online matches keep running while the menu is open (they never pause).
+- **Wider phone camera:** on phone-sized landscape screens the close camera shows about 15% more of the arena. Tablets and desktop are unchanged.
+- **Fullscreen on start:** on browsers that support it, pressing Play / START on a touch device asks for fullscreen. If you leave fullscreen it is not forced back. Not yet verified on a real Android phone.
+- **Clearer touch labels:** high-contrast labels SHIELD, DASH, SPECIAL, and on the throw stick DRAG: THROW and TAP NEAR: MELEE. Labels never block touches; controls behave exactly as before.
+
+## What's new in v4.10 (melee + character weapons)
+- **Every fighter has their own 3 weapons (24 in all, none shared):** e.g. Bao's Iron Wok / Cleaver / Rolling Pin, Nori's Shuriken / Kama / Tanto, Gus's Dumbbell / Title Belt / Kettlebell. They differ in swing pattern (Sweep, Thrust, Lunge, Spin 360), reach, speed and recovery, and some throws home in, pierce or briefly stun. Every hit is still one heart. All weapons are free.
+- **Melee swing:** tap the throw stick next to a visible rival to swing (drag + release always throws). Keys: G (P1), B (solo), Comma / Numpad 2 (P2), gamepad LT. Hidden rivals in bushes are not auto-targeted unless you are close enough to discover them.
+- **Armory:** pick a character from the strip; only that character's weapons are shown. The choice is saved per character and per player (P1 / P2); old saves carry the previous pick over to the selected character.
+- **Online:** rooms where everyone runs v4.10 get melee + character weapons (the host checks every pick). A room with an older v4.9 player plays the v4.9 boomerang-only rules; a v4.9 player cannot join a melee round already running.
+- **Known limits:** balance is a first pass; not yet verified on a real phone or over direct peer-to-peer (tested in desktop browsers over a local relay).
+
+## What's new in v4.9 (calmer maps, bushes)
+- **Calmer, clearer maps.** Fewer walls and crates, and fewer traps: by default 2 / 3 / 4 hazards on Small / Large / Huge. Lethal traps stay dormant for the first seconds of a round. Each arena has a themed floor, shadows and switches are easier to read, and hit effects are quieter.
+- **Bushes for hiding and surprise attacks.** Step into a bush and rivals lose sight of you, while you and your teammates see you faded. You show up again for **1.5 s** after you throw, parry, use your ULT or get hit, and anyone within **1.8 units** of you can spot you. Bushes under the touch controls are drawn flat so they never cover the buttons. Boomerang Ball has no bushes.
+- **Online:** a room uses the new layout and bushes only when every player runs v4.9. A room with an older client falls back to the older layout with no bushes. Bush hiding only changes what the game draws: positions are still sent over the network, so this is not anti-cheat and a modified client could see hidden players.
+- **Fix:** turning Traps Off (and the tutorial) no longer breaks the hop animation.
+
+## What's new in v4.8 (shrinking poison zone)
+- **At the 2:00 mark the poison closes in.** In Classic, Team, Crumble, Bomb tag and King of the Hill, purple poison starts at the rim of the arena and slowly creeps toward the middle, so a round can't stall forever.
+  - **Warning:** 10 s before, a "☣ POISON IN 10s" banner appears, a warning sound plays with beeps at 3-2-1, and the rim glows green. The HUD timer counts down (during sudden death it shows ☠ ☣m:ss).
+  - **The zone:** purple haze covers the poisoned band and a bright green line marks the edge. On Large and Huge the minimap shades the poison and outlines the safe area. A green vignette shows when you are standing in it.
+  - **Shrinking:** the safe rectangle shrinks evenly over 75 s to a small final zone in the middle (20% of the arena, at least 5×4 tiles) and then holds that size.
+  - **Damage:** standing in poison costs one heart every 2 s ("☣ ♥ N LEFT"). The normal blinking invulnerability applies, and each hero's hearts and abilities count (Nine Lives saves Salty once, and Gus lasts about 10 s). Stepping back into the safe zone lets your poison meter recover. A KO in the poison counts as "☣ POISONED!".
+  - **Bots** take the shortest walkable route, around walls, holes and lava, to the safe zone, and avoid the poisoned edge.
+  - **Spawns, respawns and edge rescues** always land inside the safe zone. In King of the Hill the hill moves to the middle when the poison starts.
+  - **Where it's off:** the tutorial, boss stages, Boss rush, Survival waves, Capture the flag, Ball and Coins.
+  - **Online:** it is host-authoritative. The host's tuning travels with the round rules, the zone is computed from the synced match clock, and only the host applies poison damage. Guests just render it.
+- **Tuning:** every number lives in one object, `POISON` in `src/poison.js`: `startAt` 120 s, `warn` 10 s, `shrink` 75 s, `minFrac` 0.2, `minHX` 2.5, `minHZ` 2.0, `tick` 2.0 s, `botMargin` 1.0, `spawnMargin` 0.7. Times are in game time, the clock the HUD shows. At the default Chill speed that runs slower than wall time.
+
+## What's new in v4.7 (hero health + abilities, bigger map, no more falling through the floor)
+- **Every hero has their own health and a unique ability** (shown on the hero cards, in the hero details and in the HUD). This replaces the flat 3 hits:
+  - **Bao** 4♥, *Comfort Food*: gets 1 heart back after 8 s without being hit.
+  - **Nori** 2♥, *Smoke Dodge*: dashes make him untouchable for 0.45 s (others get 0.22 s).
+  - **Bolt** 3♥, *Static Throw*: a fully charged throw also stuns whoever it hits for 0.6 s.
+  - **Salty** 3♥, *Nine Lives*: once per round, a knockout leaves him on 1 heart instead.
+  - **Pico** 3♥, *Long Tongue*: grabs power-ups from 2.5× farther away.
+  - **Yuki** 3♥, *Frostbite*: her hits chill rivals to half speed for 1.5 s.
+  - **Gus** 5♥, *Heavyweight*: the tankiest hero. He takes half knockback but walks 8% slower.
+  - **Wisp** 2♥, *Hover*: floats over a hole for 1 s before dropping.
+
+  A hit, a bomb, lava, spikes or a fall costs one heart and gives about 1.4 s of blinking invulnerability. You are knocked out when the last heart is gone, and hearts refill on respawn. It works the same online, because the host is authoritative and every guest sees each hero's hearts. Bosses keep their own HP, wave minions have 1 heart, and the tutorial stays at 1 heart.
+- **Default map size is Large** (the middle of Small / Large / Huge). Saves whose size was never picked by the player switch to Large once. Tapping Map size remembers your choice. The online lobby also defaults to Large.
+- **Safety net, no fall-through deaths:** movement is sub-stepped, so fast dashes, knockback and bumpers can't tunnel through walls. A rim assist eases you back when only part of your body is over a drop. Falling, or landing on lava, with hearts left costs one heart and puts you on the nearest safe floor. If you fall while invulnerable, you are put back for free. A guard puts any fighter that ends up off the map, NaN or inside a wall back on floor. Spawns, respawns and enemy spawns are always on solid floor. Portals wait instead of sending you onto a hole. The KO spin-out no longer sinks through the floor. A trapdoor that closes is floor again for online guests. See docs/FALLING.md.
+
+## What's new in v4.6 (Auto match)
+- **Auto match** (big gold button above Create room / Join room in the Online menu): tap it and the game pairs you with other players who are searching at the same time (per mode). A full room (4) starts at once; with 2+ players it starts about 25 s after the second joins. If nobody comes, bots fill the empty seats after at most 2 minutes. You see a search screen with the time, "Players found n/4", a Cancel button and "Play vs bots now". If the matchmaker can't be reached you get a clear message and can play against bots right away.
+- Privacy: strangers only see a preset name (no custom name, no chat); the matchmaker only sees a random anonymous id while you search and keeps nothing afterwards; Settings has an "Auto match" switch. See `docs/MATCHMAKING.md`.
 
 ## What's new in v4.5.1 (memory fix)
 - Fixed a GPU memory leak: every round/restart/rematch left the previous arena's geometry and textures allocated (about +60 geometries and +6 textures per round), so long sessions slowly got heavier. They are now released when a round ends. Min build, per round: geometries +41..81 -> ~0, textures +6..7 -> ~0 (details in docs/PROGRESS-v45.md). No gameplay or look change.
@@ -97,7 +164,7 @@ Feedback from a phone player: "fun, but the controls are too hard and it is way 
 - **Phone friendly:** Sharp / Balanced / Fast graphics tiers; static scenery is merged into few draw calls; adaptive resolution is a last resort.
 
 ## Docs
-`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
+`docs/ECONOMY.md` (earn rates, packs) · `docs/PAYMENTS.md` · `docs/LEDGER-SPEC.md` · `docs/LAUNCH-CHECKLIST.md` (trademark, Play, Apple, COPPA, tax) · `docs/FALLING.md` · `docs/MULTIPLAYER.md` · `docs/MATCHMAKING.md` · `docs/CLOUDFLARE.md` · `docs/PRIVACY-POLICY-DRAFT.md` · `docs/TERMS-DRAFT.md` · `server/README.md`.
 
 ## Mobile / PWA
 - Installable PWA (`pwa/`): manifest (standalone, landscape, maskable icons, screenshots), versioned offline service worker (`whk-<build>` cache, auto-update), iOS meta + splash images, safe-area insets, pull-to-refresh/zoom/long-press blocked, screen wake lock, landscape lock + fullscreen on first tap, in-game Install button (Android `beforeinstallprompt`) and an iOS Add-to-Home-Screen hint, iOS audio unlock.

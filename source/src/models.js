@@ -34,7 +34,7 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   // aim arrow (shown while charging)
   const aim = new THREE.Group(); aim.visible = false; root.add(aim); m.aim = aim;
   const tip = new THREE.Mesh(geo('aimtip', () => new THREE.ConeGeometry(0.2, 0.42, 3)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })); tip.rotation.x = Math.PI / 2; tip.rotation.z = 0; tip.position.set(0, 0.06, 0); aim.add(tip);
-  const dots = []; for (let i = 0; i < 9; i++) { const d = new THREE.Mesh(geo('aimdot', () => new THREE.CircleGeometry(0.11, 8)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 })); d.rotation.x = -Math.PI / 2; d.position.y = 0.06; aim.add(d); dots.push(d); }
+  const dots = []; for (let i = 0; i < 14; i++) { const d = new THREE.Mesh(geo('aimdot', () => new THREE.CircleGeometry(0.1, 8)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 })); d.rotation.x = -Math.PI / 2; d.position.y = 0.06; aim.add(d); dots.push(d); } /* t404u: denser path preview */
   m.aimTip = tip; m.aimDots = dots;
   // KO stars
   const stars = new THREE.Group(); stars.visible = false; stars.position.y = sp.hatY + 0.12; body.add(stars); m.stars = stars;

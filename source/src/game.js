@@ -177,7 +177,7 @@ class Boom {
     this.g = g; this.owner = owner; this.x = x; this.z = z; this.th = ang; this.t = 0; this.phase = 'out'; this.alive = true; this.carry = o.carry; this.bounces = 0; this.total = 0;
     this.type = o.type || 'classic'; const T = TYPEFX[this.type] || {}; this.pierce = !!T.pierce; this.freeze = !!T.freeze; this.chains = T.chain || 0; this.ghost = !!T.ghost; this.hit = new Set(); this.chainHits = 0;
     this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = o.giant ? 0.85 : 0.3; this.v0 = (13 + 8 * c) * (T.v || 1); this.shock = owner.abil === 'tako' && c >= 0.9; /* v4.7 Bolt: full-charge throws stun */ this.tout = (0.8 + 0.7 * c) * (g.mut && g.mut.grav ? 1.25 : 1); this.retT = 0; this.w = CURVE * (1 - 0.35 * c); this.spin = 0; this.fade = 0;
-    this.wpn = wpnOf(o.wpn || owner.wpn); { const WP = W(this.wpn); this.v0 *= WP.v; this.hitR *= WP.hitR; this.tout *= WP.tout; this.w *= WP.curve; const X = WP.fx || {}; this.homeK = X.home || 0; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; } // v4.10 Armory: per-weapon flight
+    this.wpn = wpnOf(o.wpn || owner.wpn); { const WP = W(this.wpn); this.v0 *= WP.v; this.hitR *= WP.hitR; this.tout *= WP.tout; this.w *= clamp(WP.curve, 0.5, 1.35); /* t404u: keep weapon identity, clamp extreme curves for readable paths */ const X = WP.fx || {}; this.homeK = X.home || 0; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; } // v4.10 Armory: per-weapon flight
     this.mesh = buildWeapon(this.wpn, owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
     const tr = TRAILS[owner.trail] || TRAILS.none; const rcol = owner.trail !== 'none' ? tr.color : (this.type !== 'classic' ? BOOM_TYPES[this.type].color : owner.color);
     this.ribbon = fx.ribbon(rcol, o.giant ? 0.62 : 0.36, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null;
@@ -208,7 +208,7 @@ class Boom {
       if (!this.alive) return;
     }
     if (this.total > 7) { this.caught(true); return; }
-    if (Math.random() < 0.5) fx.trail(this.x, 0.5, this.z, this.owner.color, this.giant ? 0.3 : 0.14);
+    fx.trail(this.x, 0.5, this.z, this.owner.color, this.giant ? 0.22 : 0.1); /* t404u: faint consistent flight trail */
   }
   caught(quiet) {
     const o = this.owner; if (o.alive && this.carry) o.giveAmmo(); this.kill();
@@ -310,15 +310,56 @@ export class Game {
     }
   }
   nearestEnemy(f, x, z, maxD, excl, seen) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o)) || (seen && !canSee(this, f.team, o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
+  // t404u: simulate the real out-and-back path (no walls) so the aim preview matches flight
+  predictBoomPath(f, ang, c, n = 14) {
+    const WP = W(f.wpn); const curveK = clamp(WP.curve, 0.5, 1.35);
+    let v0 = (13 + 8 * c) * (WP.v || 1), tout = (0.8 + 0.7 * c) * (WP.tout || 1), w = CURVE * (1 - 0.35 * c) * curveK;
+    let x = f.x + dirx(ang) * 0.6 * f.bs, z = f.z + dirz(ang) * 0.6 * f.bs, th = ang, t = 0, phase = 'out', retT = 0;
+    const raw = [[x, z]], h = 1 / 40, homeK = (WP.fx && WP.fx.home) || 0;
+    for (let i = 0; i < 160; i++) {
+      let speed;
+      if (phase === 'out') {
+        t += h; const k = t / tout; speed = v0 * (1 - 0.68 * Math.min(1, k)); th += w * h * (1 - 0.3 * k);
+        if (homeK) { const tg = this.nearestEnemy(f, x, z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - x, tg.z - z); th += clamp(angDiff(th, a), -homeK * h, homeK * h); } }
+        if (t >= tout) { phase = 'ret'; retT = 0; }
+      } else {
+        retT += h; speed = 8 + 15 * Math.min(1, retT / 0.8);
+        const a = Math.atan2(f.x - x, f.z - z); const rate = 5.5 + retT * 7; th += clamp(angDiff(th, a), -rate * h, rate * h);
+        if (Math.hypot(f.x - x, f.z - z) < 0.65 && retT > 0.12) { raw.push([x, z]); break; }
+      }
+      x += dirx(th) * speed * h; z += dirz(th) * speed * h; raw.push([x, z]);
+    }
+    const pts = []; for (let i = 0; i < n; i++) { const u = n === 1 ? 0 : i / (n - 1); const j = Math.min(raw.length - 1, Math.round(u * (raw.length - 1))); pts.push(raw[j]); }
+    return pts;
+  }
   pickAim(f, base, explicit) {
-    const assist = f.isBot ? false : (f.netIn ? f.netIn.assist : S().settings.aimAssist); let tg = null;
-    if (assist) {
-      let bs = 1e9;
-      for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || !canSee(this, f.team, o)) continue; const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z); const touchy = f.netIn ? f.netIn.touchy : Input.lastUsed === 'touch'; const lim = explicit ? (touchy ? 0.6 : 0.25) : 1.5; if (d > lim) continue; const sc = d + dist * 0.025; if (sc < bs) { bs = sc; tg = o; } }
-      if (!tg && !explicit) tg = this.nearestEnemy(f, f.x, f.z, 1e9, null, true);
+    // t404u: assist only gently and only when a target is near the aim line; never hard-swap launch toward a far-off rival
+    const assist = f.isBot ? false : (f.netIn ? f.netIn.assist : S().settings.aimAssist); if (!assist) return base;
+    const touchy = f.netIn ? f.netIn.touchy : Input.lastUsed === 'touch';
+    let tg = null, bs = 1e9;
+    if (explicit) {
+      const lim = touchy ? 0.22 : 0.18; // ~12.5° touch / ~10° pad-mouse (was 0.6 / 0.25)
+      for (const o of this.fighters) {
+        if (!o.alive || !this.isFoe(f, o) || !canSee(this, f.team, o)) continue;
+        const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z);
+        if (d > lim) continue; const sc = d * 2.5 + dist * 0.01; if (sc < bs) { bs = sc; tg = o; }
+      }
+      if (!tg) return base;
+      const a = Math.atan2(tg.x - f.x, tg.z - f.z); const diff = angDiff(base, a);
+      const maxNudge = touchy ? 0.12 : 0.10; // soft pull only — launch stays near the drag direction
+      return base + clamp(diff, -maxNudge, maxNudge);
+    }
+    // quick-tap auto-aim: nearest visible foe in a forward cone (not behind you)
+    const lim = 0.95; // ~54° (was 1.5 then whole-arena nearest)
+    for (const o of this.fighters) {
+      if (!o.alive || !this.isFoe(f, o) || !canSee(this, f.team, o)) continue;
+      const a = Math.atan2(o.x - f.x, o.z - f.z), d = Math.abs(angDiff(base, a)), dist = Math.hypot(o.x - f.x, o.z - f.z);
+      if (d > lim) continue; const sc = dist + d * 1.5; if (sc < bs) { bs = sc; tg = o; }
     }
     if (!tg) return base;
-    const dist = Math.hypot(tg.x - f.x, tg.z - f.z); const a = Math.atan2(tg.x - f.x, tg.z - f.z); const ft = Math.min(0.9, dist / 11); return a - 0.5 * CURVE * ft * 0.9;
+    const dist = Math.hypot(tg.x - f.x, tg.z - f.z); const a = Math.atan2(tg.x - f.x, tg.z - f.z);
+    const ft = Math.min(0.7, dist / 11); const curveK = clamp(W(f.wpn).curve, 0.5, 1.35);
+    return a - 0.5 * CURVE * curveK * ft * 0.7; // milder curve lead than v4.10.3
   }
   throwFrom(f, base, explicit, c) {
     const ang = f.isBot ? base : this.pickAim(f, base, explicit); f.face = ang; f.vface = ang;
@@ -354,7 +395,7 @@ export class Game {
         if (this.rules.stunOnly) { f.stunT = 1.4; f.charging = false; f.chargeT = 0; f.vx = Math.sin(b.th) * 7; f.vz = Math.cos(b.th) * 7; b.hit.add(f); sfx('hit'); fx.sparks(f.x, 0.7, f.z, 10, [0xffffff, own.color], { speed: 5, life: 0.4 }); fx.popup('BONK!', f.x, f.z, 'pop-cyan'); shake(0.12); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
         if (this.rules.type === 'bomb') { this.bombHit(b, f); b.hit.add(f); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
         if (f.frozenT > 0) { fx.burst(f.x, 0.6, f.z, 18, [0xcff4ff, 0x8fdcff, 0xffffff], { speed: 6, up: 4, size: 0.12 }); sfx('shatter'); this.onEvent('shatter', { f, killer: own }); f.frozenT = 0; const died = f.die(own, 'shatter', Math.sin(b.th), Math.cos(b.th)); if (died) own.kos++; this.gainUlt(own, 30); b.hit.add(f); if (!b.pierce && b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
-        if (f.shield) { reveal(f, STEALTH.hurt); f.shield = false; f.inv = 0.7; sfx('shieldpop'); fx.ring(f.x, 0.3, f.z, 0x6fffb0, 2.2, 0.35); fx.sparks(f.x, 0.6, f.z, 14, [0x6fffb0, 0xffffff], { speed: 5, life: 0.5 }); shake(0.15); f.hurtT = 0.6; fx.popup('SHIELD!', f.x, f.z, 'pop-cyan', 1.8); if (!f.isBot) fx.hurt(0.5); b.th += Math.PI + (Math.random() - 0.5) * 0.6; if (b.phase === 'out') b.t += 0.25; this.onEvent('shieldpop', { f }); continue; }
+        if (f.shield) { reveal(f, STEALTH.hurt); f.shield = false; f.inv = 0.7; sfx('shieldpop'); fx.ring(f.x, 0.3, f.z, 0x6fffb0, 2.2, 0.35); fx.sparks(f.x, 0.6, f.z, 14, [0x6fffb0, 0xffffff], { speed: 5, life: 0.5 }); shake(0.15); f.hurtT = 0.6; fx.popup('SHIELD!', f.x, f.z, 'pop-cyan', 1.8); if (!f.isBot) fx.hurt(0.5); b.th += Math.PI; if (b.phase === 'out') b.t += 0.25; /* t404u: deterministic shield bounce */ this.onEvent('shieldpop', { f }); continue; }
         if (b.fire) { this.explode(b.x, b.z, own); b.caught(true); return; }
         b.hit.add(f);
         if (b.freeze) { reveal(f, STEALTH.hurt); f.freezeFor(2.6); this.gainUlt(own, 18); this.onEvent('freeze', { f, killer: own }); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
@@ -367,7 +408,7 @@ export class Game {
   }
   reflect(b, f) {
     const o = b.owner; if (b.carry && o.alive) o.giveAmmo();
-    b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z) + (Math.random() - 0.5) * 0.15; b.phase = 'out'; b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hit.clear();
+    b.owner = f; b.carry = 0; b.th = Math.atan2(o.x - b.x, o.z - b.z); b.phase = 'out'; /* t404u: deterministic reflect */ b.t = b.tout * 0.15; b.v0 = Math.max(b.v0, 15) * 1.1; b.reflected++; b.total = 0.3; b.hit.clear();
     reveal(f, STEALTH.reveal); f.deflectT = 0; sfx('deflect'); shake(0.2); fx.ring(b.x, 0.5, b.z, 0xffffff, 2.4, 0.3); fx.star(b.x, 0.6, b.z, 0x9ff0ff, 3.4, 0.32); fx.shockwave(b.x, b.z, 0x9ff0ff, 3); fx.sparks(b.x, 0.5, b.z, 18, [0xffffff, 0xfff1a0], { speed: 6, life: 0.4 }); fx.popup('PARRY!', f.x, f.z, 'pop-cyan'); this.hitstop = 0.06; fx.flash('#bff6ff', 0.18, 140); this.gainUlt(f, 20);
     b.ribbon.release(); b.ribbon = fx.ribbon(f.color, b.giant ? 0.55 : 0.3, false);
     b.mesh.removeFromParent(); b.mesh = buildWeapon(b.wpn, f.color, f.hero, f.skin, b.type); b.mesh.scale.setScalar(b.giant ? 2.3 : 1); this.scene.add(b.mesh); this.onEvent('parry', { f });
@@ -566,8 +607,20 @@ export class Game {
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
       // aim arrow
       const showAim = f.charging && !f.isBot && f.alive; m.aim.visible = showAim;
-      if (showAim) { const c = Math.min(1, f.chargeT / 0.7); const len = 3 + c * 8; const a = Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2 ? Math.atan2(f.lastAim[0], f.lastAim[1]) : f.face; m.aim.rotation.y = a - f.vface;
-        m.aimDots.forEach((d, i) => { d.position.set(0, 0.06, 0.9 + i * len / 9); d.scale.setScalar(0.6 + (i / 9) * 0.6); d.material.color.setHex(c > 0.95 ? 0xff7a3a : 0xffffff); }); m.aimTip.position.set(0, 0.06, 0.9 + len + 0.2); m.aimTip.material.color.setHex(c > 0.95 ? 0xff7a3a : 0xffffff); }
+      if (showAim) {
+        // t404u: preview the actual curved out-and-back route (same sim as flight), original dots styling
+        const c = Math.min(1, f.chargeT / 0.7); const explicit = Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
+        const base = explicit ? Math.atan2(f.lastAim[0], f.lastAim[1]) : f.face; const ang = this.pickAim(f, base, explicit);
+        const pts = this.predictBoomPath(f, ang, c, m.aimDots.length); const cf = Math.cos(f.vface), sf = Math.sin(f.vface);
+        m.aim.rotation.y = 0; const col = c > 0.95 ? 0xff7a3a : 0xffffff;
+        m.aimDots.forEach((d, i) => {
+          const [px, pz] = pts[i] || pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
+          const lx = dx * cf - dz * sf, lz = dx * sf + dz * cf; d.position.set(lx, 0.06, lz);
+          const u = i / Math.max(1, m.aimDots.length - 1); d.scale.setScalar(0.55 + u * 0.55); d.material.color.setHex(col);
+          d.material.opacity = 0.35 + 0.5 * (1 - Math.abs(u - 0.45)); // faint mid-return, clearer outbound
+        });
+        { const [px, pz] = pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z; m.aimTip.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf); m.aimTip.material.color.setHex(col); }
+      }
       if (f.frozenT > 0 && f.alive) { if (!m.ice) { m.ice = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), new THREE.MeshBasicMaterial({ color: 0xaee8ff, transparent: true, opacity: 0.5, depthWrite: false })); m.ice.position.y = 0.75; m.root.add(m.ice); } m.ice.visible = true; m.ice.scale.setScalar(1 + Math.sin(t * 8) * 0.01); } else if (m.ice) m.ice.visible = false;
       m.ring.material.opacity = f.alive ? 0.95 : 0.2;
       m.blob.visible = f.alive && !gfx.sun.castShadow;
