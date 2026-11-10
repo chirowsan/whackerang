@@ -31,11 +31,28 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   // deflect arc
   const df = new THREE.Mesh(geo('df', () => new THREE.RingGeometry(0.82, 1.06, 28, 1, -1.0, 2.0)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
   df.rotation.x = -Math.PI / 2; df.position.y = 0.5; df.visible = false; root.add(df); m.deflect = df;
-  // aim arrow (shown while charging)
+  // aim guide (t411u research → aim408): soft capsule beacon + tip orb; variant B adds 2 arc chevrons. No long path / no thin line / no big glow arrow.
   const aim = new THREE.Group(); aim.visible = false; root.add(aim); m.aim = aim;
-  const tip = new THREE.Mesh(geo('aimtip', () => new THREE.ConeGeometry(0.2, 0.42, 3)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })); tip.rotation.x = Math.PI / 2; tip.rotation.z = 0; tip.position.set(0, 0.06, 0); aim.add(tip);
-  const dots = []; for (let i = 0; i < 14; i++) { const d = new THREE.Mesh(geo('aimdot', () => new THREE.CircleGeometry(0.1, 8)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 })); d.rotation.x = -Math.PI / 2; d.position.y = 0.06; aim.add(d); dots.push(d); } /* t404u: denser path preview */
-  m.aimTip = tip; m.aimDots = dots;
+  const cylZ = (key, r, h, seg = 14) => geo(key, () => { const g = new THREE.CylinderGeometry(r, r, h, seg); g.rotateX(Math.PI / 2); return g; });
+  const shaftOl = new THREE.Mesh(cylZ('aimcapOl408', 0.145, 1, 16), new THREE.MeshBasicMaterial({ color: 0x140a30, transparent: true, opacity: 0.7, depthWrite: false }));
+  const shaft = new THREE.Mesh(cylZ('aimcap408', 0.11, 1, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false }));
+  const rim = new THREE.Mesh(cylZ('aimcapRim408', 0.128, 1, 16), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }));
+  shaftOl.position.y = 0.05; rim.position.y = 0.062; shaft.position.y = 0.074;
+  aim.add(shaftOl); aim.add(rim); aim.add(shaft);
+  const tipOl = new THREE.Mesh(geo('aimorbOl408', () => new THREE.SphereGeometry(0.20, 14, 10)), new THREE.MeshBasicMaterial({ color: 0x140a30, transparent: true, opacity: 0.7, depthWrite: false }));
+  const tip = new THREE.Mesh(geo('aimorb408', () => new THREE.SphereGeometry(0.155, 14, 10)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false }));
+  const tipRim = new THREE.Mesh(geo('aimorbRim408', () => new THREE.SphereGeometry(0.175, 14, 10)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false }));
+  tipOl.position.y = 0.05; tipRim.position.y = 0.062; tip.position.y = 0.078; aim.add(tipOl); aim.add(tipRim); aim.add(tip);
+  // variant B: two soft chevrons (hidden for A)
+  const mkChev = (key, r = 0.11, h = 0.20) => {
+    const g = geo(key, () => { const c = new THREE.ConeGeometry(r, h, 3); c.rotateX(Math.PI / 2); return c; });
+    const ol = new THREE.Mesh(geo(key + 'ol', () => { const c = new THREE.ConeGeometry(r * 1.28, h * 1.15, 3); c.rotateX(Math.PI / 2); return c; }), new THREE.MeshBasicMaterial({ color: 0x140a30, transparent: true, opacity: 0.55, depthWrite: false }));
+    const body = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }));
+    ol.position.y = 0.05; body.position.y = 0.07; const grp = new THREE.Group(); grp.add(ol); grp.add(body); grp.visible = false; aim.add(grp); return { grp, body, ol };
+  };
+  const c1 = mkChev('aimchev1408', 0.14, 0.26); const c2 = mkChev('aimchev2408', 0.12, 0.22);
+  m.aimTip = tip; m.aimTipOl = tipOl; m.aimTipRim = tipRim; m.aimShaft = shaft; m.aimShaftOl = shaftOl; m.aimRim = rim;
+  m.aimGlow = null; m.aimDots = []; m.aimChevs = [c1, c2]; m.aimVariant = 'A';
   // KO stars
   const stars = new THREE.Group(); stars.visible = false; stars.position.y = sp.hatY + 0.12; body.add(stars); m.stars = stars;
   for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; const sm = new THREE.Mesh(geo('star', () => new THREE.OctahedronGeometry(0.075)), new THREE.MeshBasicMaterial({ color: 0xffe14a })); sm.position.set(Math.cos(a) * 0.34, 0, Math.sin(a) * 0.34); stars.add(sm); }

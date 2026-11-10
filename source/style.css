@@ -220,7 +220,10 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .tbtn.ult .ulr { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; z-index: 0; background: conic-gradient(rgba(16,8,44,.0) calc(var(--u,0)*360deg), rgba(16,8,44,.6) 0); }
 .tbtn.ult.rdy { opacity: 1; filter: none; animation: ultp .7s ease-in-out infinite alternate; } .tbtn.ult.rdy .ulr { opacity: 0; }
 @keyframes ultp { from { transform: scale(1); } to { transform: scale(1.1); } }
-.tpause.emo { right: calc(max(var(--sair), 0px) + max(1.2vw, 8px) + 54px); } #touch.left .tpause.emo { right: auto; left: calc(max(var(--sail), 0px) + max(1.2vw, 8px) + 54px); }
+.tpause.fs { right: calc(max(var(--sair), 0px) + max(1.2vw, 8px) + 54px); } #touch.left .tpause.fs { right: auto; left: calc(max(var(--sail), 0px) + max(1.2vw, 8px) + 54px); }
+.tpause.emo { right: calc(max(var(--sair), 0px) + max(1.2vw, 8px) + 108px); } #touch.left .tpause.emo { right: auto; left: calc(max(var(--sail), 0px) + max(1.2vw, 8px) + 108px); }
+#btnFs { opacity: 1; border-color: rgba(200,245,255,.95); background: linear-gradient(180deg, rgba(80,70,150,.96), rgba(28,16,70,.96)); }
+#btnFs svg { width: 58%; height: 58%; fill: none; stroke: #fff; }
 
 /* ===== v2.0 UI ===== */
 .btn.big { font-size: calc(var(--u)*1.7); padding: calc(var(--u)*.95) calc(var(--u)*1.4); }
@@ -445,8 +448,11 @@ body.slowmo canvas#c { filter: saturate(1.2) contrast(1.06); }
 .tbtn.ult { opacity: .34; } .tbtn.ult.rdy { opacity: .85; }
 .tpause { width: 32px; height: 32px; border-radius: 10px; border-width: 1.5px; opacity: .55; top: calc(max(var(--sait), 0px) + 4px); right: calc(max(var(--sair), 0px) + 6px); box-shadow: 0 2px 0 rgba(8,4,28,.6); }
 .tpause:active { opacity: 1; }
-.tpause.emo { right: calc(max(var(--sair), 0px) + 6px + 38px); } #touch.left .tpause.emo { right: auto; left: calc(max(var(--sail), 0px) + 6px + 38px); }
+.tpause.fs { right: calc(max(var(--sair), 0px) + 6px + 38px); opacity: 1; } #touch.left .tpause.fs { right: auto; left: calc(max(var(--sail), 0px) + 6px + 38px); }
+.tpause.emo { right: calc(max(var(--sair), 0px) + 6px + 76px); } #touch.left .tpause.emo { right: auto; left: calc(max(var(--sail), 0px) + 6px + 76px); }
 #touch.left .tpause { right: auto; left: calc(max(var(--sail), 0px) + 6px); }
+#btnFs { opacity: 1; border-color: rgba(200,245,255,.95); box-shadow: 0 2px 0 rgba(8,4,28,.6), 0 0 0 1.5px rgba(143,246,255,.35); }
+#btnFs svg { width: 62%; height: 62%; fill: none; stroke: #fff; }
 #hud .top { top: calc(var(--u)*.3 + var(--sait, 0px)); left: calc(var(--u)*.5 + var(--sail, 0px)); right: calc(var(--u)*.5 + var(--sair, 0px)); align-items: flex-start; }
 #hud .grp { gap: calc(var(--u)*.35); }
 .pchip { padding: calc(var(--u)*.1) calc(var(--u)*.55) calc(var(--u)*.1) calc(var(--u)*.1); border-width: 1.5px; font-size: calc(var(--u)*.85); background: rgba(14,8,42,.55); box-shadow: none; gap: calc(var(--u)*.3); }
@@ -454,7 +460,7 @@ body.slowmo canvas#c { filter: saturate(1.2) contrast(1.06); }
 #hud .pchip .heart { width: calc(var(--u)*.9); height: calc(var(--u)*.9); }
 #hud .chip, #hud .lvlname { font-size: calc(var(--u)*.9); padding: calc(var(--u)*.15) calc(var(--u)*.6); background: rgba(14,8,42,.55); border-width: 1px; }
 #hud .mid { font-size: calc(var(--u)*.85); opacity: .85; margin-top: calc(var(--u)*.1); }
-body.touch-on #hud .top .grp:last-child { margin-right: calc(var(--u)*7.4); } body.touch-on #hud .pbtn { display: none; }
+body.touch-on #hud .top .grp:last-child { margin-right: calc(var(--u)*12.2); } body.touch-on #hud .pbtn { display: none; }
 #h-pu { top: calc(var(--u)*3.2); left: calc(var(--u)*.5 + var(--sail, 0px)); } .pui { font-size: calc(var(--u)*.8); border-width: 1.5px; background: rgba(10,6,36,.62); }
 #minimap { top: calc(var(--u)*3); right: calc(var(--u)*.5 + var(--sair, 0px)); width: calc(var(--u)*7); opacity: .75; }
 #edges .edge { width: calc(var(--u)*1.7); height: calc(var(--u)*1.7); margin: calc(var(--u)*-.85) 0 0 calc(var(--u)*-.85); }
@@ -602,3 +608,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* t401u: control labels fade after a few uses / first match (persisted) */
 #tlabs .tlab.fade { opacity: 0; transition: opacity .6s ease; pointer-events: none; }
 #tlabs .tlab { transition: opacity .45s ease; }
+
+/* aim408 hide-browser-bar HUD */
+#h-fs.on,#btnFs.on{outline:2px solid #8ff6ff;outline-offset:1px}
+#fs-ios-tip{pointer-events:auto}

@@ -14,7 +14,7 @@ import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx, toScreen, fitCamera } from './gfx.js';
 import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
-import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
+import { canInstall, promptInstall, IS_APP, IS_IOS, isStandalone } from './pwa.js';
 import { Input } from './input.js';
 import { WEAPONS, WEAPON_IDS, wpnOf, weaponBars, wpnSvg, heroWeapons, PAT_LABEL } from './weapons.js';
 import { getWpn, setWpn } from './save.js';
@@ -279,7 +279,13 @@ Object.assign(UI, {
   hudStart(game) {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; this.emoteClose(); this.tutorialHide(); if (!game || game.mode === 'attract') return; this.hudGame = game;
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'mid', '', { id: 'h-mid' }); const rr = h('div', 'grp');
-    rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
+    rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause', title: 'Pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
+    // t410u: hide-browser-bar toggle next to pause (combat HUD stays clear). Hidden in Capacitor / installed PWA.
+    if (!IS_APP && !isStandalone()) {
+      const fb = h('button', 'btn small pbtn', '⛶', { id: 'h-fs', title: 'Hide browser bar', 'aria-label': 'Hide browser bar' });
+      fb.addEventListener('click', () => { this.app.toggleFullscreen(); const on = !!(document.fullscreenElement || document.webkitFullscreenElement); fb.classList.toggle('on', on); fb.title = on ? 'Exit fullscreen' : 'Hide browser bar'; });
+      rr.appendChild(fb);
+    }
     top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top); r.appendChild(h('div', '', '', { id: 'bossbar' })); r.appendChild(h('div', '', '', { id: 'h-pu' })); if (game.poisonView) r.appendChild(h('div', '', '', { id: 'poisonvig' }));
     if (gfx.follow) { const cv = gfx.follow.big ? h('canvas', '', '', { id: 'minimap' }) : null; if (cv) { cv.width = 168; cv.height = Math.round(168 * AH / AW); r.appendChild(cv); } this.mm = cv; this.edgeEls = []; const ed = h('div', '', '', { id: 'edges' }); r.appendChild(ed); this.edgeBox = ed; } else { this.mm = null; this.edgeBox = null; }
   },

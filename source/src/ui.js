@@ -7,7 +7,7 @@ import { Input } from './input.js';
 import { portrait } from './portraits.js';
 import { KIDS, PRIVACY_URL } from './flags.js';
 import { adultGate } from './kids.js';
-import { canInstall, promptInstall, IS_APP, IS_IOS } from './pwa.js';
+import { canInstall, promptInstall, IS_APP, IS_IOS, isStandalone, showBrowserBarTip } from './pwa.js';
 import { poisonHud } from './poison.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
@@ -143,8 +143,13 @@ export const UI = {
     toggle('Left-handed layout', 'leftHanded', () => this.app.applyTouch());
     slider('Control size', 'ctrlScale', () => this.app.applyTouch()); const cs = grid.lastChild.querySelector('input'); cs.min = 0.7; cs.max = 1.5; cs.step = 0.05;
     const rr = h('div', 'row', '<span>Progress</span>'); rr.appendChild(this.btn('Reset save', 'small', () => { if (confirm('Erase coins, unlocks and settings?')) { resetSave(); this.app.reloadSettings(); this.show('settings', p); } })); grid.appendChild(rr);
-    const fr = h('div', 'row', '<span>Display</span>'); fr.appendChild(this.btn('Fullscreen', 'small', () => this.app.toggleFullscreen())); grid.appendChild(fr);
-    if (!IS_APP && !IS_IOS && this.app.isTouchDevice()) toggle('Fullscreen on first tap', 'autoFs');
+    if (!IS_APP && !isStandalone()) {
+      const fr = h('div', 'row', '<span>Hide browser bar</span>');
+      fr.appendChild(this.btn(IS_IOS ? 'How (iPhone)' : 'Fullscreen', 'small', () => this.app.toggleFullscreen(), { id: 'set-fs' }));
+      grid.appendChild(fr);
+      if (IS_IOS) grid.appendChild(h('div', 'note-line', 'iPhone Safari cannot hide the browser bar in-page. Tap Share → Add to Home Screen for full-screen play.'));
+    }
+    if (!IS_APP && !IS_IOS && !isStandalone() && this.app.isTouchDevice()) toggle('Fullscreen on first tap', 'autoFs');
     if (canInstall()) { const ir = h('div', 'row', '<span>App</span>'); ir.appendChild(this.btn(IS_IOS ? 'How to install' : 'Install app', 'small', () => promptInstall(this))); grid.appendChild(ir); }
     const hr = h('div', 'row', '<span>Install</span>'); hr.appendChild(h('span', '', 'Chrome ⋮ → <b>Add to Home screen</b> for a full-screen app', { style: 'font-size:calc(var(--u)*.9);opacity:.8;text-align:right' })); grid.appendChild(hr);
     { const pr = h('div', 'row', '<span>Privacy</span>'); pr.appendChild(h('a', 'set-link', 'Privacy policy', { href: PRIVACY_URL, target: '_blank', rel: 'noopener', id: 'set-privacy', 'data-nav': 1 })); grid.appendChild(pr); }
@@ -165,7 +170,8 @@ export const UI = {
     const a = this.app; const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Paused'));
     const b = h('div', 'btns', null, { style: 'flex-direction:column;align-items:stretch;width:100%' });
     b.appendChild(this.btn('▶ Resume', 'primary', () => a.resume())); b.appendChild(this.btn('↻ Restart round', '', () => a.restartRound())); b.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'pause' })));
-    b.appendChild(this.btn('⛶ Fullscreen', '', () => a.toggleFullscreen())); b.appendChild(this.btn('Quit to menu', 'hot', () => a.quitToMenu()));
+    if (!IS_APP && !isStandalone()) b.appendChild(this.btn(IS_IOS ? '⛶ Hide browser bar' : '⛶ Hide browser bar', '', () => a.toggleFullscreen()));
+    b.appendChild(this.btn('Quit to menu', 'hot', () => a.quitToMenu()));
     d.appendChild(b); el.appendChild(d); return el;
   },
   roundEnd(p) {
@@ -187,7 +193,15 @@ export const UI = {
   hudStart(game) {
     const r = this.hudRoot; r.innerHTML = ''; this.hudCache = {}; if (!game || game.mode === 'attract') return;
     const top = h('div', 'top'); const l = h('div', 'grp', null, { id: 'h-pl' }); const c = h('div', 'lvlname', '', { id: 'h-name' }); const rr = h('div', 'grp');
-    rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
+    rr.appendChild(h('div', 'chip', '', { id: 'h-time' })); const pb = h('button', 'btn small pbtn', '❚❚', { id: 'h-pause', title: 'Pause' }); pb.addEventListener('click', () => this.app.pause()); rr.appendChild(pb);
+    // t410u: hide-browser-bar toggle in the top-right cluster (not the combat sticks). Hidden in Capacitor / installed PWA.
+    if (!IS_APP && !isStandalone()) {
+      const fb = h('button', 'btn small pbtn', '⛶', { id: 'h-fs', title: 'Hide browser bar', 'aria-label': 'Hide browser bar' });
+      fb.addEventListener('click', () => { this.app.toggleFullscreen(); this._syncFsBtn && this._syncFsBtn(); });
+      rr.appendChild(fb);
+      this._syncFsBtn = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); fb.classList.toggle('on', on); fb.title = on ? 'Exit fullscreen' : 'Hide browser bar'; };
+      this._syncFsBtn();
+    } else { this._syncFsBtn = null; }
     top.appendChild(l); top.appendChild(c); top.appendChild(rr); r.appendChild(top);
   },
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },

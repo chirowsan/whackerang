@@ -25,7 +25,7 @@ import { Match } from './net/match.js';
 import { STORE } from './flags.js';
 import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
 const HXc = () => _HX, HZc = () => _HZ;
-import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, pwa , fsOnPlay, fsState } from './pwa.js';
+import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, showBrowserBarTip, pwa , fsOnPlay, fsState } from './pwa.js';
 
 const BUILD = typeof __BUILD__ !== 'undefined' ? __BUILD__ : 'dev';
 const STEP = 1 / 60;
@@ -46,13 +46,26 @@ const app = {
   },
   reloadSettings() { loadSave(); applyVolumes(); setQuality(S().settings.quality); this.applyTouch(); },
   toggleFullscreen() {
+    // t410u/aim408: hide browser bar. Capacitor / installed PWA are already immersive → no-op. iPhone Safari has no element fullscreen → one-time tip.
+    if (IS_APP || isStandalone()) { UI.toast('Already full screen', 1600); return false; }
+    if (IS_IOS) { showBrowserBarTip(); return false; }
     const d = document, el = d.documentElement;
     const isFs = d.fullscreenElement || d.webkitFullscreenElement;
     try {
-      if (!isFs) { const f = el.requestFullscreen || el.webkitRequestFullscreen; if (f) { const r = f.call(el, { navigationUI: 'hide' }); r && r.catch && r.catch(() => UI.toast('Fullscreen not available here - use Add to Home screen')); try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} } else UI.toast('Fullscreen not supported - use Add to Home screen'); }
-      else { (d.exitFullscreen || d.webkitExitFullscreen).call(d); }
-    } catch (e) { UI.toast('Fullscreen not available'); }
+      if (!isFs) {
+        const f = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (f) {
+          const r = f.call(el, { navigationUI: 'hide' });
+          r && r.then && r.then(() => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => UI.toast('Fullscreen not available here — use Add to Home Screen', 3200));
+          try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (e) {}
+          return true;
+        }
+        UI.toast('Fullscreen not supported — use Add to Home Screen', 3200); return false;
+      }
+      (d.exitFullscreen || d.webkitExitFullscreen).call(d); return true;
+    } catch (e) { UI.toast('Fullscreen not available'); return false; }
   },
+  isFullscreen() { const d = document; return !!(d.fullscreenElement || d.webkitFullscreenElement || isStandalone() || IS_APP); },
   // ---------- game lifecycle ----------
   camFollow(dt) {
     const g = app.game; if (!g || g.mode === 'attract') return; const pts = [], hum = [];
@@ -316,6 +329,9 @@ function boot() {
   window.addEventListener('keydown', (e) => { if (app.mode === 'play' && !app.paused && /^Digit[1-4]$/.test(e.code)) app.emote(S().eq.emotes[+e.code.slice(5) - 1]); });
   Input.unproject = (x, y) => { const c = gfx.camera; c.updateMatrixWorld(); const rc = canvas.getBoundingClientRect(); const v = new THREE.Vector3(((x - rc.left) / rc.width) * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1, 0.5).unproject(c); const o = c.position; const dy = v.y - o.y; if (Math.abs(dy) < 1e-4) return null; const k = -o.y / dy; if (k <= 0) return null; return [o.x + (v.x - o.x) * k, o.z + (v.z - o.z) * k]; };
   Input.onPause = () => { if (app.mode === 'play') { app.paused ? (UI.cur === 'pause' && app.resume()) : app.pause(); } };
+  Input.onFullscreen = () => app.toggleFullscreen();
+  const syncFsBtns = () => { const on = !!(document.fullscreenElement || document.webkitFullscreenElement); document.querySelectorAll('#btnFs, #h-fs').forEach((b) => { b.classList.toggle('on', on); b.title = on ? 'Exit fullscreen' : 'Hide browser bar'; }); };
+  document.addEventListener('fullscreenchange', syncFsBtns); document.addEventListener('webkitfullscreenchange', syncFsBtns);
   // resize wiring
   let rt = 0; const rz = () => { cancelAnimationFrame(rt); rt = requestAnimationFrame(() => { resize(); app.applyTouch(); if (app.tut) UI.tutorialGhost(); }); };
   window.addEventListener('resize', rz); window.addEventListener('orientationchange', () => setTimeout(rz, 120)); document.addEventListener('fullscreenchange', () => setTimeout(rz, 80)); document.addEventListener('webkitfullscreenchange', () => setTimeout(rz, 80));

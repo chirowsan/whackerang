@@ -53,6 +53,16 @@ export function showIosHint() {
   d.innerHTML = `<div class="card"><b>Install Whackerang</b><ol><li>${safari ? 'Tap' : 'Open this page in <b>Safari</b>, then tap'} <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#8ff6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg> <b>Share</b></li><li>Choose <b>Add to Home Screen</b></li><li>Launch it from your home screen for full-screen play</li></ol><button>Got it</button></div>`;
   d.addEventListener('click', () => d.remove()); document.body.appendChild(d);
 }
+// t410u: short tip when iPhone Safari taps "hide browser bar" (no Fullscreen API)
+export function showBrowserBarTip() {
+  if (document.getElementById('fs-ios-tip')) return;
+  const d = document.createElement('div'); d.id = 'fs-ios-tip';
+  // z-index below #ui dialogs so online pause Leave stays tappable; only the tip card catches clicks
+  d.style.cssText = 'position:fixed;left:50%;top:max(10px, env(safe-area-inset-top));transform:translateX(-50%);z-index:55;max-width:min(92vw,420px);padding:12px 14px;border-radius:14px;background:rgba(20,12,40,.94);color:#fff;font:600 14px/1.35 system-ui,sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.45);text-align:center;pointer-events:auto';
+  d.innerHTML = `Tap <b>Share</b> &gt; <b>Add to Home Screen</b> to play without the browser bar.<div style="margin-top:8px"><button type="button" style="appearance:none;border:0;border-radius:10px;padding:8px 14px;font-weight:800;background:#8ff6ff;color:#1a1030;cursor:pointer">Got it</button></div>`;
+  const go = () => d.remove(); d.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); go(); });
+  document.body.appendChild(d); setTimeout(go, 7000);
+}
 
 // ---- wake lock
 let wl = null;

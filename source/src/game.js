@@ -608,32 +608,68 @@ export class Game {
       if (m.tbub) { m.tbub.visible = f.alive && f.pu.slow > 0; if (m.tbub.visible) { m.tbub.rotation.z = t * 0.6; m.tbub.material.opacity = 0.35 + Math.sin(t * 5) * 0.12; } }
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
-      // t405u: short faint outbound aim hint (no return leg). Touch: only while stick dragged past deadzone. Mouse/kbd: only with explicit aim (as before). Never taps / AI / remotes.
+      // t411u/aim408: soft capsule beacon (A) or capsule + 2 arc chevrons (B). Mid-drag only; ~80 ms scale-in; never taps / AI / remotes. No full path.
       {
         const online = !!(this.net && this.net.phase === 'match');
         const isMe = !f.isBot && (f.def.slot === 0 || (!online && f.def.slot === 1));
         const touchDrag = !!(Input.touch && Input.touch.aimDrag);
         const mouseAim = Input.lastUsed !== 'touch' && Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
         const want = isMe && f.alive && f.charging && (touchDrag || mouseAim);
-        f._aimFade = want ? Math.min(1, (f._aimFade || 0) + dt / 0.08) : 0; // ~80 ms fade-in, instant out
+        f._aimFade = want ? Math.min(1, (f._aimFade || 0) + dt / 0.08) : 0; // ~80 ms scale/fade-in, instant out
         const showAim = (f._aimFade || 0) > 0.02; m.aim.visible = showAim;
-        if (showAim) {
+        if (!showAim) { m.aim.scale.setScalar(1); if (m.aimChevs) for (const ch of m.aimChevs) ch.grp.visible = false; }
+        if (showAim && m.aimShaft) {
           const c = Math.min(1, f.chargeT / 0.7); const explicit = Math.hypot(f.lastAim[0], f.lastAim[1]) > 0.2;
           const base = explicit ? Math.atan2(f.lastAim[0], f.lastAim[1]) : f.face; const ang = this.pickAim(f, base, explicit);
-          const N = 5; const pts = this.predictBoomPath(f, ang, c, N, { outOnly: true, frac: 0.34 });
-          const cf = Math.cos(f.vface), sf = Math.sin(f.vface); m.aim.rotation.y = 0;
-          const fade = f._aimFade; const col = 0xffffff;
-          m.aimDots.forEach((d, i) => {
-            if (i >= N) { d.visible = false; return; }
-            d.visible = true; const [px, pz] = pts[i] || pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
-            d.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf);
-            const u = i / Math.max(1, N - 1); d.scale.setScalar(0.28 + u * 0.22);
-            d.material.color.setHex(col); d.material.opacity = (0.18 + 0.22 * u) * fade; // low-alpha tapered dots
-          });
-          { const [px, pz] = pts[pts.length - 1]; const dx = px - f.x, dz = pz - f.z;
-            m.aimTip.position.set(dx * cf - dz * sf, 0.06, dx * sf + dz * cf); m.aimTip.scale.setScalar(0.55);
-            m.aimTip.material.color.setHex(col); m.aimTip.material.opacity = 0.35 * fade; }
-        } else { m.aimDots.forEach((d) => { d.visible = true; }); }
+          const style = (typeof window !== 'undefined' && window.__AIM_STYLE__) || (typeof S === 'function' && S().settings && S().settings.aimStyle) || 'B';
+          m.aimVariant = style === 'B' ? 'B' : 'A';
+          // short capsule (~1/5–1/6 throw); length from a short outbound predict
+          const pts = this.predictBoomPath(f, ang, c, 4, { outOnly: true, frac: 0.20 });
+          const [ex, ez] = pts[pts.length - 1]; const reach = Math.hypot(ex - f.x, ez - f.z);
+          const ringR = 0.72; const shaftLen = Math.max(0.85, Math.min(1.75, reach * 0.55));
+          m.aim.rotation.y = ang - f.vface;
+          const fade = f._aimFade; const pop = 0.82 + 0.18 * fade; // scale-in
+          m.aim.scale.setScalar(pop);
+          const op = 0.82 * fade;
+          const col = new THREE.Color(f.color || 0xffffff).lerp(new THREE.Color(0xffffff), 0.32);
+          const rimCol = new THREE.Color(0xffffff);
+          const zMid = ringR + shaftLen * 0.5;
+          m.aimShaft.scale.set(1, 1, shaftLen); m.aimShaft.position.set(0, 0.074, zMid);
+          m.aimShaftOl.scale.set(1, 1, shaftLen); m.aimShaftOl.position.set(0, 0.05, zMid);
+          if (m.aimRim) { m.aimRim.scale.set(1, 1, shaftLen); m.aimRim.position.set(0, 0.062, zMid); m.aimRim.material.opacity = 0.5 * fade; }
+          m.aimShaft.material.color.copy(col); m.aimShaft.material.opacity = op;
+          m.aimShaftOl.material.opacity = 0.72 * fade;
+          const tipZ = ringR + shaftLen + 0.14;
+          m.aimTip.position.set(0, 0.078, tipZ); m.aimTipOl.position.set(0, 0.05, tipZ);
+          if (m.aimTipRim) m.aimTipRim.position.set(0, 0.062, tipZ);
+          m.aimTip.material.color.copy(col).lerp(rimCol, 0.25); m.aimTip.material.opacity = Math.min(0.95, op + 0.1);
+          m.aimTipOl.material.opacity = 0.72 * fade;
+          if (m.aimTipRim) m.aimTipRim.material.opacity = 0.4 * fade;
+          // variant B: 2 soft chevrons along a mild outbound curve
+          const chevs = m.aimChevs || [];
+          if (m.aimVariant === 'B' && chevs.length) {
+            const curve = this.predictBoomPath(f, ang, c, 6, { outOnly: true, frac: 0.42 });
+            for (let i = 0; i < chevs.length; i++) {
+              const { grp, body, ol } = chevs[i]; grp.visible = true;
+              const pi = Math.min(curve.length - 1, 3 + i); const [px, pz] = curve[pi];
+              const lx = px - f.x, lz = pz - f.z; // world delta
+              // into aim-local (aim yaw = ang - vface; fighter root already faces vface)
+              const ca = Math.cos(-(ang - f.vface)), sa = Math.sin(-(ang - f.vface));
+              const lx2 = lx * ca - lz * sa, lz2 = lx * sa + lz * ca;
+              grp.position.set(lx2, 0, Math.max(ringR + 0.35, lz2));
+              // face along local path tangent
+              const pj = Math.min(curve.length - 1, pi + 1); const [qx, qz] = curve[pj];
+              const tx = qx - px, tz = qz - pz; const tang = Math.atan2(tx, tz) - (ang - f.vface);
+              grp.rotation.y = tang;
+              const cop = (0.72 - i * 0.10) * fade;
+              body.material.color.copy(col); body.material.opacity = cop; ol.material.opacity = 0.5 * fade;
+            }
+          } else {
+            for (const ch of chevs) ch.grp.visible = false;
+          }
+        } else if (m.aimChevs) {
+          for (const ch of m.aimChevs) ch.grp.visible = false;
+        }
       }
       if (f.frozenT > 0 && f.alive) { if (!m.ice) { m.ice = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), new THREE.MeshBasicMaterial({ color: 0xaee8ff, transparent: true, opacity: 0.5, depthWrite: false })); m.ice.position.y = 0.75; m.root.add(m.ice); } m.ice.visible = true; m.ice.scale.setScalar(1 + Math.sin(t * 8) * 0.01); } else if (m.ice) m.ice.visible = false;
       m.ring.material.opacity = f.alive ? 0.95 : 0.2;

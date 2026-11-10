@@ -1,4 +1,4 @@
-import { fsOnPlay } from './pwa.js';
+import { fsOnPlay , IS_APP, IS_IOS, isStandalone } from './pwa.js';
 // Online (v4.0) screens: menu, join, lobby, manual code exchange, errors, results, in-match menu, ping chip.
 import { UI, h, $ } from './ui.js';
 import { S, save } from './save.js';
@@ -215,7 +215,9 @@ Object.assign(UI, {
   },
   netPause() {
     const el = h('div', 'screen center netpause'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Online match')); d.appendChild(h('p', 'net-m', 'The match keeps going while this menu is open.'));
-    const b = h('div', 'btns', null, { style: 'flex-direction:column;align-items:stretch;width:100%' }); b.appendChild(this.btn('▶ Back to the game', 'primary', () => this.app.resume())); b.appendChild(this.btn('⛶ Fullscreen', '', () => this.app.toggleFullscreen())); b.appendChild(this.btn(Net.isHost ? 'Close room & quit' : 'Leave match', 'hot', () => this.app.quitToMenu(), { id: 'net-pause-leave' })); d.appendChild(b); el.appendChild(d); return el;
+    const b = h('div', 'btns', null, { style: 'flex-direction:column;align-items:stretch;width:100%' }); b.appendChild(this.btn('▶ Back to the game', 'primary', () => this.app.resume()));
+    if (!IS_APP && !isStandalone()) b.appendChild(this.btn('⛶ Hide browser bar', '', () => this.app.toggleFullscreen()));
+    b.appendChild(this.btn(Net.isHost ? 'Close room & quit' : 'Leave match', 'hot', () => this.app.quitToMenu(), { id: 'net-pause-leave' })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ---- manual (zero-server) code swap
   netManual(p) {
