@@ -18,7 +18,8 @@ import { Input } from './input.js';
 import { Traps } from './traps.js';
 import { keepMarkOn, STEALTH, stealthOn, stealthTick, stealthVis, canSee, reveal, bushClean } from './stealth.js';
 
-export const FR = 0.4, SPEED = 5.3, CURVE = 0.95, SUDDEN_AT = 48;
+export const FR = 0.4, SPEED = 5.75, CURVE = 0.95, SUDDEN_AT = 48;
+// t412u move feel: snappy accel / stop / reverse (ice stays slippy). Charge no longer tanks walk speed.
 const dirx = (a) => Math.sin(a), dirz = (a) => Math.cos(a);
 const NOINP = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false };
 
@@ -43,7 +44,7 @@ class Fighter {
     if (g.melee && this.model.armR) { const hm = buildWeapon(this.wpn, this.color, this.hero, this.skin, 'classic', true); hm.scale.setScalar(this.wpn === 'boom' ? 0.8 : 0.82); hm.position.set(0.05, -0.24, 0.1); this.model.armR.add(hm); this.model.held = hm; }
     const hum = !this.isBot; const nh = g.nHumans || 1; if (this.model.setMarker) this.model.setMarker(this.color, hum ? (nh > 1 ? 'P' + (this.def.slot + 1) : 'YOU') : null, hum);
   }
-  get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.62 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 || this.chillT > 0 ? 0.5 : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1); }
+  get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.92 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 || this.chillT > 0 ? 0.5 : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1); }
   update(dt) {
     const g = this.g; this.tmr += dt; if (this.show) return;
     if (!this.alive) { this.deadT += dt; this.koAnim(dt); if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) g.respawn(this); } return; }
@@ -76,8 +77,11 @@ class Fighter {
       if (this.dashT <= 0) { this.vx *= 0.35; this.vz *= 0.35; }
       if (!this.hid && Math.random() < 0.3) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.16, 0.25, Math.random() < 0.5 ? this.hero.trail : this.color, 0, 0, 0, -0.2);
     } else {
-      const sp = this.speed; const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * (g.mut && g.mut.grav ? 0.45 : 1) * dt; const stopping = (inp.mx === 0 && inp.mz === 0);
-      const a2 = stopping ? (ice ? 1.6 : 34) * dt : acc;
+      const sp = this.speed; const tx = inp.mx * sp, tz = inp.mz * sp; const gravK = (g.mut && g.mut.grav ? 0.45 : 1);
+      const stopping = (inp.mx === 0 && inp.mz === 0);
+      const reversing = !stopping && (this.vx * tx + this.vz * tz) < 0;
+      const rate = ice ? (stopping ? 1.6 : 4.5) : (stopping ? 110 : (reversing ? 160 : 95));
+      const a2 = rate * gravK * dt;
       this.vx += clamp(tx - this.vx, -a2, a2); this.vz += clamp(tz - this.vz, -a2, a2);
     }
     if (this.slT >= 0 && this.dashT <= 0) { const M = W(this.wpn).melee; if (this.slT < M.wind + M.act) { const lv = M.pat === 'lunge' ? 6 : 2.2; this.vx = dirx(this.slAng) * lv; this.vz = dirz(this.slAng) * lv; } else { this.vx *= 0.5; this.vz *= 0.5; } } // v4.10 swing: short forward lunge through the hit frames, then a slowed recovery
@@ -103,7 +107,7 @@ class Fighter {
     this.prevFire = inp.fire;
     // face
     if (this.slT >= 0) this.face = this.slAng; else if (!this.charging) { if (this.dashT <= 0 && Math.hypot(inp.mx, inp.mz) > 0.2) this.face = Math.atan2(inp.mx, inp.mz); else if (aiming) this.face = Math.atan2(inp.aimX, inp.aimZ); }
-    this.vface += angDiff(this.vface, this.face) * Math.min(1, dt * 18);
+    this.vface += angDiff(this.vface, this.face) * Math.min(1, dt * 24);
     // --- hazards
     if (this.dashT <= 0 && !(this.airT > 0)) {
       const t = g.cellType(this.x, this.z); const k = idx(ci(this.x), cj(this.z));

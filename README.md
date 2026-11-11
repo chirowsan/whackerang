@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10.7 (lighter, snappier movement)
+- **Lighter movement:** you get up to speed and stop almost immediately, and a reverse no longer coasts. Walking while you aim a throw stays close to full speed. The left stick responds sooner at a mid push. Default Game speed is still Chill.
+
 ## What's new in v4.10.6 (clearer aim guide + hide browser bar)
 - **Clearer aim guide:** while you drag the throw stick you see a short, soft highlight with two small marks that hint the curve — not a full path, not faint dots, and not a big bright arrow. It only shows while you aim and disappears when you let go.
 - **Hide the browser bar:** a fullscreen button sits next to Pause. On Android Chrome and desktop it hides the browser chrome; on iPhone it tells you how to Add to Home Screen for full-screen play. Aim accuracy is unchanged from v4.10.4.

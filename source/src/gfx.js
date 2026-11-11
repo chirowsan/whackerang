@@ -259,7 +259,7 @@ export function followCam(dt, points, humans) {
     const ratio = Math.min(1.35, Math.max((x1 - x0 + 5) / f.visW, (z1 - z0 + 3.5) / f.visH, 1)); const cfg0 = speedCfg();
     let want = f.dMin * (1 + (ratio - 1) * (cfg0.camWide > 1 ? 1 : 0.9)); if (f.fixed) want = f.dMin * Math.max((2 * HX + 2) / f.visW, (2 * HZ + 2.5) / f.visH) * 1.08; const vis = want / f.dMin; let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2;
     const hx = Math.max(0, HX - f.visW * vis / 2 + 0.2), hz = Math.max(0, HZ - f.visH * vis / 2 + 0.4); tx = Math.max(-hx, Math.min(hx, tx)); tz = Math.max(-hz + 0.2, Math.min(hz + 0.2, tz)); if (f.fixed) { tx = 0; tz = 0.2; }
-    const sm0 = Math.sqrt(cfg0.ts); const k0 = f.init ? 1 - Math.exp(-dt * 5 * sm0) : 1; f.init = true; f.cx += (tx - f.cx) * k0; f.cz += (tz - f.cz) * k0; f.d += (want - f.d) * (1 - Math.exp(-dt * 2.6 * sm0));
+    const sm0 = Math.sqrt(cfg0.ts); const k0 = f.init ? 1 - Math.exp(-dt * 8.5 * sm0) : 1; f.init = true; f.cx += (tx - f.cx) * k0; f.cz += (tz - f.cz) * k0; f.d += (want - f.d) * (1 - Math.exp(-dt * 3.4 * sm0));
     const tl = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tl) * f.d, Math.cos(tl) * f.d + f.cz); gfx.camDist = f.d;
     const sn = gfx.sun; if (sn && sn.target) { sn.target.position.set(f.cx, 0, f.cz); sn.position.set(f.cx - 7, 15, f.cz + 8); } return;
   }
@@ -267,7 +267,7 @@ export function followCam(dt, points, humans) {
   const cap = Math.min(f.dFull, f.dMin * (f.big ? 1.5 : 1.7));
   const cfg = speedCfg(); let want = Math.min(f.dFull, Math.min(cap, f.dMin * ratio) * (f.big ? cfg.camWide : 1 + (cfg.camWide - 1) * 0.35)); let tx = (x0 + x1) / 2, tz = (z0 + z1) / 2 + 0.2; if (f.fixed) { want = f.dFull; tx = 0; tz = 0.2; }
   const lim = (v, h, vis) => Math.max(-h + vis * 0.35, Math.min(h - vis * 0.35, v)); const vis = want / f.dMin; tx = lim(tx, HX, 10 * kk * vis); tz = lim(tz, HZ, 6 * kk * vis);
-  const sm = Math.sqrt(cfg.ts); const k = f.init ? 1 - Math.exp(-dt * 5 * sm) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (1 - Math.exp(-dt * 2.6 * sm));
+  const sm = Math.sqrt(cfg.ts); const k = f.init ? 1 - Math.exp(-dt * 8.5 * sm) : 1; f.init = true; f.cx += (tx - f.cx) * k; f.cz += (tz - f.cz) * k; f.d += (want - f.d) * (1 - Math.exp(-dt * 3.4 * sm));
   const tilt = gfx.tilt_; gfx.camTarget.set(f.cx, 0, f.cz); gfx.camBase.set(f.cx, Math.sin(tilt) * f.d, Math.cos(tilt) * f.d + f.cz); gfx.camDist = f.d;
   const sun = gfx.sun; if (sun && sun.target) { sun.target.position.set(f.cx, 0, f.cz); sun.position.set(f.cx - 7, 15, f.cz + 8); }
 }

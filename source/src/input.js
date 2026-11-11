@@ -45,7 +45,7 @@ function readPad(slot, o) {
   const gps = navigator.getGamepads ? navigator.getGamepads() : []; const pads = []; for (const g of gps) if (g && g.connected) pads.push(g);
   const gp = pads[slot]; if (!gp) return false; const st = Input.pads[slot], b = (i) => gp.buttons[i] && gp.buttons[i].pressed;
   let ax = gp.axes[0] || 0, ay = gp.axes[1] || 0; if (b(14)) ax = -1; if (b(15)) ax = 1; if (b(12)) ay = -1; if (b(13)) ay = 1;
-  const l = Math.hypot(ax, ay); if (l > 0.22) { o.mx = ax / Math.max(1, l); o.mz = ay / Math.max(1, l); Input.lastUsed = 'pad'; }
+  const l = Math.hypot(ax, ay); if (l > 0.16) { o.mx = ax / Math.max(1, l); o.mz = ay / Math.max(1, l); Input.lastUsed = 'pad'; }
   const rx = gp.axes[2] || 0, ry = gp.axes[3] || 0, rl = Math.hypot(rx, ry);
   if (rl > 0.4) { o.aimX = rx / rl; o.aimZ = ry / rl; o.fire = true; Input.lastUsed = 'pad'; }
   if (b(7) || b(5)) o.fire = true;
@@ -72,7 +72,7 @@ Input.read = function (slot, f) {
     const t = Input.touch;
     { // gentler stick: ease the target vector (fast to start slowly, quick to release) so it never snaps to full speed
       const sm = S().settings.touchSmooth !== false, tx = t.tx || 0, tz = t.tz || 0;
-      if (!sm) { t.mx = tx; t.mz = tz; } else { const grow = Math.hypot(tx, tz) >= Math.hypot(t.mx, t.mz) - 0.02; const tau = grow ? 0.085 : 0.045; const k = 1 - Math.exp(-(1 / 60) / tau); t.mx += (tx - t.mx) * k; t.mz += (tz - t.mz) * k; if (!tx && !tz && Math.hypot(t.mx, t.mz) < 0.04) { t.mx = 0; t.mz = 0; } }
+      if (!sm) { t.mx = tx; t.mz = tz; } else { const grow = Math.hypot(tx, tz) >= Math.hypot(t.mx, t.mz) - 0.02; const tau = grow ? 0.028 : 0.018; /* t412u: snappier stick, still eases a hair so it does not click */ const k = 1 - Math.exp(-(1 / 60) / tau); t.mx += (tx - t.mx) * k; t.mz += (tz - t.mz) * k; if (!tx && !tz && Math.hypot(t.mx, t.mz) < 0.04) { t.mx = 0; t.mz = 0; } }
     }
     if (!o.mx && !o.mz) { o.mx = t.mx; o.mz = t.mz; }
     if (t.fire || t.fireQ > 0) { o.fire = true; if (t.aimX || t.aimZ) { o.aimX = t.aimX; o.aimZ = t.aimZ; } if (t.fireQ > 0 && !t.fire) t.fireQ--; }
@@ -140,7 +140,7 @@ export function initTouch(root) {
   let jId = null, aId = null, jcx = 0, jcy = 0, acx = 0, acy = 0, aT0 = 0, aDragged = false;
   const vib = (ms) => { if (!S().settings.vibrate) return; try { const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics; if (H && H.impact) { H.impact({ style: ms > 20 ? 'MEDIUM' : 'LIGHT' }); return; } if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
   jz.addEventListener('pointerdown', (e) => { if (jId !== null) return; jId = e.pointerId; jz.setPointerCapture(e.pointerId); Input.lastUsed = 'touch'; jcx = e.clientX; jcy = e.clientY; place(jb, jcx, jcy); jb.classList.add('active'); mv(e); });
-  const mv = (e) => { let vx = e.clientX - jcx, vy = e.clientY - jcy; const d = Math.hypot(vx, vy); if (d > R) { vx = vx / d * R; vy = vy / d * R; } jk.style.transform = `translate(calc(-50% + ${vx * 0.76}px), calc(-50% + ${vy * 0.76}px))`; const m = Math.min(1, Math.hypot(vx, vy) / R); if (m < 0.1) { t.tx = 0; t.tz = 0; } else { const k = Math.pow(Math.min(1, (m - 0.1) / 0.78), 1.5); /* small dead zone, soft curve, full speed only near the rim */ t.tx = vx / Math.max(1e-3, Math.hypot(vx, vy)) * k; t.tz = vy / Math.max(1e-3, Math.hypot(vx, vy)) * k; } };
+  const mv = (e) => { let vx = e.clientX - jcx, vy = e.clientY - jcy; const d = Math.hypot(vx, vy); if (d > R) { vx = vx / d * R; vy = vy / d * R; } jk.style.transform = `translate(calc(-50% + ${vx * 0.76}px), calc(-50% + ${vy * 0.76}px))`; const m = Math.min(1, Math.hypot(vx, vy) / R); if (m < 0.06) { t.tx = 0; t.tz = 0; } else { const k = Math.pow(Math.min(1, (m - 0.06) / 0.70), 1.12); /* t412u: tighter deadzone, milder curve, full speed by ~3/4 of the rim */ t.tx = vx / Math.max(1e-3, Math.hypot(vx, vy)) * k; t.tz = vy / Math.max(1e-3, Math.hypot(vx, vy)) * k; } };
   jz.addEventListener('pointermove', (e) => { if (e.pointerId === jId) mv(e); });
   const jend = (e) => { if (e.pointerId !== jId) return; jId = null; t.tx = 0; t.tz = 0; jb.classList.remove('active'); rest(); };
   jz.addEventListener('pointerup', jend); jz.addEventListener('pointercancel', jend); jz.addEventListener('lostpointercapture', jend);
