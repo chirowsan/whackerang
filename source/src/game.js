@@ -18,7 +18,9 @@ import { Input } from './input.js';
 import { Traps } from './traps.js';
 import { keepMarkOn, STEALTH, stealthOn, stealthTick, stealthVis, canSee, reveal, bushClean } from './stealth.js';
 
-export const FR = 0.4, SPEED = 5.75, CURVE = 0.95, SUDDEN_AT = 48;
+export const FR = 0.4, SPEED = 5.75, CURVE = 0.62, SUDDEN_AT = 48;
+// t414u: short readable throws. THROW_R = base outbound cap (world units) on Large (~1/3 of the 26-unit width, under the short-axis wall from mid-court).
+const THROW_R = 6.6;
 // t412u move feel: snappy accel / stop / reverse (ice stays slippy). Charge no longer tanks walk speed.
 const dirx = (a) => Math.sin(a), dirz = (a) => Math.cos(a);
 const NOINP = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false };
@@ -176,12 +178,26 @@ class Fighter {
 }
 
 const TYPEFX = { classic: {}, razor: { pierce: 1, v: 1.06 }, frost: { freeze: 1, v: 0.96 }, chain: { chain: 2, v: 1.0 }, boom: { fire: 1, v: 1.0 }, phantom: { ghost: 1, v: 0.92 } };
+// Shared by Boom and predictBoomPath so the aim guide matches the true flight.
+function flightParams(f, c, g) {
+  const WP = W(wpnOf(f.wpn)); const T = TYPEFX[f.type || 'classic'] || {};
+  const curveK = clamp(WP.curve, 0.40, 1.20);
+  const v0 = (14 + 4 * c) * (T.v || 1) * (WP.v || 1);
+  const arenaK = clamp((2 * HX) / 26, 0.75, 1.05);
+  const wpnK = clamp(WP.tout || 1, 0.78, 1.22);
+  const grav = (g && g.mut && g.mut.grav) ? 1.15 : 1;
+  const rMax = THROW_R * arenaK * wpnK * (1 + 0.08 * c) * grav;
+  const w = CURVE * curveK; // charge no longer changes the curve
+  const homeK = (WP.fx && WP.fx.home) || 0;
+  return { WP, v0, rMax, w, homeK, curveK };
+}
 class Boom {
   constructor(g, owner, x, z, ang, c, o) {
     this.g = g; this.owner = owner; this.x = x; this.z = z; this.th = ang; this.t = 0; this.phase = 'out'; this.alive = true; this.carry = o.carry; this.bounces = 0; this.total = 0;
     this.type = o.type || 'classic'; const T = TYPEFX[this.type] || {}; this.pierce = !!T.pierce; this.freeze = !!T.freeze; this.chains = T.chain || 0; this.ghost = !!T.ghost; this.hit = new Set(); this.chainHits = 0;
-    this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = o.giant ? 0.85 : 0.3; this.v0 = (13 + 8 * c) * (T.v || 1); this.shock = owner.abil === 'tako' && c >= 0.9; /* v4.7 Bolt: full-charge throws stun */ this.tout = (0.8 + 0.7 * c) * (g.mut && g.mut.grav ? 1.25 : 1); this.retT = 0; this.w = CURVE * (1 - 0.35 * c); this.spin = 0; this.fade = 0;
-    this.wpn = wpnOf(o.wpn || owner.wpn); { const WP = W(this.wpn); this.v0 *= WP.v; this.hitR *= WP.hitR; this.tout *= WP.tout; this.w *= clamp(WP.curve, 0.5, 1.35); /* t404u: keep weapon identity, clamp extreme curves for readable paths */ const X = WP.fx || {}; this.homeK = X.home || 0; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; } // v4.10 Armory: per-weapon flight
+    this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = o.giant ? 0.85 : 0.3; this.shock = owner.abil === 'tako' && c >= 0.9; /* v4.7 Bolt: full-charge throws stun */ this.retT = 0; this.spin = 0; this.fade = 0;
+    this.wpn = wpnOf(o.wpn || owner.wpn); this.x0 = x; this.z0 = z; // t414u: no velocity inheritance; outbound turns around at a fixed range from this launch point
+    { const P = flightParams({ wpn: this.wpn, type: this.type }, c, g); const WP = P.WP; this.v0 = P.v0; this.rMax = P.rMax; this.w = P.w; this.homeK = P.homeK; this.tout = Math.max(0.35, P.rMax / Math.max(4, P.v0 * 0.75)); this.hitR *= WP.hitR; const X = WP.fx || {}; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; }
     this.mesh = buildWeapon(this.wpn, owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
     const tr = TRAILS[owner.trail] || TRAILS.none; const rcol = owner.trail !== 'none' ? tr.color : (this.type !== 'classic' ? BOOM_TYPES[this.type].color : owner.color);
     this.ribbon = fx.ribbon(rcol, o.giant ? 0.4 : 0.2, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null; /* t405u: thinner ribbon */
@@ -189,20 +205,29 @@ class Boom {
   update(dt) {
     const g = this.g, o = this.owner; this.total += dt; this.spin += dt * 19;
     if (this.fade > 0) { this.fade -= dt * 4; if (this.fade <= 0) this.kill(); return; }
-    // sub-step for tunnelling safety
-    const n = 2; let zk = 1; for (const q of g.fighters) { if (q.alive && q.pu.slow > 0 && q.team !== o.team && Math.hypot(q.x - this.x, q.z - this.z) < 4.6) { zk = 0.55; break; } } const h = dt * zk / n; const mg = o.pu.magnet > 0;
-    for (let s = 0; s < n && this.alive; s++) {
+    // sub-step for tunnelling safety; cap h so Chill/Fast share the same world path
+    let zk = 1; for (const q of g.fighters) { if (q.alive && q.pu.slow > 0 && q.team !== o.team && Math.hypot(q.x - this.x, q.z - this.z) < 4.6) { zk = 0.55; break; } }
+    let left = dt * zk; const hCap = 1 / 90; const mg = o.pu.magnet > 0;
+    while (left > 1e-8 && this.alive) { const h = Math.min(hCap, left); left -= h;
       let speed;
       if (this.phase === 'out') {
-        this.t += h; const k = this.t / this.tout; speed = this.v0 * (1 - 0.68 * Math.min(1, k)); this.th += this.w * h * (1 - 0.3 * k);
-        if (this.homing || this.homeK) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); const k = this.homing ? 3.4 : this.homeK; this.th += clamp(angDiff(this.th, a), -k * h, k * h); } }
-        if (this.t >= this.tout) { this.phase = 'ret'; this.retT = 0; }
+        this.t += h; const away = Math.hypot(this.x - this.x0, this.z - this.z0); const k = Math.min(1, away / Math.max(1e-3, this.rMax));
+        speed = this.v0 * (1 - 0.50 * k); this.th += this.w * h; // constant curve (not charge-scaled)
+        if (this.homing || this.homeK) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); const hk = this.homing ? 3.4 : this.homeK; this.th += clamp(angDiff(this.th, a), -hk * h, hk * h); } }
       } else {
-        this.retT += h; speed = 8 + 15 * Math.min(1, this.retT / 0.8); const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
+        this.retT += h; speed = 0.40 * this.v0 + 12 * Math.min(1, this.retT / 0.55); const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
         if (!o.alive) { this.fade = 1; return; }
-        const a = Math.atan2(o.x - this.x, o.z - this.z); const rate = (5.5 + this.retT * 7) * (1 + (o.isBot ? 0 : g.cfg.ease) * 0.6) * (mg ? 1.5 : 1); this.th += clamp(angDiff(this.th, a), -rate * h, rate * h);
+        const a = Math.atan2(o.x - this.x, o.z - this.z); const rate = (10 + this.retT * 5) * (1 + (o.isBot ? 0 : g.cfg.ease) * 0.6) * (mg ? 1.5 : 1); this.th += clamp(angDiff(this.th, a), -rate * h, rate * h);
       }
       this.x += dirx(this.th) * speed * h; this.z += dirz(this.th) * speed * h;
+      if (this.phase === 'out') {
+        const away = Math.hypot(this.x - this.x0, this.z - this.z0);
+        if (away >= this.rMax) { // snap onto the range circle so turnaround is dt-stable and does not overshoot
+          const s = this.rMax / Math.max(1e-6, away); this.x = this.x0 + (this.x - this.x0) * s; this.z = this.z0 + (this.z - this.z0) * s;
+          this.phase = 'ret'; this.retT = 0;
+          const homeA = Math.atan2(o.x - this.x, o.z - this.z); this.th += clamp(angDiff(this.th, homeA), -0.28, 0.28);
+        }
+      }
       if (g.wind) { this.x += g.wind[0] * 0.5 * h; this.z += g.wind[1] * 0.5 * h; }
       g.boomCollide(this);
       if (!this.alive) return;
@@ -314,27 +339,32 @@ export class Game {
     }
   }
   nearestEnemy(f, x, z, maxD, excl, seen) { let best = null, bd = maxD; for (const o of this.fighters) { if (!o.alive || !this.isFoe(f, o) || (excl && excl.has(o)) || (seen && !canSee(this, f.team, o))) continue; const d = Math.hypot(o.x - x, o.z - z); if (d < bd) { bd = d; best = o; } } return best; }
-  // t404u/t405u: simulate boom path (no walls). opt.outOnly + opt.frac → short outbound hint only
+  // t404u/t414u: simulate boom path (no walls). Same v0/rMax/w as Boom so the aim guide matches. opt.outOnly + opt.frac → short outbound hint only
   predictBoomPath(f, ang, c, n = 14, opt = null) {
     const outOnly = !!(opt && opt.outOnly); const frac = clamp((opt && opt.frac) || 1, 0.05, 1);
-    const WP = W(f.wpn); const curveK = clamp(WP.curve, 0.5, 1.35);
-    let v0 = (13 + 8 * c) * (WP.v || 1), tout = (0.8 + 0.7 * c) * (WP.tout || 1), w = CURVE * (1 - 0.35 * c) * curveK;
+    const P = flightParams(f, c, this); const v0 = P.v0, w = P.w, rMax = P.rMax, homeK = P.homeK;
     let x = f.x + dirx(ang) * 0.6 * f.bs, z = f.z + dirz(ang) * 0.6 * f.bs, th = ang, t = 0, phase = 'out', retT = 0;
-    const raw = [[x, z]], h = 1 / 40, homeK = (WP.fx && WP.fx.home) || 0; const tOut = tout * frac;
-    for (let i = 0; i < 160; i++) {
+    const x0 = x, z0 = z, raw = [[x, z]], h = 1 / 90; const outCap = rMax * frac;
+    for (let i = 0; i < 360; i++) {
       let speed;
       if (phase === 'out') {
-        t += h; const k = t / tout; speed = v0 * (1 - 0.68 * Math.min(1, k)); th += w * h * (1 - 0.3 * k);
+        t += h; const away = Math.hypot(x - x0, z - z0); const k = Math.min(1, away / Math.max(1e-3, rMax));
+        speed = v0 * (1 - 0.50 * k); th += w * h;
         if (homeK) { const tg = this.nearestEnemy(f, x, z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - x, tg.z - z); th += clamp(angDiff(th, a), -homeK * h, homeK * h); } }
-        if (outOnly && t >= tOut) { x += dirx(th) * speed * h; z += dirz(th) * speed * h; raw.push([x, z]); break; }
-        if (t >= tout) { phase = 'ret'; retT = 0; }
       } else {
         if (outOnly) break;
-        retT += h; speed = 8 + 15 * Math.min(1, retT / 0.8);
-        const a = Math.atan2(f.x - x, f.z - z); const rate = 5.5 + retT * 7; th += clamp(angDiff(th, a), -rate * h, rate * h);
+        retT += h; speed = 0.40 * v0 + 12 * Math.min(1, retT / 0.55);
+        const a = Math.atan2(f.x - x, f.z - z); const rate = 10 + retT * 5; th += clamp(angDiff(th, a), -rate * h, rate * h);
         if (Math.hypot(f.x - x, f.z - z) < 0.65 && retT > 0.12) { raw.push([x, z]); break; }
       }
-      x += dirx(th) * speed * h; z += dirz(th) * speed * h; raw.push([x, z]);
+      x += dirx(th) * speed * h; z += dirz(th) * speed * h;
+      if (phase === 'out') {
+        const away = Math.hypot(x - x0, z - z0); const cap = outOnly ? outCap : rMax;
+        if (away >= cap) { const s = cap / Math.max(1e-6, away); x = x0 + (x - x0) * s; z = z0 + (z - z0) * s; raw.push([x, z]);
+          if (outOnly) break; phase = 'ret'; retT = 0;
+          const homeA = Math.atan2(f.x - x, f.z - z); th += clamp(angDiff(th, homeA), -0.28, 0.28); continue; }
+      }
+      raw.push([x, z]);
     }
     const pts = []; for (let i = 0; i < n; i++) { const u = n === 1 ? 0 : i / (n - 1); const j = Math.min(raw.length - 1, Math.round(u * (raw.length - 1))); pts.push(raw[j]); }
     return pts;
@@ -365,8 +395,8 @@ export class Game {
     }
     if (!tg) return base;
     const dist = Math.hypot(tg.x - f.x, tg.z - f.z); const a = Math.atan2(tg.x - f.x, tg.z - f.z);
-    const ft = Math.min(0.7, dist / 11); const curveK = clamp(W(f.wpn).curve, 0.5, 1.35);
-    return a - 0.5 * CURVE * curveK * ft * 0.7; // milder curve lead than v4.10.3
+    const ft = Math.min(0.7, dist / 8); const curveK = clamp(W(f.wpn).curve, 0.40, 1.20);
+    return a - 0.5 * CURVE * curveK * ft * 0.7; // t414u: lead uses the same curve clamp as flight, scaled to the new shorter range
   }
   throwFrom(f, base, explicit, c) {
     const ang = f.isBot ? base : this.pickAim(f, base, explicit); f.face = ang; f.vface = ang;
@@ -628,7 +658,7 @@ export class Game {
           const style = (typeof window !== 'undefined' && window.__AIM_STYLE__) || (typeof S === 'function' && S().settings && S().settings.aimStyle) || 'B';
           m.aimVariant = style === 'B' ? 'B' : 'A';
           // short capsule (~1/5–1/6 throw); length from a short outbound predict
-          const pts = this.predictBoomPath(f, ang, c, 4, { outOnly: true, frac: 0.20 });
+          const pts = this.predictBoomPath(f, ang, c, 4, { outOnly: true, frac: 0.22 });
           const [ex, ez] = pts[pts.length - 1]; const reach = Math.hypot(ex - f.x, ez - f.z);
           const ringR = 0.72; const shaftLen = Math.max(0.85, Math.min(1.75, reach * 0.55));
           m.aim.rotation.y = ang - f.vface;
@@ -652,7 +682,7 @@ export class Game {
           // variant B: 2 soft chevrons along a mild outbound curve
           const chevs = m.aimChevs || [];
           if (m.aimVariant === 'B' && chevs.length) {
-            const curve = this.predictBoomPath(f, ang, c, 6, { outOnly: true, frac: 0.42 });
+            const curve = this.predictBoomPath(f, ang, c, 6, { outOnly: true, frac: 0.55 });
             for (let i = 0; i < chevs.length; i++) {
               const { grp, body, ol } = chevs[i]; grp.visible = true;
               const pi = Math.min(curve.length - 1, 3 + i); const [px, pz] = curve[pi];

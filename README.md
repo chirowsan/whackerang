@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10.8 (shorter, steadier throws)
+- **Shorter, steadier throws:** a full-charge boomerang now turns around about a third of the way across the arena instead of flying past the far wall. The path is the same every time you aim the same way; holding longer makes the shot faster, not much farther. Default Game speed is still Chill.
+
 ## What's new in v4.10.7 (lighter, snappier movement)
 - **Lighter movement:** you get up to speed and stop almost immediately, and a reverse no longer coasts. Walking while you aim a throw stays close to full speed. The left stick responds sooner at a mid push. Default Game speed is still Chill.
 
