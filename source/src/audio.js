@@ -80,9 +80,12 @@ function sfxInner(name, p, t) {
     case 'throw': { const c = Math.min(1, Math.max(0, p)); noise(t, 0.3 + c * 0.15, 0.34 + c * 0.14, { type: 'bandpass', f: (420 + c * 260) * r, fTo: 2800 + c * 1400, q: 2.6 }); tone((230 + c * 120) * r, t, 0.24, 'sine', 0.24, { to: 760 + c * 340 }); tone(1500 * r, t + 0.02, 0.07, 'triangle', 0.07, { to: 2600 }); break; }
     case 'charge': tone(200 + p * 500, t, 0.06, 'sine', 0.05); break;
     case 'whoosh': noise(t, 0.2, 0.12, { type: 'bandpass', f: 900, fTo: 1800, q: 3 }); break;
-    case 'catch': { const k = Math.min(4, Math.max(0, Math.round(p) - 1)); tone(mtof(79 + k * 2), t, 0.07, 'square', 0.15, { lp: 5000 }); tone(mtof(86 + k * 2), t + 0.05, 0.16, 'square', 0.14, { lp: 4200, send: 0.25 }); tone(mtof(98 + k * 2), t + 0.09, 0.14, 'sine', 0.07, { send: 0.4 }); tone(180, t, 0.09, 'sine', 0.35, { to: 70 }); noise(t, 0.05, 0.22, { type: 'highpass', f: 3500 }); break; }
+    case 'catch': { const k = Math.min(4, Math.max(0, Math.round(p) - 1));
+      // feel414: a short wooden "clack" then the familiar rising ping
+      noise(t, 0.018, 0.34, { type: 'bandpass', f: 2200, fTo: 1600, q: 4 }); tone(1900, t, 0.03, 'square', 0.18, { to: 900, lp: 5000 });
+      tone(mtof(79 + k * 2), t + 0.03, 0.07, 'square', 0.16, { lp: 5000 }); tone(mtof(86 + k * 2), t + 0.07, 0.14, 'square', 0.14, { lp: 4200, send: 0.2 }); tone(mtof(98 + k * 2), t + 0.11, 0.12, 'sine', 0.07, { send: 0.35 }); tone(200, t, 0.07, 'sine', 0.28, { to: 80 }); break; }
     case 'bounce': tone(520 * r, t, 0.1, 'triangle', 0.22, { to: 300 }); noise(t, 0.04, 0.15, { type: 'bandpass', f: 1800, q: 2 }); break;
-    case 'hit': noise(t, 0.34, 0.75, { f: 3400, fTo: 140, q: 0.9 }); tone(170 * r, t, 0.34, 'sine', 0.9, { to: 38 }); tone(950, t, 0.09, 'square', 0.2, { to: 180 }); noise(t, 0.05, 0.5, { type: 'highpass', f: 5000 }); tone(mtof(64) * r, t + 0.02, 0.18, 'triangle', 0.18, { to: 90 }); break;
+    case 'hit': noise(t, 0.055, 0.7, { type: 'highpass', f: 4500 }); noise(t, 0.09, 0.55, { f: 1800, fTo: 220, q: 1.1 }); tone(210 * r, t, 0.16, 'sine', 0.85, { to: 48 }); tone(880, t, 0.045, 'square', 0.16, { to: 200, lp: 3000 }); tone(mtof(64) * r, t + 0.015, 0.12, 'triangle', 0.14, { to: 90 }); break;
     case 'hurt': tone(330, t, 0.4, 'sawtooth', 0.2, { to: 70, lp: 1400, lpTo: 180 }); tone(110, t, 0.35, 'sine', 0.55, { to: 40 }); noise(t, 0.18, 0.35, { f: 900, fTo: 120 }); break;
     case 'koStinger': tone(mtof(55), t, 0.9, 'sawtooth', 0.18, { to: mtof(43), lp: 1800, lpTo: 200 }); [0, 7, 12].forEach((x, i) => tone(mtof(79 + x), t + 0.12 + i * 0.07, 0.3, 'square', 0.12, { lp: 3500, send: 0.5 })); noise(t, 0.5, 0.35, { f: 5000, fTo: 200 }); break;
     case 'slowmo': tone(900, t, 0.9, 'sine', 0.14, { to: 120, send: 0.5 }); noise(t, 0.8, 0.18, { type: 'bandpass', f: 2400, fTo: 160, q: 1.4 }); break;
@@ -94,7 +97,7 @@ function sfxInner(name, p, t) {
     case 'combo': { const k = Math.min(5, Math.max(1, Math.round(p))); [0, 4, 7, 12].slice(0, 2 + Math.min(2, k)).forEach((x, i) => tone(mtof(72 + x + k * 2), t + i * 0.05, 0.18, 'square', 0.13, { lp: 4500, send: 0.4 })); break; }
     case 'tickup': tone(mtof(84 + Math.min(12, Math.round(p))), t, 0.03, 'square', 0.05, { lp: 5000 }); break;
     case 'whoosh2': noise(t, 0.35, 0.22, { type: 'bandpass', f: 400, fTo: 3200, q: 2 }); break;
-    case 'ko': tone(700, t, 0.6, 'sawtooth', 0.22, { to: 90, lp: 2200, lpTo: 200 }); tone(1400, t + 0.02, 0.35, 'triangle', 0.14, { to: 220 }); break;
+    case 'ko': noise(t, 0.05, 0.45, { type: 'highpass', f: 3500 }); tone(820, t, 0.08, 'square', 0.2, { to: 240, lp: 2800 }); tone(700, t + 0.03, 0.45, 'triangle', 0.2, { to: 90, lp: 2000, lpTo: 220 }); tone(1400, t + 0.02, 0.22, 'triangle', 0.12, { to: 260 }); break;
     case 'dash': noise(t, 0.16, 0.3, { type: 'bandpass', f: 1500, fTo: 500, q: 1.5 }); tone(400, t, 0.12, 'sine', 0.12, { to: 160 }); break;
     case 'deflect': tone(1400, t, 0.25, 'triangle', 0.3, { to: 2400, send: 0.3 }); noise(t, 0.08, 0.3, { type: 'highpass', f: 4000 }); break;
     case 'deflectfail': tone(300, t, 0.08, 'square', 0.06, { to: 200 }); break;
@@ -198,6 +201,16 @@ function stats(d, sr) { // peak dBFS and loudest 250 ms RMS dBFS
   let pk = 0; for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > pk) pk = a; }
   const w = Math.floor(sr * 0.25); let best = 0; for (let i = 0; i + w <= d.length; i += w >> 1) { let e = 0; for (let j = 0; j < w; j++) e += d[i + j] * d[i + j]; best = Math.max(best, e / w); }
   return { peak: 20 * Math.log10(pk + 1e-9), rms: 10 * Math.log10(best + 1e-12) };
+}
+export async function renderSfxSequence(steps, sr = 44100) {
+  // steps: [{ name, t, p }] scheduled on an OfflineAudioContext. Returns Float32Array.
+  const dur = (steps.length ? Math.max(...steps.map((s) => s.t)) : 0) + 0.7;
+  const prevEn = enabled, prevMute = AU.mute; enabled = true; AU.mute = false;
+  try {
+    return await offline(dur, sr, () => {
+      for (const st of steps) { for (const k in lastPlay) delete lastPlay[k]; const t0 = st.t || 0; const p = st.p == null ? 1 : st.p; const n = st.name; if (DUCK[n]) { duckG.gain.setValueAtTime(DUCK[n], t0); duckG.gain.linearRampToValueAtTime(1, t0 + 0.4); } curGain = TRIM_OFF ? 1 : (TRIM[n] || 1); try { sfxInner(n, p, t0); } finally { curGain = 1; } }
+    });
+  } finally { enabled = prevEn; AU.mute = prevMute; }
 }
 export async function measureSfx(names, trims = null, reps = 3) {
   const sr = 32000, out = {}; const names2 = names || SFX_NAMES; const prevOvr = TRIM_OVR; TRIM_OVR = trims; const prevEn = enabled; enabled = true; const prevMute = AU.mute; AU.mute = false;

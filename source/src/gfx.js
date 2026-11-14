@@ -274,8 +274,9 @@ export function followCam(dt, points, humans) {
 // project a world point to screen fractions (0..1), returns [sx, sy, onScreen]
 const _pv = new THREE.Vector3();
 export function toScreen(x, y, z) { _pv.set(x, y, z).project(gfx.camera); return [(_pv.x + 1) / 2, (1 - _pv.y) / 2, _pv.z < 1 && _pv.x > -1 && _pv.x < 1 && _pv.y > -1 && _pv.y < 1]; }
-export function shake(amount) { const l = S().settings.shakeLvl; amount *= l === 'off' ? 0 : l === 'low' ? 0.45 : 1; if (amount > 0) gfx.trauma = Math.min(1, gfx.trauma + amount); }
-export function punch(dx, dz, a = 0.3) { const l = Math.hypot(dx, dz) || 1; gfx.kx += dx / l * a; gfx.kz += dz / l * a; }
+export function prefersReducedMotion() { try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; } }
+export function shake(amount) { if (prefersReducedMotion()) return; const l = S().settings.shakeLvl; amount *= l === 'off' ? 0 : l === 'low' ? 0.45 : 1; if (amount > 0) gfx.trauma = Math.min(0.65, gfx.trauma + amount); }
+export function punch(dx, dz, a = 0.3) { if (prefersReducedMotion()) return; const l = Math.hypot(dx, dz) || 1; gfx.kx += dx / l * a; gfx.kz += dz / l * a; const p = Math.hypot(gfx.kx, gfx.kz); if (p > 0.22) { const k = 0.22 / p; gfx.kx *= k; gfx.kz *= k; } }
 export function pulseFov(a) { gfx.fovPulse = Math.max(gfx.fovPulse, a); }
 export function updateGfx(dt, t) {
   const cam = gfx.camera;

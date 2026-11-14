@@ -1,6 +1,7 @@
 import { STEALTH, reveal } from './stealth.js';
 // Mode rules, ultimates, respawn, bomb tag, KOTH, survival waves and boss logic. Mixed into Game.
 import { THREE, gfx, glowMat, toon, shake, pulseFov, punch } from './gfx.js';
+import { feel } from './feel.js';
 import { AW, AH, HX, HZ, cx, cz, ci, cj, idx, inb, clamp, pick, rr, shuffle, arenaScale } from './util.js';
 import { HEROES, PLAYER_COLORS, PERSONAS, BOOM_TYPES, ULTS, SIGS, POWERUPS } from './data.js';
 import { spawns, T } from './arena.js';
@@ -45,7 +46,7 @@ export function installRules(Game, { Boom, Fighter }) {
     if (!f || !f.alive || f.ult < 100 || f.boss) return;
     reveal(f, STEALTH.reveal);
     const id = f.hero.id; const sig = SIGS[id] || SIGS.bao;
-    f.ult = 0; f.ultKind = id; sfx('ult'); shake(0.18); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
+    f.ult = 0; f.ultKind = id; sfx('ult'); feel('special', { f, game: this }); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
     const r = 0.4 * (f.bs || 1);
     if (id === 'bao') { // Snack Time
       if (f.hp < f.maxHp) { f.hp = Math.min(f.maxHp, f.hp + 1); fx.popup('+1 ♥', f.x, f.z, 'pop-gold', 1.4); }
@@ -86,7 +87,7 @@ export function installRules(Game, { Boom, Fighter }) {
   // ---------------- hurt (multi-hp fighters)
   P.onHurt = function (f, killer, kind) {
     if (kind === 'poison') { sfx('sizzle'); fx.sparks(f.x, 0.7, f.z, 12, [0x9dff3c, 0xb36bff], { speed: 3, up: 3, life: 0.5 }); fx.popup('\u2623 \u2665 ' + f.hp + ' LEFT', f.x, f.z, 'pop-hit'); if (!f.isBot && f.def.slot === 0) fx.flash('#9dff3c', 0.18, 140); this.onEvent('hurt', { f, killer }); return; } // v4.8: gentle poison feedback
-    sfx('hit'); fx.sparks(f.x, 0.8, f.z, 16, [0xffffff, f.color], { speed: 6, life: 0.5 }); fx.shockwave(f.x, f.z, 0xffffff, 3.4); shake(0.4); punch(f.x - (killer ? killer.x : f.x), f.z - (killer ? killer.z : f.z), 0.4); this.hitstop = 0.1; fx.flash('#ffffff', 0.25, 150);
+    sfx('hit'); fx.sparks(f.x, 0.8, f.z, 16, [0xffffff, f.color], { speed: 6, life: 0.5 }); fx.shockwave(f.x, f.z, 0xffffff, 3.4); feel('hit', { f, killer, game: this });
     fx.popup(f.boss ? 'HIT! ' + f.hp + ' LEFT' : f.maxHp > 1 ? '\u2665 ' + f.hp + ' LEFT' : 'OUCH!', f.x, f.z, 'pop-hit'); this.onEvent('hurt', { f, killer });
     if (f.boss && !f.rage && f.hp <= f.maxHp / 2) { f.rage = true; f.slamCd = Math.min(f.slamCd, 1.5); fx.popup('ENRAGED!', f.x, f.z, 'pop-hit', 2.3); this.spawnMinions(f, 2); this.onEvent('rage', { f }); }
   };
@@ -159,7 +160,7 @@ export function installRules(Game, { Boom, Fighter }) {
     this.checkEnd();
   };
   P.bossSlam = function (b) {
-    const R = 3.4; sfx('explode'); shake(0.7); fx.flash('#ffffff', 0.25, 200); fx.shockwave(b.x, b.z, 0xff6a3a, R * 2.3); fx.sparks(b.x, 0.4, b.z, 36, [0xffd060, 0xff7a20], { speed: 9, up: 3 }); fx.scorch(b.x, b.z, R * 1.3, 0x000000, 0.5, 10); fx.burst(b.x, 0.3, b.z, 14, [0x888899, 0xaaaabb], { speed: 6, up: 3, size: 0.2 });
+    const R = 3.4; sfx('explode'); feel('explode', { game: this, force: true }); fx.flash('#ffffff', 0.18, 160); fx.shockwave(b.x, b.z, 0xff6a3a, R * 2.3); fx.sparks(b.x, 0.4, b.z, 36, [0xffd060, 0xff7a20], { speed: 9, up: 3 }); fx.scorch(b.x, b.z, R * 1.3, 0x000000, 0.5, 10); fx.burst(b.x, 0.3, b.z, 14, [0x888899, 0xaaaabb], { speed: 6, up: 3, size: 0.2 });
     for (const f of this.fighters) { if (!f.alive || f.team === b.team || f.inv > 0 || f.dashT > 0 || Math.hypot(f.x - b.x, f.z - b.z) > R) continue; if (f.shield) { f.shield = false; f.inv = 0.8; sfx('shieldpop'); continue; } f.die(b, 'slam', f.x - b.x, f.z - b.z); }
   };
   P.updateKoth = function (dt) {

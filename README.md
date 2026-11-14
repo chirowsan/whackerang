@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.1 (punchier hits, calmer screen)
+- **Punchier hits and catches:** hits squash, catches stretch with a tiny sparkle, and you feel a short buzz on Android. Sounds are tighter, including a catch clack. The screen stays calm: no full-screen flash on a regular hit, and shake stays small. On iPhone, a sparkle and a punchy sound stand in for vibration (Safari cannot vibrate). You can turn Vibration, Screen shake, and Hit-stop off in Settings. Default Game speed is still Chill.
+
 ## What's new in v4.11.0 (deeper characters)
 - **Each fighter has a signature:** a kid-friendly tag (Tank, Speedy, Zappy, and more), a Special move that only they have, and three weapons only they can use. Special is ready at the start of a round and comes back every 10 to 14 seconds. You still fire it with the Special button. Default Game speed is still Chill.
 

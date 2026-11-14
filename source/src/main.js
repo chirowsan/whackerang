@@ -5,7 +5,9 @@ import { S, save, loadSave, getWpn } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier, dailySnapshot, ensureDaily } from './progress.js';
-import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES } from './audio.js';
+import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence } from './audio.js';
+import { feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap } from './feel.js';
+import { prefersReducedMotion } from './gfx.js';
 import { Input, initInput, initTouch } from './input.js';
 import { Bot } from './ai.js';
 import { fx } from './fx.js';
@@ -191,12 +193,12 @@ const app = {
     else if (n === 'go') { if (this.mode === 'play') this.cdUI(0); }
     else if (n === 'cdclear') this.cdHide();
     else if (n === 'ko') {
-      if (this.mode !== 'play') return; const f = d.f; if (mine(f) && navigator.vibrate && S().settings.vibrate && !(this.net && this.net.isGuest)) navigator.vibrate(f.deathKind === 'boom' ? 60 : 30); if (!this.net || mine(d.killer)) S().kos++;
+      if (this.mode !== 'play') return; const f = d.f; /* feel414: KO vibration is fired in feel('ko') */ if (!this.net || mine(d.killer)) S().kos++;
       if (m) { if (human) m.st.deaths++; if (mine(d.killer) && d.killer.team !== f.team) { m.st.kos++; track('ko'); if (['saw', 'hammer', 'boulder', 'crush', 'fire', 'zap', 'laser', 'spike'].includes(d.kind)) track('trapko'); } }
       if (f.boss) { UI.banner('BOSS DOWN!', f.name + ' is defeated', '#ffd23c'); }
       const k = d.killer; if (k && k !== f && k.alive && k.team !== f.team) { k.koChain = g.time - (k.lastKoT || -99) < 4.5 ? (k.koChain || 0) + 1 : 1; k.lastKoT = g.time; if (k.koChain >= 2 && !k.isBot) { sfx('combo', k.koChain); fx.popup(['', '', 'DOUBLE KO!', 'TRIPLE KO!', 'MEGA KO!'][Math.min(4, k.koChain)], k.x, k.z, 'pop-gold', 2.5); } }
     }
-    else if (n === 'hurt') { if (human) { fx.hurt(0.7); sfx('hurt'); if (navigator.vibrate && S().settings.vibrate) navigator.vibrate(40); } }
+    else if (n === 'hurt') { if (human) { fx.hurt(0.7); sfx('hurt'); } }
     else if (n === 'pickup') { if (human) track('pickup'); }
     else if (n === 'throw') { if (human) track('throw'); }
     else if (n === 'dash') { if (human) track('dash'); }
@@ -370,6 +372,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } };
+  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

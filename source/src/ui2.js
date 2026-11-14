@@ -380,6 +380,11 @@ UI.settings = function (p) {
   grid.insertBefore(this.seg('Camera', s, 'camera', [['close', 'Close'], ['wide', 'Wide']], () => { save(); fitCamera(); }), first); grid.insertBefore(tog('Screen flashes', 'flash', () => { gfx.flashOn = !!s.flash; }), first);
   grid.insertBefore(this.seg('Arena events', s, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]), first);
   { const row = [...grid.children].find((r) => r.firstChild && r.firstChild.textContent === 'Screen shake'); const sg = this.seg('Screen shake', s, 'shakeLvl', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']], () => { s.shake = s.shakeLvl !== 'off'; save(); }); if (row) row.replaceWith(sg); else grid.appendChild(sg); }
+  { const vr = [...grid.children].find((r) => r.firstChild && r.firstChild.textContent === 'Vibration');
+    if (vr && !vr.querySelector('.iphone-vibe-hint')) {
+      let has = false; try { has = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'); } catch (e) {}
+      if (!has) { const hint = document.createElement('div'); hint.className = 'iphone-vibe-hint'; hint.style.cssText = 'font-size:11px;opacity:.7;margin:2px 0 6px;max-width:28ch;line-height:1.3'; hint.textContent = 'On iPhone, hits play a tiny sparkle and a punchy sound instead — Safari cannot vibrate.'; vr.appendChild(hint); }
+    } }
   const tr = h('div', 'row', '<span>Training</span>'); tr.appendChild(this.btn('Replay tutorial', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); })); grid.appendChild(tr);
   return el;
 };
