@@ -636,3 +636,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* aim408 hide-browser-bar HUD */
 #h-fs.on,#btnFs.on{outline:2px solid #8ff6ff;outline-offset:1px}
 #fs-ios-tip{pointer-events:auto}
+
+/* t417u: kid-readable fighter tags and signature/weapon chips */
+.htag { display: inline-block; margin-top: 2px; padding: 1px 8px; border-radius: 999px; font-size: calc(var(--u)*.85); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: rgba(255,210,60,.2); color: #ffe38a; border: 1px solid rgba(255,210,60,.35); }
+.htag.big { font-size: calc(var(--u)*1.05); margin: 4px 0 6px; }
+.hero-card .htag { font-size: calc(var(--u)*.72); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perk.sigline { color: #ffe38a; }
+.perk.sigline em { opacity: .8; font-style: normal; margin-left: .4em; font-size: .9em; }
+.wpn-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.wpn-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 4px; border-radius: 10px; background: rgba(0,0,0,.28); font-weight: 800; font-size: calc(var(--u)*.9); }
+.wpn-chip svg, .wpn-chip .wsv { width: calc(var(--u)*1.6); height: calc(var(--u)*1.6); }
+.arm-who .htag { margin-left: 6px; vertical-align: middle; }

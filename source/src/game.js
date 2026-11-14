@@ -5,7 +5,7 @@ import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { S, speedCfg } from './save.js';
 import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, rr, angDiff, pick, shuffle, mulberry32, CD_LEN, CD_PRE } from './util.js';
-import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, heroHp } from './data.js';
+import { HEROES, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, heroHp, SIGS } from './data.js';
 import { ArenaEvents } from './events.js';
 import { POISON, poisonOn, poisonTick, inPoison, poisonRect, PoisonView } from './poison.js';
 import { installRules } from './rules.js';
@@ -38,7 +38,7 @@ class Fighter {
     this.wins = def.wins || 0; this.tmr = Math.random() * 10;
     // v2 state
     this.team = def.team === undefined ? slotIdx : def.team; this.spawn = spawn; this.bs = def.scale || 1; this.boss = !!def.boss; this.abil = def.boss || def.minion || !this.hero ? null : this.hero.id; /* v4.7: per-hero passive ability */ const H0 = g.rules && g.rules.hearts; this.hp = this.maxHp = def.hp || (def.boss || def.minion ? 1 : Math.max(1, Math.min(9, H0 === 'hero' ? heroHp(this.abil) : (H0 | 0) || 1))); this.lives = def.lives || 1;
-    this.baseType = def.type || 'classic'; this.type = this.baseType; this.typeT = 0; this.skin = def.skin || 'default'; this.trail = def.trail || 'none'; this.ult = def.ult0 || 0; this.ultT = 0; this.ultKind = '';
+    this.baseType = def.type || 'classic'; this.type = this.baseType; this.typeT = 0; this.skin = def.skin || 'default'; this.trail = def.trail || 'none'; this.ult = def.ult0 !== undefined ? def.ult0 : (this.boss ? 0 : 100); this.ultT = 0; this.ultKind = ''; this.sigSlide = false;
     this.frozenT = 0; this.stunT = 0; this.tagImmune = 0; this.tagCd = 0; this.respawnT = 0; this.catchPop = 0; this.happyT = 0; this.hitFlash = 0; this.emoteT = 0; this.score = 0; this.dmgTaken = 0;
     if (this.bs !== 1) this.model.root.scale.setScalar(this.bs);
     // v4.10 Armory + melee: weapon is fixed for the whole match (chosen pre-match); rooms without the capability are boomerang-only
@@ -55,7 +55,7 @@ class Fighter {
     this.hurtT = Math.max(0, this.hurtT - dt * 3); this.slowK = 1; for (const o of g.fighters) { if (o !== this && o.alive && o.pu.slow > 0 && o.team !== this.team && Math.hypot(o.x - this.x, o.z - this.z) < 4.6) { this.slowK = 0.6; break; } }
     if (this.pu.magnet > 0) { for (const p of g.powerups) { const dx = this.x - p.x, dz = this.z - p.z, d = Math.hypot(dx, dz); if (d < 7 && d > 0.3) { p.x += dx / d * 7 * dt; p.z += dz / d * 7 * dt; p.mesh.position.x = p.x; p.mesh.position.z = p.z; } } this.magT -= dt; if (this.magT <= 0) { this.magT = 0.09; const a = Math.random() * 6.28; fx.glow.spawn(this.x + Math.cos(a) * 2.6, 0.5, this.z + Math.sin(a) * 2.6, -Math.cos(a) * 9, 0.2, -Math.sin(a) * 9, 0.1, 0.28, 0xff6a7a, 0, 0, 0, -0.5); } }
     if (this.chillT > 0) this.chillT -= dt; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 8) { this.regenT = 0; this.hp++; if (!this.hid) { fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
-    this.emoteT = Math.max(0, this.emoteT - dt); this.frozenT = Math.max(0, this.frozenT - dt); this.stunT = Math.max(0, this.stunT - dt); this.tagImmune -= dt; this.tagCd -= dt; this.hitFlash = Math.max(0, this.hitFlash - dt); if (this.typeT > 0) { this.typeT -= dt; if (this.typeT <= 0) this.type = this.baseType; } if (this.ultT > 0) { this.ultT -= dt; if (this.ultT <= 0) g.endUlt(this); } if (g.state === 'play') this.ult = Math.min(100, this.ult + dt * (this.boss ? 0 : 1.4));
+    this.emoteT = Math.max(0, this.emoteT - dt); this.frozenT = Math.max(0, this.frozenT - dt); this.stunT = Math.max(0, this.stunT - dt); this.tagImmune -= dt; this.tagCd -= dt; this.hitFlash = Math.max(0, this.hitFlash - dt); if (this.typeT > 0) { this.typeT -= dt; if (this.typeT <= 0) this.type = this.baseType; } if (this.ultT > 0) { this.ultT -= dt; if (this.ultT <= 0) g.endUlt(this); } if (g.state === 'play' && this.ultT <= 0) { const cd = (SIGS[this.hero && this.hero.id] && SIGS[this.hero.id].cd) || 12; this.ult = Math.min(100, this.ult + dt * (this.boss ? 0 : 100 / cd)); }
     this.dashCd -= dt; this.deflectCd -= dt; this.throwCd -= dt; this.throwT = Math.max(0, this.throwT - dt * 4); this.inv = Math.max(0, this.inv - dt); this.deflectT = Math.max(0, this.deflectT - dt);
     let inp = NOINP;
     if (g.state === 'play' || g.state === 'roundEnd') inp = this.bot ? this.bot.update(dt) : (g.input ? g.input.read(this.def.slot, this) : NOINP);
@@ -75,8 +75,9 @@ class Fighter {
     // --- movement
     const hz = g.cellType(this.x, this.z); const ice = g.arenaId === 'ice' || this.iceT > 0;
     if (this.dashT > 0) {
-      this.dashT -= dt; const sp = 17; this.vx = this.dashDir[0] * sp; this.vz = this.dashDir[1] * sp;
-      if (this.dashT <= 0) { this.vx *= 0.35; this.vz *= 0.35; }
+      this.dashT -= dt; const sp = this.sigSlide ? 14 : 17; this.vx = this.dashDir[0] * sp; this.vz = this.dashDir[1] * sp;
+      if (this.sigSlide) { for (const o of g.fighters) { if (!o.alive || o === this || o.team === this.team) continue; if (Math.hypot(o.x - this.x, o.z - this.z) < 1.35) { o.chillT = Math.max(o.chillT || 0, 0.9); } } }
+      if (this.dashT <= 0) { this.vx *= 0.35; this.vz *= 0.35; this.sigSlide = false; }
       if (!this.hid && Math.random() < 0.3) fx.glow.spawn(this.x, 0.3, this.z, 0, 0.2, 0, 0.16, 0.25, Math.random() < 0.5 ? this.hero.trail : this.color, 0, 0, 0, -0.2);
     } else {
       const sp = this.speed; const tx = inp.mx * sp, tz = inp.mz * sp; const gravK = (g.mut && g.mut.grav ? 0.45 : 1);
@@ -138,7 +139,7 @@ class Fighter {
     }
   }
   release() {
-    const g = this.g; this.charging = false; let c = clamp(this.chargeT / 0.7, 0, 1); this.chargeT = 0; if (this.ultKind === 'tako' && this.ultT > 0) c = 1;
+    const g = this.g; this.charging = false; let c = clamp(this.chargeT / 0.7, 0, 1); this.chargeT = 0;
     if (this.ammo <= 0) return;
     const explicit = Math.hypot(this.lastAim[0], this.lastAim[1]) > 0.2; const base = explicit ? Math.atan2(this.lastAim[0], this.lastAim[1]) : this.face;
     g.throwFrom(this, base, explicit, c);

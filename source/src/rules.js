@@ -2,7 +2,7 @@ import { STEALTH, reveal } from './stealth.js';
 // Mode rules, ultimates, respawn, bomb tag, KOTH, survival waves and boss logic. Mixed into Game.
 import { THREE, gfx, glowMat, toon, shake, pulseFov, punch } from './gfx.js';
 import { AW, AH, HX, HZ, cx, cz, ci, cj, idx, inb, clamp, pick, rr, shuffle, arenaScale } from './util.js';
-import { HEROES, PLAYER_COLORS, PERSONAS, BOOM_TYPES, ULTS, POWERUPS } from './data.js';
+import { HEROES, PLAYER_COLORS, PERSONAS, BOOM_TYPES, ULTS, SIGS, POWERUPS } from './data.js';
 import { spawns, T } from './arena.js';
 import { fx } from './fx.js';
 import { sfx } from './audio.js';
@@ -40,21 +40,48 @@ export function installRules(Game, { Boom, Fighter }) {
   };
 
   // ---------------- ultimates
-  P.gainUlt = function (f, n) { if (!f || f.boss || f.ultT > 0) return; const was = f.ult >= 100; f.ult = Math.min(100, f.ult + n); if (!was && f.ult >= 100) { this.onEvent('ultReady', { f }); if (!f.isBot) sfx('ultready'); } };
-  P.useUlt = function (f) { reveal(f, STEALTH.reveal);
-    const id = f.hero.id; f.ult = 0; f.ultKind = id; sfx('ult'); shake(0.35); pulseFov(0.5); fx.shockwave(f.x, f.z, f.color, 5); fx.flash('#ffffff', 0.2, 200); fx.popup(ULTS[id].name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 2.0);
-    const shoot = (ang, o) => this.booms.push(new Boom(this, f, f.x + Math.sin(ang) * 0.7, f.z + Math.cos(ang) * 0.7, ang, 0.8, { carry: 0, type: f.type, ...o }));
-    if (id === 'bao') { for (let i = 0; i < 8; i++) shoot(i * Math.PI / 4 + f.face); f.ultT = 0.01; }
-    else if (id === 'nori') { f.ultT = 3; f.inv = 3; f.dashCd = 0; fx.sparks(f.x, 0.6, f.z, 20, [0x222233, f.color], { speed: 5 }); }
-    else if (id === 'tako') { f.ultT = 6; f._mx = f.maxAmmo; f.maxAmmo += 2; f.ammo = f.maxAmmo; f.pu.homing = 6; }
-    else if (id === 'kuma') { const t = this.nearestEnemy(f, f.x, f.z, 99); const base = t ? Math.atan2(t.x - f.x, t.z - f.z) : f.face; for (const d of [-0.28, 0, 0.28]) shoot(base + d, { fire: true }); f.ultT = 0.01; }
-    else if (id === 'pico') { f.shield = true; if (f.lives > 1) f.lives++; f.pu.speed = 6; f.ultT = 0.01; fx.sparks(f.x, 0.8, f.z, 20, [0x6fffb0, 0xffffff], { speed: 4 }); }
-    else if (id === 'yuki') { for (const o of this.fighters) if (o.alive && o.team !== f.team && Math.hypot(o.x - f.x, o.z - f.z) < 8) { o.freezeFor(o.boss ? 1.0 : 2.4); } f.ultT = 0.01; fx.ring(f.x, 0.3, f.z, 0x9ff0ff, 9, 0.7); for (let i = 0; i < 30; i++) fx.glow.spawn(f.x, 0.3, f.z, Math.cos(i) * 8, 1, Math.sin(i) * 8, 0.12, 0.7, 0xcff4ff, 0, 1.5); }
-    else if (id === 'gus') { f.shield = true; f.ultT = 0.01; fx.ring(f.x, 0.2, f.z, 0xffc23a, 10, 0.55); fx.sparks(f.x, 0.4, f.z, 28, [0xffd870, 0xffffff], { speed: 7 }); for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const dx = o.x - f.x, dz = o.z - f.z, d = Math.hypot(dx, dz); if (d < 5.5) { reveal(o, STEALTH.hurt); o.stunT = o.boss ? 0.5 : 1.3; o.charging = false; o.chargeT = 0; const l = d || 1; o.vx = dx / l * 9; o.vz = dz / l * 9; fx.sparks(o.x, 0.7, o.z, 8, [0xffd870, 0xffffff], { speed: 4 }); } } }
-    else if (id === 'wisp') { f.pu.magnet = 6; f.pu.slow = 6; f.ultT = 0.01; fx.ring(f.x, 0.3, f.z, 0x6ff0ff, 7, 0.6); fx.sparks(f.x, 0.8, f.z, 24, [0x6ff0ff, 0xffffff], { speed: 4 }); }
+  P.gainUlt = function (f, n) { if (!f || f.boss || f.ultT > 0) return; const was = f.ult >= 100; f.ult = Math.min(100, f.ult + n * 0.35); if (!was && f.ult >= 100) { this.onEvent('ultReady', { f }); if (!f.isBot) sfx('ultready'); } };
+  P.useUlt = function (f) {
+    if (!f || !f.alive || f.ult < 100 || f.boss) return;
+    reveal(f, STEALTH.reveal);
+    const id = f.hero.id; const sig = SIGS[id] || SIGS.bao;
+    f.ult = 0; f.ultKind = id; sfx('ult'); shake(0.18); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
+    const r = 0.4 * (f.bs || 1);
+    if (id === 'bao') { // Snack Time
+      if (f.hp < f.maxHp) { f.hp = Math.min(f.maxHp, f.hp + 1); fx.popup('+1 ♥', f.x, f.z, 'pop-gold', 1.4); }
+      else { f.shield = true; }
+      fx.sparks(f.x, 0.7, f.z, 12, [0xffd060, 0xffffff], { speed: 3 }); f.ultT = 0.01; f.happyT = 1.0;
+    } else if (id === 'nori') { // Smoke Pop
+      f.ultT = 0.9; f.inv = Math.max(f.inv, 0.9); fx.sparks(f.x, 0.6, f.z, 16, [0x222233, f.color], { speed: 4 }); fx.puff && fx.puff(f.x, 0.4, f.z, 10, 0x333344, 0.5);
+    } else if (id === 'tako') { // Zap Pulse
+      fx.ring(f.x, 0.3, f.z, 0x59c2ff, 4.2, 0.4); fx.sparks(f.x, 0.5, f.z, 18, [0x59c2ff, 0xffffff], { speed: 5 });
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; if (Math.hypot(o.x - f.x, o.z - f.z) < 3.6) { o.stunT = Math.max(o.stunT, o.boss ? 0.35 : 0.7); o.charging = false; o.chargeT = 0; } }
+      f.ultT = 0.01;
+    } else if (id === 'kuma') { // Hook Pull
+      let best = null, bd = 6.2;
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const d = Math.hypot(o.x - f.x, o.z - f.z); if (d < bd && d > 0.4) { bd = d; best = o; } }
+      if (best) { const dx = f.x - best.x, dz = f.z - best.z, d = Math.hypot(dx, dz) || 1; const pull = Math.min(2.6, d - 0.9); best.x += dx / d * pull; best.z += dz / d * pull; this.resolve(best, 0.4 * (best.bs || 1)); best.vx = dx / d * 4; best.vz = dz / d * 4; fx.sparks(best.x, 0.6, best.z, 8, [0xe8b23a, 0xffffff], { speed: 4 }); }
+      fx.ring(f.x, 0.3, f.z, 0xe8b23a, 3.2, 0.35); f.ultT = 0.01;
+    } else if (id === 'pico') { // Zen Guard
+      f.shield = true; fx.sparks(f.x, 0.8, f.z, 14, [0x6fffb0, 0xffffff], { speed: 3 }); fx.ring(f.x, 0.3, f.z, 0x5fd16b, 2.4, 0.35); f.ultT = 0.01;
+    } else if (id === 'yuki') { // Ice Slide
+      const dx = Math.sin(f.face), dz = Math.cos(f.face);
+      f.dashDir = [dx, dz]; f.dashT = 0.22; f.sigSlide = true; f.inv = Math.max(f.inv, 0.2);
+      fx.ring(f.x, 0.2, f.z, 0x9ad8ff, 2.2, 0.3); f.ultT = 0.01;
+    } else if (id === 'gus') { // Belly Bump
+      const dx = Math.sin(f.face), dz = Math.cos(f.face);
+      f.dashDir = [dx, dz]; f.dashT = 0.12; f.inv = Math.max(f.inv, 0.15);
+      fx.ring(f.x, 0.2, f.z, 0xffc23a, 3.4, 0.35); fx.sparks(f.x, 0.4, f.z, 16, [0xffd870, 0xffffff], { speed: 5 });
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const ox = o.x - f.x, oz = o.z - f.z, d = Math.hypot(ox, oz); if (d < 3.0 && d > 1e-4) { reveal(o, STEALTH.hurt); o.stunT = Math.max(o.stunT, o.boss ? 0.35 : 0.7); o.charging = false; o.chargeT = 0; o.vx = ox / d * 7; o.vz = oz / d * 7; } }
+      f.ultT = 0.01;
+    } else if (id === 'wisp') { // Boo!
+      fx.ring(f.x, 0.3, f.z, 0x6ff0ff, 4.4, 0.4); fx.sparks(f.x, 0.8, f.z, 16, [0x6ff0ff, 0xffffff], { speed: 4 });
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; if (Math.hypot(o.x - f.x, o.z - f.z) < 4.0) { o.stunT = Math.max(o.stunT, 0.4); o.chillT = Math.max(o.chillT || 0, 1.2); o.happyT = 0; } }
+      f.ultT = 0.01;
+    } else { f.ultT = 0.01; }
     this.onEvent('ult', { f });
   };
-  P.endUlt = function (f) { if (f.ultKind === 'tako' && f._mx) { f.maxAmmo = f._mx; f.ammo = Math.min(f.ammo, f.maxAmmo); f._mx = 0; } f.ultKind = ''; f.ultT = 0; };
+  P.endUlt = function (f) { f.ultKind = ''; f.ultT = 0; f.sigSlide = false; };
 
   // ---------------- hurt (multi-hp fighters)
   P.onHurt = function (f, killer, kind) {

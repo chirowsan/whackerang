@@ -1,6 +1,6 @@
 // DOM UI: menu, setup, fighters, settings, HUD, dialogs.
 import { S, save, resetSave } from './save.js';
-import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, ABILITIES, heroHp } from './data.js';
+import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, ABILITIES, heroHp, SIGS } from './data.js';
 import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx } from './gfx.js';
 import { Input } from './input.js';
@@ -9,6 +9,7 @@ import { KIDS, PRIVACY_URL } from './flags.js';
 import { adultGate } from './kids.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS, isStandalone, showBrowserBarTip } from './pwa.js';
 import { poisonHud } from './poison.js';
+import { heroWeapons, WEAPONS, wpnSvg } from './weapons.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export function h(tag, cls, kids, attrs) {
@@ -103,7 +104,7 @@ export const UI = {
     const render = () => {
       list.innerHTML = '';
       HEROES.forEach((hh) => {
-        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div><div class="ti hp">${'\u2665'.repeat(heroHp(hh.id))}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
+        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div><div class="htag">${(SIGS[hh.id]&&SIGS[hh.id].tag)||hh.perk}</div><div class="ti hp">${'\u2665'.repeat(heroHp(hh.id))}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
         if (!owned(hh)) c.appendChild(h('div', 'lock', `🔒<span style="display:flex;align-items:center;gap:.3em"><span class="coin"></span>${hh.cost}</span>`));
         c.addEventListener('click', () => { sel = hh.id; sfx('click'); render(); }); c.addEventListener('pointerenter', () => this.setFocus(c)); list.appendChild(c);
       });
@@ -111,7 +112,11 @@ export const UI = {
       det.style.setProperty('--hc', hex(hh.color));
       det.appendChild(h('div', 'hd-top', `<img class="hbig" src="${portrait(hh, s.hats[hh.id] || 'none', { big: true })}"><div class="hd-txt"><h3>${hh.name}</h3><div class="ttl">${hh.title}</div><div class="quip">${hh.quip}</div></div>`));
       det.appendChild(h('div', '', hh.blurb, { style: 'color:var(--dim);font-weight:700;font-size:calc(var(--u)*1)' }));
-      det.appendChild(h('div', 'perk hpline', `\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}`)); /* v4.7: per-hero health + ability */
+      const sig = SIGS[hh.id];
+      det.appendChild(h('div', 'htag big', (sig && sig.tag) || 'Fighter'));
+      det.appendChild(h('div', 'perk hpline', `♥ <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}`));
+      if (sig) det.appendChild(h('div', 'perk sigline', `⚡ <b>${sig.name}</b> — ${sig.desc} <em>Special · ${sig.cd}s</em>`, { 'data-sig': hh.id }));
+      det.appendChild(h('div', 'wpn-row', heroWeapons(hh.id).map((id) => { const w = WEAPONS[id]; return `<span class="wpn-chip" title="${w.blurb}">${wpnSvg(id)}${w.name}</span>`; }).join('')));
       det.appendChild(h('div', 'perk', '★ ' + hh.perk));
       const hats = h('div', 'hats'); const cur = s.hats[hh.id] || 'none';
       HATS.forEach((ht) => { const has = s.unlockedHats.includes(ht.id); const b = h('button', 'hat' + (cur === ht.id ? ' on' : '') + (has ? '' : ' lk'), `${ht.name}${has ? '' : `<small><span class="coin"></span>${ht.cost}</small>`}`, { 'data-nav': 1 });

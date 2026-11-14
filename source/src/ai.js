@@ -77,7 +77,7 @@ export class Bot {
       if (!this.dodgeRoll) evade = null;
     }
     // ---- ultimate
-    if (f.ult >= 100 && g.state === 'play' && !f.boss) { this.ultT = (this.ultT || 0) - dt; if (this.ultT <= 0) { this.ultT = 0.6; const tgt = this.target; if (tgt && tgt.alive && Math.hypot(tgt.x - f.x, tgt.z - f.z) < 9 && Math.random() < 0.5) o.ult = true; } }
+    if (f.ult >= 100 && g.state === 'play' && !f.boss) { this.ultT = (this.ultT || 0) - dt; if (this.ultT <= 0) { this.ultT = 0.45; const tgt = this.target; const d = tgt && tgt.alive ? Math.hypot(tgt.x - f.x, tgt.z - f.z) : 99; const need = f.hero && (f.hero.id === 'bao' || f.hero.id === 'pico') ? 12 : 8; if (d < need && Math.random() < 0.75) o.ult = true; else if (f.hero && f.hero.id === 'bao' && f.hp < f.maxHp && Math.random() < 0.8) o.ult = true; } }
     // ---- decisions
     this.thinkT -= dt; if (this.thinkT <= 0) { this.thinkT = d.think * (0.8 + Math.random() * 0.4); this.think(); }
     // ---- aiming/throwing

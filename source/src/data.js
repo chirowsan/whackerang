@@ -106,16 +106,19 @@ export const ABILITIES = {
   wisp: { hp: 2, name: 'Hover', desc: 'Floats over holes for 1 s before dropping.' },
 };
 export const heroHp = (id) => (ABILITIES[id] ? ABILITIES[id].hp : 3);
-export const ULTS = {
-  bao: { name: 'Dumpling Storm', desc: 'Fires a ring of 8 boomerangs.' },
-  nori: { name: 'Shadow Step', desc: '3s invulnerable and super fast, dash recharged.' },
-  tako: { name: 'Overcharge', desc: '6s: instant max-charge homing throws, +2 boomerangs.' },
-  kuma: { name: 'Cannon Volley', desc: 'Three blast boomerangs in a fan.' },
-  pico: { name: 'Zen Bubble', desc: 'Shield, +1 life (if any) and 6s speed.' },
-  yuki: { name: 'Blizzard', desc: 'Freezes every rival nearby.' },
-  gus: { name: 'Belly Flop', desc: 'Slams the floor: stuns and shoves nearby rivals, plus a shield.' },
-  wisp: { name: 'Spirit Pull', desc: '6s Magnet + Time Bubble: pulls pick-ups, slows rivals.' },
+/* t417u: a short-cooldown Signature (fired with the existing SPECIAL button). Ready at round start, then 10–14 s. Kid-readable tag + a simple move. Old long-charge ultimates were almost never seen on Chill. */
+export const SIGS = {
+  bao:  { tag: 'Tank',    name: 'Snack Time',  desc: 'Eats a dumpling and gets a heart back (or a short shield if already full).', cd: 14, kind: 'heal' },
+  nori: { tag: 'Speedy',  name: 'Smoke Pop',   desc: 'A puff of smoke: untouchable for a blink, and a little faster.', cd: 10, kind: 'smoke' },
+  tako: { tag: 'Zappy',   name: 'Zap Pulse',   desc: 'A short electric ring stuns nearby rivals.', cd: 12, kind: 'zap' },
+  kuma: { tag: 'Grabber', name: 'Hook Pull',   desc: 'Yanks the closest rival a few steps closer.', cd: 12, kind: 'pull' },
+  pico: { tag: 'Reach',   name: 'Zen Guard',   desc: 'A calm shield that soaks one hit.', cd: 14, kind: 'shield' },
+  yuki: { tag: 'Icy',     name: 'Ice Slide',   desc: 'A short slide forward. Rivals she passes get chilly.', cd: 10, kind: 'slide' },
+  gus:  { tag: 'Heavy',   name: 'Belly Bump',  desc: 'A short bump that shoves and stuns nearby rivals.', cd: 12, kind: 'bump' },
+  wisp: { tag: 'Spooky',  name: 'Boo!',        desc: 'Nearby rivals flinch and slow down for a moment.', cd: 11, kind: 'boo' },
 };
+export const sigOf = (id) => SIGS[id] || SIGS.bao;
+export const ULTS = Object.fromEntries(Object.entries(SIGS).map(([k, v]) => [k, { name: v.name, desc: v.desc }]));
 export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'sniper', kuma: 'aggressor', pico: 'collector', yuki: 'duelist', gus: 'defender', wisp: 'trickster' };
 export const PERSONA_INFO = { defender: 'Patient, deflects a lot', trickster: 'Dashes and weaves', sniper: 'Long range, fully charged', aggressor: 'Rushes you down', collector: 'Hunts power-ups', duelist: 'Precise one-on-one fighter', boss: 'Boss' };
 export const MODES = {
