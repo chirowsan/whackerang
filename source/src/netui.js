@@ -1,6 +1,7 @@
 import { fsOnPlay , IS_APP, IS_IOS, isStandalone } from './pwa.js';
 // Online (v4.0) screens: menu, join, lobby, manual code exchange, errors, results, in-match menu, ping chip.
 import { UI, h, $ } from './ui.js';
+import { Input } from './input.js';
 import { S, save } from './save.js';
 import { HEROES, MODES, ARENAS, EMOTES } from './data.js';
 import { sfx } from './audio.js';
@@ -79,7 +80,7 @@ const startJoin = async (raw) => {
 
 Object.assign(UI, {
   netMenu(p) {
-    const el = h('div', 'screen page netscr netmenu2'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Play online')); hd.appendChild(this.coinChip()); el.appendChild(hd);
+    const el = h('div', 'screen page netscr netmenu2'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.leaveOnline())); hd.appendChild(h('h2', '', 'Play online')); hd.appendChild(this.coinChip()); el.appendChild(hd);
     Match.clearName(); const pn = h('div', 'nm2'); const row = h('div', 'nm2-btns'); const autoOn = S().settings.autoMatch !== false;
     if (autoOn) {
       pn.appendChild(this.btn('<i class="nm2-ic">🌍</i><b>Auto match</b><small>Play with other players now. Bots fill empty seats.</small>', 'gold nm2-btn nm2-auto', () => startAuto(), { id: 'net-auto' }));
@@ -102,7 +103,7 @@ Object.assign(UI, {
     const err = h('div', 'nj2-err', '', { id: 'net-joinerr' }); pn.appendChild(err);
     let old = (p && p.err && Net.lastCode) ? Net.lastCode.slice(0, CODE_LEN) : ''; const paint = () => { const c = normCode(inp.value) || old; bx.forEach((b, i) => { b.textContent = c[i] || ''; b.classList.toggle('on', i === Math.min(c.length, CODE_LEN - 1) && !err.textContent); b.classList.toggle('fill', !!c[i]); }); };
     let fired = false; inp.addEventListener('input', () => { old = ''; const c = normCode(inp.value); inp.value = c; err.textContent = ''; boxes.classList.remove('bad'); paint(); if (c.length === CODE_LEN && !fired) { fired = true; startJoin(c); } });
-    inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { const c = normCode(inp.value); if (validCode(c) && !fired) { fired = true; startJoin(c); } } });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.code === 'Escape') return; e.stopPropagation(); if (e.key === 'Enter') { const c = normCode(inp.value); if (validCode(c) && !fired) { fired = true; startJoin(c); } } });
     boxes.addEventListener('pointerdown', () => setTimeout(() => inp.focus(), 0));
     if (p && p.err) { const [t, m] = ERR[p.err.code] || ERR.error; err.innerHTML = `<b>${esc(t)}</b>${m ? `<small>${esc(m)}</small>` : ''}`; boxes.classList.add('bad'); sfx('deny'); }
     paint(); pn.appendChild(err); el.appendChild(pn);
@@ -110,7 +111,7 @@ Object.assign(UI, {
     return el;
   },
   netSearch() {
-    const M = Match; const el = h('div', 'screen center', null, { 'data-kind': searchKind() }); const d = h('div', 'panel dialog net-search'); const off = M.state === 'offline'; const found = ['found', 'hosting', 'joining', 'joined'].includes(M.state);
+    const M = Match; const el = h('div', 'screen page center netscr', null, { 'data-kind': searchKind() }); const hd = h('header'); hd.appendChild(this.backBtn(() => { M.cancel(); this.show('netMenu'); })); el.appendChild(hd); const d = h('div', 'panel dialog net-search'); const off = M.state === 'offline'; const found = ['found', 'hosting', 'joining', 'joined'].includes(M.state);
     if (off) {
       const nw = M.note === 'nowebrtc';
       d.appendChild(h('h2', '', nw ? 'Online play isn\u2019t supported here' : 'Can\u2019t reach Auto match'));
@@ -141,17 +142,17 @@ Object.assign(UI, {
     const bt = document.getElementById('ms-bots'); if (bt) { const l = M.fillLeft(); bt.textContent = ['found', 'hosting', 'joining', 'joined'].includes(M.state) ? '' : (M.n >= 4 ? 'Room full!' : M.n >= 2 ? `Starting in ${fmt(l)} (empty seats get bots)` : `Starting with bots in ${fmt(l)} (anyone who searches later joins you)`); }
   },
   netConnect(p) {
-    const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-conn'); d.appendChild(h('h2', '', esc(p.title || 'Connecting...'))); d.appendChild(h('div', 'spin')); d.appendChild(h('div', 'net-st', esc(Net.status || ''), { id: 'net-status' }));
+    const el = h('div', 'screen page center netscr'); const hd = h('header'); hd.appendChild(this.backBtn(() => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); })); el.appendChild(hd); const d = h('div', 'panel dialog net-conn'); d.appendChild(h('h2', '', esc(p.title || 'Connecting...'))); d.appendChild(h('div', 'spin')); d.appendChild(h('div', 'net-st', esc(Net.status || ''), { id: 'net-status' }));
     d.appendChild(this.btn('Cancel', 'back', () => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); }, { 'data-back': 1 })); el.appendChild(d); return el;
   },
   netMsg(p) {
-    const e = p.err || { code: 'error' }; const [t, m] = ERR[e.code] || ERR.error; const el = h('div', 'screen center'); const d = h('div', 'panel dialog net-msg');
+    const e = p.err || { code: 'error' }; const [t, m] = ERR[e.code] || ERR.error; const el = h('div', 'screen page center netscr'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.leaveOnline())); el.appendChild(hd); const d = h('div', 'panel dialog net-msg');
     d.appendChild(h('h2', '', esc(e.code === 'ended' ? (e.msg || 'Room closed') : t))); if (e.code !== 'ended' && (m || e.msg)) d.appendChild(h('p', 'net-m', esc(m))); else if (e.code === 'ended') d.appendChild(h('p', 'net-m', 'You\u2019re back at the menu. Your gold and XP are safe.'));
     const b = h('div', 'btns');
     if (e.canRejoin && Net.last) b.appendChild(this.btn('Rejoin room', 'primary', () => startJoin(Net.last)));
     if (e.code === 'no-signal') b.appendChild(this.btn('Connect without server', 'primary', () => this.show('netManual', {})));
     if (p.wasJoin && e.code !== 'bad-code' && e.code !== 'reject:version' && e.code !== 'no-webrtc') b.appendChild(this.btn('Try again', e.code === 'no-signal' ? '' : 'primary', () => (Net.lastCode ? startJoin(Net.lastCode) : this.show('netMenu'))));
-    b.appendChild(this.btn('Online menu', '', () => this.show('netMenu'))); b.appendChild(this.btn('Main menu', 'back', () => this.show('menu'), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
+    b.appendChild(this.btn('Online menu', '', () => this.show('netMenu'))); b.appendChild(this.btn('Main menu', 'back', () => this.leaveOnline(), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ---- lobby (v4.1: code + share + start; everything else under Options)
   netLobby() {
@@ -215,7 +216,7 @@ Object.assign(UI, {
   },
   netPause() {
     const el = h('div', 'screen center netpause'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Online match')); d.appendChild(h('p', 'net-m', 'The match keeps going while this menu is open.'));
-    const b = h('div', 'btns', null, { style: 'flex-direction:column;align-items:stretch;width:100%' }); b.appendChild(this.btn('▶ Back to the game', 'primary', () => this.app.resume()));
+    const b = h('div', 'btns', null, { style: 'flex-direction:column;align-items:stretch;width:100%' }); b.appendChild(this.btn('▶ Back to the game', 'primary', () => this.app.resume(), { 'data-back': 1, id: 'net-pause-back' }));
     if (!IS_APP && !isStandalone()) b.appendChild(this.btn('⛶ Hide browser bar', '', () => this.app.toggleFullscreen()));
     b.appendChild(this.btn(Net.isHost ? 'Close room & quit' : 'Leave match', 'hot', () => this.app.quitToMenu(), { id: 'net-pause-leave' })); d.appendChild(b); el.appendChild(d); return el;
   },
@@ -223,7 +224,7 @@ Object.assign(UI, {
   netManual(p) {
     const el = h('div', 'screen page netscr netmanual'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(Net.active && Net.isHost ? 'netLobby' : 'netMenu'))); hd.appendChild(h('h2', '', 'Connect without a server')); el.appendChild(hd);
     const pn = h('div', 'panel net-panel scroll'); const host = !!(p && p.host && Net.isHost);
-    const box = (label, ro, id) => { const w = h('div', 'cbox'); w.appendChild(h('label', '', label)); const t = h('textarea', '', null, { rows: 3, id, spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off', ...(ro ? { readonly: 'readonly' } : { placeholder: 'Paste here' }) }); t.addEventListener('keydown', (e) => e.stopPropagation()); w.appendChild(t); return { w, t }; };
+    const box = (label, ro, id) => { const w = h('div', 'cbox'); w.appendChild(h('label', '', label)); const t = h('textarea', '', null, { rows: 3, id, spellcheck: 'false', autocomplete: 'off', autocapitalize: 'off', ...(ro ? { readonly: 'readonly' } : { placeholder: 'Paste here' }) }); t.addEventListener('keydown', (e) => { if (e.key !== 'Escape' && e.code !== 'Escape') e.stopPropagation(); }); w.appendChild(t); return { w, t }; };
     const stat = h('div', 'net-st', '', { id: 'man-status' }); const setSt = (t) => { stat.textContent = t; };
     if (host) {
       pn.appendChild(h('p', 'net-m', 'Friend: tap \u201CConnect without server\u201D, then \u201CI\u2019m joining\u201D, and send you their code. Paste it here, then send them the reply code.'));
@@ -257,6 +258,38 @@ Object.assign(UI, {
     if (Net.isHost) { if (votes > 0) b.appendChild(this.btn('Start now', 'small', () => Net.startNow())); b.appendChild(this.btn('Back to lobby', '', () => Net.toLobby(), { id: 'net-tolobby' })); } else b.appendChild(h('small', 'dimc', 'Host can return everyone to the lobby'));
     b.appendChild(this.btn('Leave', 'hot small', () => this.show('netLeave'), { id: 'net-res-leave' })); d.appendChild(b); el.appendChild(d); return el;
   },
+});
+
+
+// t415u: one obvious way out of every Online screen. Cancels a search/connection and returns to the main menu.
+const NET_UI = new Set(['netMenu', 'netJoin', 'netSearch', 'netConnect', 'netMsg', 'netLobby', 'netLeave', 'netManual', 'netResults']);
+UI.leaveOnline = function () {
+  try { Match.cancel(); } catch (e) {}
+  try { if (this.app && this.app.net && this.app.mode === 'play') { this.app.quitToMenu(); return; } } catch (e) {}
+  try { if (Net.active) Net.leave(); } catch (e) {}
+  this.show('menu');
+};
+Input.onMenuBack = function () {
+  if (!UI.cur || UI.cur === 'menu') return false;
+  if (UI.cur === 'pause' || UI.cur === 'netPause') return false; // in-match: Escape still toggles the pause menu
+  UI.back();
+  return true;
+};
+
+// One history entry for the whole Online flow so the browser Back button leaves it (and cancels any pending connection).
+let netHist = 0, ignorePop = false;
+UI.onShown = function (name) {
+  if (ignorePop) return;
+  const net = NET_UI.has(name);
+  try {
+    if (net && netHist === 0) { history.pushState({ whk: 'net', name }, ''); netHist = 1; }
+    else if (net && netHist > 0) { history.replaceState({ whk: 'net', name }, ''); }
+    else if (!net && netHist > 0) { netHist = 0; ignorePop = true; history.back(); setTimeout(() => { ignorePop = false; }, 80); }
+  } catch (e) {}
+};
+window.addEventListener('popstate', () => {
+  if (ignorePop) { ignorePop = false; return; }
+  if (NET_UI.has(UI.cur)) { netHist = 0; ignorePop = true; UI.leaveOnline(); ignorePop = false; }
 });
 
 // -------- live updates

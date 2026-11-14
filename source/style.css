@@ -17,6 +17,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .panel { background: var(--bg); border: 1px solid var(--line); border-radius: calc(var(--u)*1.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 calc(var(--u)*1) calc(var(--u)*3) rgba(0,0,0,.45); }
 h1, h2, h3 { margin: 0; }
 .screen { position: absolute; inset: 0; display: flex; padding: calc(var(--u)*1.4); animation: fadeIn .25s ease; }
+/* t415u: keep page chrome (especially Online Back) inside the iPhone notch / home-indicator safe area. --sa* is measured in input.js; env() is the CSS fallback; --test-sa* is only for WebKit tests that cannot set env(). */
+.screen.page, .screen.center {
+  padding-top: calc(var(--u)*1.4 + max(var(--sait), env(safe-area-inset-top, 0px), var(--test-sait, 0px)));
+  padding-right: calc(var(--u)*1.4 + max(var(--sair), env(safe-area-inset-right, 0px), var(--test-sair, 0px)));
+  padding-bottom: calc(var(--u)*1.4 + max(var(--saib), env(safe-area-inset-bottom, 0px), var(--test-saib, 0px)));
+  padding-left: calc(var(--u)*1.4 + max(var(--sail), env(safe-area-inset-left, 0px), var(--test-sail, 0px)));
+  box-sizing: border-box;
+  overflow: auto;
+}
+/* Header Back on connecting / searching / error stays at the top of the screen, not below a tall dialog. */
+.screen.page.center { justify-content: flex-start; }
+.screen.page.center > header { width: 100%; flex-shrink: 0; }
+.screen.page.center > .panel { margin: auto 0; }
+@media (max-height: 400px) {
+  .net-search .radar, .radar { width: calc(var(--u)*7.5); height: calc(var(--u)*7.5); }
+  .net-search .radar b, .radar b { font-size: calc(var(--u)*3); }
+}
 .screen.still { animation: none; }
 .net-diag { margin: calc(var(--u)*.4) 0 0; padding: calc(var(--u)*.5) calc(var(--u)*.7); background: rgba(0,0,0,.35); color: #cfe; border-radius: 8px; font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; text-align: left; max-height: 30vh; overflow: auto; user-select: text; }
 .ms-sub { opacity: .8; font-size: .9em; min-height: 1.2em; }
@@ -35,7 +52,14 @@ h1, h2, h3 { margin: 0; }
 .coin { display: inline-block; width: calc(var(--u)*1.5); height: calc(var(--u)*1.5); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6b0, #ffc928 55%, #c27a00); border: 2px solid #8a5200; box-sizing: border-box; }
 /* page screens */
 .page { flex-direction: column; gap: calc(var(--u)*1); background: linear-gradient(180deg, rgba(5,8,24,.86), rgba(8,12,34,.92)); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
-.page > header { display: flex; align-items: center; gap: calc(var(--u)*1); justify-content: space-between; }
+.page > header { display: flex; align-items: center; gap: calc(var(--u)*1); justify-content: space-between; position: sticky; top: 0; z-index: 2; pointer-events: auto; flex-shrink: 0; }
+/* t415u: Online (and other page) Back is a 44px target, clear of the notch. The v4.1 .netmenu2 pointer-events:none rule is outweighed by #ui > *, but headers stay explicitly tappable. */
+.netmenu2 > header, .netjoin2 > header, .nl2 > header, .netmanual > header { pointer-events: auto; }
+@media (pointer: coarse) {
+  .page > header .btn.back, .screen.center [data-back], #net-search-back, #net-search-cancel {
+    min-height: 44px; min-width: 72px; padding: 10px 16px; font-size: 16px;
+  }
+}
 .page > header h2 { font-size: calc(var(--u)*2.4); font-weight: 1000; letter-spacing: .04em; text-transform: uppercase; font-style: italic; }
 .page .body { flex: 1; min-height: 0; display: flex; gap: calc(var(--u)*1.2); }
 .scroll { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; scrollbar-width: thin; }

@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.10.9 (iPhone Back on Play online)
+- **Leave Play online on iPhone:** the Back button on the Play online screens is larger and sits clear of the notch and Safari's bar. It works while searching, connecting, entering a room code, or after an error, and it cancels any connection in progress. The phone's back gesture and Escape also return you to the main menu. Default Game speed is still Chill.
+
 ## What's new in v4.10.8 (shorter, steadier throws)
 - **Shorter, steadier throws:** a full-charge boomerang now turns around about a third of the way across the arena instead of flying past the far wall. The path is the same every time you aim the same way; holding longer makes the shot faster, not much farther. Default Game speed is still Chill.
 

@@ -13,7 +13,7 @@ const SOLO = { up: ['ArrowUp'], down: ['ArrowDown'], left: ['ArrowLeft'], right:
 // Swallow that one click near the press, for a short time only.
 function eatClick(e) { const x = e.clientX, y = e.clientY, t0 = performance.now(); const f = (c) => { if (performance.now() - t0 > 700) return done(); if (Math.abs(c.clientX - x) < 40 && Math.abs(c.clientY - y) < 40) { c.stopPropagation(); c.preventDefault(); done(); } }; const done = () => window.removeEventListener('click', f, true); window.addEventListener('click', f, true); setTimeout(done, 750); }
 export const Input = {
-  keys: new Set(), edge: new Set(), solo: true, onPause: null, padConnected: false, lastUsed: 'kbd', unproject: null,
+  keys: new Set(), edge: new Set(), solo: true, onPause: null, onMenuBack: null, padConnected: false, lastUsed: 'kbd', unproject: null,
   mouse: { x: 0, y: 0, down: false, active: false, t: 0, edgeDeflect: false },
   touch: { enabled: false, mx: 0, mz: 0, tx: 0, tz: 0, aimX: 0, aimZ: 0, fire: false, fireQ: 0, tapQ: 0, melee: false, dash: false, deflect: false, ult: false, aimShown: false, aimDrag: false, seen: false },
   pads: [{ prev: [] }, { prev: [] }], menuPrev: { up: 0, down: 0, left: 0, right: 0, ok: 0, back: 0 },
@@ -23,10 +23,27 @@ const NONE = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect
 
 export function initInput(canvas) {
   const prevent = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Slash'];
+  // t415u: capture Escape before an input's stopPropagation (Join room / manual codes) can swallow it
   window.addEventListener('keydown', (e) => {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    if (e.repeat || e.code !== 'Escape') return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+      try { e.target.blur(); } catch (x) {}
+    }
+    if (Input.onMenuBack && Input.onMenuBack()) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+    window.addEventListener('keydown', (e) => {
+    // t415u: Escape still leaves the Online menu when the room-code field is focused
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+      if (e.code === 'Escape') { try { e.target.blur(); } catch (x) {} if (Input.onMenuBack && Input.onMenuBack()) e.preventDefault(); }
+      return;
+    }
     if (prevent.includes(e.code)) e.preventDefault();
-    Input.lastUsed = 'kbd'; if (!e.repeat) { Input.keys.add(e.code); Input.edge.add(e.code); if (e.code === 'Escape' || e.code === 'KeyP') Input.onPause && Input.onPause(); }
+    Input.lastUsed = 'kbd';
+    if (!e.repeat) {
+      Input.keys.add(e.code); Input.edge.add(e.code);
+      if (e.code === 'Escape' && Input.onMenuBack && Input.onMenuBack()) { e.preventDefault(); return; }
+      if (e.code === 'Escape' || e.code === 'KeyP') Input.onPause && Input.onPause();
+    }
     Input.onAnyKey && Input.onAnyKey(e);
   });
   window.addEventListener('keyup', (e) => { Input.keys.delete(e.code); });

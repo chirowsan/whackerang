@@ -31,7 +31,7 @@ export const UI = {
     Input.onAnyKey = (e) => this.onKey(e);
   },
   clear() { const was = this.cur; this.root.innerHTML = ''; this.cur = null; this.focusEl = null; if (was === 'netPause' && this.app && this.app.applyTouch) this.app.applyTouch(); }, // t393u: whatever closes the online menu (round end, results) restores the touch controls
-  show(name, props) { const same = this.cur === name; this.clear(); this.cur = name; const el = this[name](props || {}); if (same && el && el.classList) el.classList.add('still'); this.root.appendChild(el); this.shows = (this.shows || 0) + 1; this.setFocus(this.navList()[0] || null); return el; },
+  show(name, props) { const same = this.cur === name; this.clear(); this.cur = name; const el = this[name](props || {}); if (same && el && el.classList) el.classList.add('still'); this.root.appendChild(el); this.shows = (this.shows || 0) + 1; this.setFocus(this.navList()[0] || null); this.onShown && this.onShown(name); return el; },
   toast(msg, ms = 1800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), ms); },
   banner(b1, b2, color) { const b = this.bannerRoot; b.innerHTML = ''; const d = h('div', 'b1', b1); if (color) d.style.color = color; b.appendChild(d); if (b2) b.appendChild(h('div', 'b2', b2)); clearTimeout(this._bt); this._bt = setTimeout(() => (b.innerHTML = ''), 1400); },
   navList() { return [...this.root.querySelectorAll('[data-nav]')].filter((e) => e.offsetParent !== null && !e.disabled); },
@@ -47,11 +47,11 @@ export const UI = {
   onKey(e) {
     if (!this.cur) return; const k = e.code;
     if (k === 'ArrowLeft' || k === 'KeyA') this.navMove(-1, 0); else if (k === 'ArrowRight' || k === 'KeyD') this.navMove(1, 0); else if (k === 'ArrowUp' || k === 'KeyW') this.navMove(0, -1); else if (k === 'ArrowDown' || k === 'KeyS') this.navMove(0, 1);
-    else if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { this.activate(); e.preventDefault(); } else if (k === 'Backspace') this.back();
+    else if (k === 'Enter' || k === 'Space' || k === 'NumpadEnter') { this.activate(); e.preventDefault(); } else if (k === 'Backspace' || k === 'Escape') { this.back(); e.preventDefault(); }
   },
   padMenu(p) { if (!this.cur) return; if (p.left) this.navMove(-1, 0); if (p.right) this.navMove(1, 0); if (p.up) this.navMove(0, -1); if (p.down) this.navMove(0, 1); if (p.ok) this.activate(); if (p.back) this.back(); },
   btn(label, cls, fn, extra = {}) { const b = h('button', 'btn ' + (cls || ''), label, { 'data-nav': 1, ...extra }); b.addEventListener('click', (e) => { sfx(cls && cls.includes('back') ? 'back' : 'click'); fn(e); }); b.addEventListener('pointerenter', () => this.setFocus(b)); return b; },
-  backBtn(fn) { return this.btn('◀ Back', 'small back', fn, { 'data-back': 1 }); },
+  backBtn(fn) { return this.btn('◀ Back', 'small back', fn, { 'data-back': 1, id: 'ui-back' }); },
   coinChip() { return h('div', 'chip', `<span class="coin"></span><span id="coinval">${S().coins}</span>`); },
   heroById(id) { return HEROES.find((x) => x.id === id) || HEROES[0]; },
   pic(hero, hat) { return portrait(hero, hat || S().hats[hero.id] || 'none'); },
