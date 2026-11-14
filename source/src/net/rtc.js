@@ -52,7 +52,7 @@ export class Link {
     this.rel.onmessage = (e) => { this.stat.rx += (typeof e.data === 'string' ? e.data.length : e.data.byteLength); this.stat.rxN++; this.o.onrel && this.o.onrel(e.data); };
     this.fast.onmessage = (e) => { this.stat.rx += e.data.byteLength || 0; this.stat.rxN++; this.o.onfast && this.o.onfast(e.data); };
     this.pc.onicecandidate = (e) => { if (e.candidate) { this.cand.push(e.candidate.toJSON()); this.o.onice && this.o.onice(e.candidate.toJSON()); } };
-    this.pc.oniceconnectionstatechange = () => { const s = this.pc.iceConnectionState; this.o.onstate && this.o.onstate(s); if (s === 'failed') this.lost('ice-failed'); };
+    this.pc.oniceconnectionstatechange = () => { const s = this.pc.iceConnectionState; this.o.onstate && this.o.onstate(s); if (s === 'connected' || s === 'completed') { clearTimeout(this._iceT); this._iceT = 0; } else if (s === 'disconnected') { clearTimeout(this._iceT); this._iceT = setTimeout(() => { if (!this.dead && this.pc && (this.pc.iceConnectionState === 'disconnected' || this.pc.iceConnectionState === 'failed')) this.lost('ice-disconnected'); }, 4000); } else if (s === 'failed' || s === 'closed') { clearTimeout(this._iceT); this.lost('ice-failed'); } };
     this.pc.onconnectionstatechange = () => { if (this.pc.connectionState === 'failed') this.lost('ice-failed'); };
   }
   async createOffer() { const d = await this.pc.createOffer(); await this.pc.setLocalDescription(d); return { type: d.type, sdp: d.sdp }; }
@@ -60,7 +60,7 @@ export class Link {
   async setAnswer(ans) { await this.pc.setRemoteDescription(ans); }
   async addCandidate(c) { try { await this.pc.addIceCandidate(c); } catch (e) { /* late/duplicate candidates are harmless */ } }
   gathered(ms = 4500) { return new Promise((res) => { if (this.pc.iceGatheringState === 'complete') return res(); const t = setTimeout(res, ms); this.pc.addEventListener('icegatheringstatechange', () => { if (this.pc.iceGatheringState === 'complete') { clearTimeout(t); res(); } }); }); }
-  lost(why) { if (this.dead) return; this.dead = true; this.o.onclose && this.o.onclose(why); }
+  lost(why) { if (this.dead) return; this.dead = true; clearTimeout(this._iceT); this.o.onclose && this.o.onclose(why); }
   // kind: 'rel' (string / small json) or 'fast' (ArrayBuffer). Optional test shim: delay + jitter + loss.
   send(kind, data) {
     const ch = kind === 'fast' ? this.fast : this.rel; if (this.dead || ch.readyState !== 'open') return false;
@@ -76,7 +76,7 @@ export class Link {
     }
     return true;
   }
-  close() { this.dead = true; try { this.rel.close(); this.fast.close(); this.pc.close(); } catch (e) {} }
+  close() { this.dead = true; clearTimeout(this._iceT); try { this.rel.close(); this.fast.close(); this.pc.close(); } catch (e) {} }
 }
 
 // ---------------------------------------------------------------- manual (zero-server) code exchange

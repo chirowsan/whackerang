@@ -35,10 +35,17 @@ await ev(C, () => { __bg.net.leave(); }); await sleep(300); await ev(C, (c) => {
 // guest drops mid-match -> bot takes over
 const cidB = await ev(B, () => __bg.net.cid); await ev(B, () => { __bg.net.G.link.rel.close(); }); await waitFor(() => ev(H, () => { const d = __bg.app.match.players.find((p) => p.slot === 2); return d && d.ctrl === 'bot'; }), 12000);
 const botB = await ev(H, () => { const d = __bg.app.match.players.find((p) => p.slot === 2); return d && d.ctrl; }); ok('guest leaves mid-match: bot takes over its fighter', botB === 'bot', botB);
-ok('dropped guest sees a clear message + Rejoin option', (await ev(B, () => __bg.net.error && __bg.net.error.canRejoin)) === true && (await ev(B, () => !!document.body.innerText.match(/Lost connection/i))), await ev(B, () => __bg.net.error));
+// net415: a brief drop now auto-reconnects when the room is still up. Accept a quiet rejoin OR the Lost connection + Retry screen.
+const recovered = await waitFor(async () => {
+  const s = await ev(B, () => ({ ph: __bg.net.phase, rec: !!__bg.net.reconnecting, err: __bg.net.error, can: __bg.net.error && __bg.net.error.canRejoin, txt: document.body.innerText }));
+  if (s.ph === 'match' && !s.rec && !s.err) return 'auto';
+  if (s.can && /Lost connection/i.test(s.txt || '')) return 'retry';
+  return null;
+}, 20000, 250);
+ok('dropped guest auto-rejoins or sees Lost connection + Retry', recovered === 'auto' || recovered === 'retry', recovered);
 ok('other guest informed (toast) and still playing', (await phase(A)) === 'match');
-// rejoin (same client id): takes the seat back
-await ev(B, (c) => { __bg.net.join(c).catch(() => {}); }, host.code); await waitFor(async () => (await phase(B)) === 'match', 25000);
+// rejoin (same client id): takes the seat back (skip a manual join if auto-reconnect already put them in the match)
+if (recovered !== 'auto') await ev(B, (c) => { __bg.net.join(c).catch(() => {}); }, host.code); await waitFor(async () => (await phase(B)) === 'match', 25000);
 ok('rejoin returns to the running match', (await phase(B)) === 'match', await phase(B));
 await sleep(1500); const humanB = await ev(H, () => { const d = __bg.app.match.players.find((p) => p.slot === 2); const f = __bg.app.game.fighters.find((q) => q.def === d); return [d.ctrl, f && f.isBot]; }); ok('rejoined player controls their fighter again', humanB[0] === 'human' && humanB[1] === false, humanB);
 ok('same client id was used', cidB === (await ev(B, () => __bg.net.cid)));

@@ -20,12 +20,12 @@ const PRIVACY = 'Rooms are friends only: you share a short room code. Auto match
 
 export const ERR = {
   'no-signal': ['Can\u2019t reach the room service', 'The free room-code service could not be reached from this network (it may be blocked or offline). You can still play by swapping codes by hand: use \u201CConnect without server\u201D. Or try another network.'],
-  'no-room': ['Room not found', 'Check the 4 letters. The host must keep their room open.'],
-  nat: ['Couldn\u2019t connect directly', 'Your network and the host\u2019s network could not make a direct link. Strict mobile or school/office networks sometimes block this, and a relay (TURN) isn\u2019t free. Try: switch Wi-Fi \u2194 mobile data, use a phone hotspot, or let another friend host.'],
+  'no-room': ['Room not found', 'That room is not open right now. Check the 4 letters, or ask your friend to make a new room if the old one expired.'],
+  nat: ['Couldn\u2019t connect', 'Your networks could not make a direct link. Try switching Wi-Fi and mobile data, using a phone hotspot, or letting your friend host.'],
   'reject:version': ['Different game version', 'Your game and the host\u2019s game are different versions. Reload the page (or update the app).'],
   'reject:full': ['Room is full', 'This room already has 4 players.'],
-  'reject:locked': ['Match in progress', 'A match is running. Ask the host to go back to the lobby.'],
-  'bad-code': ['Check the code', 'Room codes have 4 letters, like BKTQ.'],
+  'reject:locked': ['Match in progress', 'A match is running. Ask the host to go back to the lobby, or wait and tap Retry.'],
+  'bad-code': ['Check the code', 'Room codes have 4 letters, like BKTQ. Spaces are okay, and you can paste a share link.'],
   'no-webrtc': ['Online play isn\u2019t supported here', 'This browser doesn\u2019t support WebRTC. Try Chrome on Android or desktop.'],
   error: ['Something went wrong', 'The connection could not be set up. Please try again.'],
   ended: ['Room closed', ''],
@@ -98,7 +98,7 @@ Object.assign(UI, {
     const el = h('div', 'screen page netscr netjoin2'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('netMenu'))); hd.appendChild(h('h2', '', 'Join room')); el.appendChild(hd);
     const pn = h('div', 'nj2'); pn.appendChild(h('div', 'nj2-hint', 'Type the 4-letter code'));
     const boxes = h('div', 'nj2-boxes'); const bx = []; for (let i = 0; i < CODE_LEN; i++) { const b = h('div', 'nj2-box'); bx.push(b); boxes.appendChild(b); }
-    const inp = h('input', 'nj2-in', null, { type: 'text', maxlength: 5, autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', inputmode: 'text', enterkeyhint: 'go', id: 'net-code', 'aria-label': 'Room code' });
+    const inp = h('input', 'nj2-in', null, { type: 'text', maxlength: 200, autocomplete: 'off', autocapitalize: 'characters', autocorrect: 'off', spellcheck: 'false', inputmode: 'text', enterkeyhint: 'go', id: 'net-code', 'aria-label': 'Room code' });
     boxes.appendChild(inp); pn.appendChild(boxes);
     const err = h('div', 'nj2-err', '', { id: 'net-joinerr' }); pn.appendChild(err);
     let old = (p && p.err && Net.lastCode) ? Net.lastCode.slice(0, CODE_LEN) : ''; const paint = () => { const c = normCode(inp.value) || old; bx.forEach((b, i) => { b.textContent = c[i] || ''; b.classList.toggle('on', i === Math.min(c.length, CODE_LEN - 1) && !err.textContent); b.classList.toggle('fill', !!c[i]); }); };
@@ -143,15 +143,16 @@ Object.assign(UI, {
   },
   netConnect(p) {
     const el = h('div', 'screen page center netscr'); const hd = h('header'); hd.appendChild(this.backBtn(() => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); })); el.appendChild(hd); const d = h('div', 'panel dialog net-conn'); d.appendChild(h('h2', '', esc(p.title || 'Connecting...'))); d.appendChild(h('div', 'spin')); d.appendChild(h('div', 'net-st', esc(Net.status || ''), { id: 'net-status' }));
-    d.appendChild(this.btn('Cancel', 'back', () => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); }, { 'data-back': 1 })); el.appendChild(d); return el;
+    d.appendChild(h('div', 'net-hint', '', { id: 'net-still' })); d.appendChild(this.btn('Cancel', 'back', () => { if (Match.active) Match.cancel(); else Net.leave(); this.show('netMenu'); }, { 'data-back': 1 })); el.appendChild(d); setTimeout(() => { const e = document.getElementById('net-still'); if (e && UI.cur === 'netConnect') e.textContent = 'Still trying\u2026 This can take a few seconds on some networks.'; }, 8000); return el;
   },
   netMsg(p) {
     const e = p.err || { code: 'error' }; const [t, m] = ERR[e.code] || ERR.error; const el = h('div', 'screen page center netscr'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.leaveOnline())); el.appendChild(hd); const d = h('div', 'panel dialog net-msg');
     d.appendChild(h('h2', '', esc(e.code === 'ended' ? (e.msg || 'Room closed') : t))); if (e.code !== 'ended' && (m || e.msg)) d.appendChild(h('p', 'net-m', esc(m))); else if (e.code === 'ended') d.appendChild(h('p', 'net-m', 'You\u2019re back at the menu. Your gold and XP are safe.'));
     const b = h('div', 'btns');
-    if (e.canRejoin && Net.last) b.appendChild(this.btn('Rejoin room', 'primary', () => startJoin(Net.last)));
-    if (e.code === 'no-signal') b.appendChild(this.btn('Connect without server', 'primary', () => this.show('netManual', {})));
-    if (p.wasJoin && e.code !== 'bad-code' && e.code !== 'reject:version' && e.code !== 'no-webrtc') b.appendChild(this.btn('Try again', e.code === 'no-signal' ? '' : 'primary', () => (Net.lastCode ? startJoin(Net.lastCode) : this.show('netMenu'))));
+    const retryCode = (e.canRejoin && Net.last) ? Net.last : (p.wasJoin && Net.lastCode);
+    const canRetry = !!retryCode && e.code !== 'bad-code' && e.code !== 'reject:version' && e.code !== 'no-webrtc';
+    if (canRetry) b.appendChild(this.btn('Retry', e.code === 'no-signal' ? '' : 'primary', () => startJoin(retryCode), { id: 'net-retry' }));
+    if (e.code === 'no-signal') b.appendChild(this.btn('Connect without server', canRetry ? '' : 'primary', () => this.show('netManual', {})));
     b.appendChild(this.btn('Online menu', '', () => this.show('netMenu'))); b.appendChild(this.btn('Main menu', 'back', () => this.leaveOnline(), { 'data-back': 1 })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ---- lobby (v4.1: code + share + start; everything else under Options)
@@ -299,7 +300,7 @@ Net.onEmote = (slot, e) => { if (UI.cur === 'netLobby') flash(slot, e); };
 Net.onStatus = (t) => { const e = document.getElementById('net-status') || document.getElementById('net-notes'); if (e) e.textContent = t || ''; const m = document.getElementById('man-status'); if (m && t) m.textContent = t; };
 Net.onNote = (t) => { const e = document.getElementById('net-notes'); if (e) e.textContent = t; };
 Net.onUpdate = () => {
-  Match.syncNet(); const cur = UI.cur; if (!Net.active) return;
+  Match.syncNet(); if (UI.paintNetBanners) UI.paintNetBanners(); const cur = UI.cur; if (!Net.active) return;
   if (Net.phase === 'lobby' && (cur === 'netConnect' || cur === 'netManual' || cur === 'netMenu' || (cur === 'netSearch' && Net.isGuest && Match.state === 'joined'))) { UI.show('netLobby'); return; }
   if (cur === 'netLobby' && Net.phase === 'lobby') { const sc = document.querySelector('.netset'); const t = sc ? sc.scrollTop : 0; UI.show('netLobby'); const n = document.querySelector('.netset'); if (n) n.scrollTop = t; }
   else if (cur === 'netLobby' && (Net.phase === 'results')) UI.show('netResults');
@@ -318,8 +319,20 @@ UI.hudUpdate = function (game) {
     if (!c) { c = h('div', '', '', { id: 'netping' }); const hud = document.getElementById('hud'); hud && hud.appendChild(c); }
     const ms = Net.isGuest ? Net.rtt : Math.max(0, ...Object.values(Net.pings || { 0: 0 }));
     const lab = Net.isGuest ? `${Math.round(Net.rtt)} ms` : (Object.keys(Net.pings || {}).length > 1 ? `${Math.round(ms)} ms (worst)` : 'host');
-    const q = ms < 60 ? 4 : ms < 110 ? 3 : ms < 190 ? 2 : 1; const html = `${bars(Net.isHost && !Object.keys(Net.pings || {}).length ? 0 : ms)}<span>${esc(Net.isHost ? 'HOST' : 'PING')} ${lab}</span>${Net.conType ? `<em class="ctype ct-${Net.conType}">${ctLabel(Net.conType)}</em>` : ''}`; if (c.dataset.h !== html) { c.dataset.h = html; c.innerHTML = html; }
-  } else if (c) c.remove();
+    const q = ms < 60 ? 4 : ms < 110 ? 3 : ms < 190 ? 2 : 1; const diag = !!(S().settings && S().settings.netDiag); const html = `${bars(Net.isHost && !Object.keys(Net.pings || {}).length ? 0 : ms)}<span>${esc(Net.isHost ? 'HOST' : 'PING')} ${lab}</span>${diag && Net.conType ? `<em class="ctype ct-${Net.conType}">${ctLabel(Net.conType)}</em>` : ''}`; if (c.dataset.h !== html) { c.dataset.h = html; c.innerHTML = html; } c.classList.toggle('diag', diag);
+    this.paintNetBanners();
+  } else { if (c) c.remove(); const r = document.getElementById('net-reconn'); if (r) r.remove(); const f = document.getElementById('net-friendleft'); if (f) f.remove(); }
+};
+UI.paintNetBanners = function () {
+  const hud = document.getElementById('hud') || document.body;
+  let r = document.getElementById('net-reconn');
+  if (Net.active && Net.reconnecting) {
+    if (!r) { r = h('div', 'net-banner', '', { id: 'net-reconn', role: 'status' }); r.innerHTML = '<b>Reconnecting\u2026</b><p>Trying to get you back into the match.</p>'; const row = h('div', 'btns'); row.appendChild(this.btn('Retry', 'primary', () => { Net.cancelReconnect(); Net.beginReconnect('manual'); }, { id: 'net-reconn-retry' })); row.appendChild(this.btn('Leave', 'back', () => { Net.leave(); this.leaveOnline(); }, { id: 'net-reconn-leave' })); r.appendChild(row); hud.appendChild(r); }
+  } else if (r) r.remove();
+  let f = document.getElementById('net-friendleft');
+  if (Net.active && Net.isHost && Net.friendLeft) {
+    if (!f) { f = h('div', 'net-banner net-banner-soft', '', { id: 'net-friendleft', role: 'status' }); f.innerHTML = '<b>Your friend left.</b><p>A bot is playing for them.</p>'; f.appendChild(this.btn('Back to menu', 'back', () => { Net.leave(); this.leaveOnline(); }, { id: 'net-friendleft-back' })); hud.appendChild(f); }
+  } else if (f) f.remove();
 };
 
 // ---- v4.6 Auto match glue

@@ -6,6 +6,15 @@ export const RELAY_URL = 'wss://whackerang-relay.chirowsan-backyard.workers.dev'
 export const relayBase = () => { if (STORE) return RELAY_URL; const c = netCfg(); try { const q = new URLSearchParams(location.search); if (q.get('norelay') === '1') localStorage.setItem('whk.rly', 'off'); else if (q.get('norelay') === '0') localStorage.removeItem('whk.rly'); } catch (e) {} if (c.rly !== undefined) return c.rly || ''; try { const u = localStorage.getItem('whk.rly'); if (u === 'off') return ''; if (u && /^wss?:\/\//.test(u)) return u.replace(/\/$/, ''); } catch (e) {} return RELAY_URL; };
 export const relayOn = () => !!relayBase();
 const te = new TextEncoder(), td = new TextDecoder();
+const shimOf = () => (!STORE && typeof window !== 'undefined' && window.__bbNetShim) || null;
+function shimSend(self, out, fast, send) {
+  const sh = shimOf(); if (!sh) return send(out);
+  const loss = sh.loss || 0, base = (sh.delay || 0) / 2, jit = sh.jitter || 0;
+  if (fast) { if (Math.random() < loss) { self.stat.drop++; return true; } const d = Math.max(0, base + (Math.random() * 2 - 1) * jit); setTimeout(() => { try { send(out); } catch (e) {} }, d); return true; }
+  let d = Math.max(0, base + (Math.random() * 2 - 1) * jit); if (Math.random() < loss) d += (sh.delay || 40) * 2 + 20;
+  const at = Math.max(performance.now() + d, self.relTail || 0); self.relTail = at;
+  setTimeout(() => { try { send(out); } catch (e) {} }, at - performance.now()); return true;
+}
 
 export class RelayConn {
   constructor(code, role) { this.code = code; this.role = role; this.ws = null; this.gid = 0; this.ready = false; this.onbin = null; this.onctl = null; this.onclose = null; this.closed = false; this.hb = 0; this.errCode = null; }
@@ -43,7 +52,7 @@ export class RelayGuestLink {
   }
   send(kind, data) {
     if (this.dead) return false; const fast = kind === 'fast'; if (fast && this.conn.backlog() > 48000) { this.stat.drop++; return false; }
-    const pl = toBytes(data); const out = new Uint8Array(pl.length + 1); out[0] = fast ? 1 : 0; out.set(pl, 1); this.stat.tx += pl.length; this.stat.txN++; return this.conn.sendRaw(out);
+    const pl = toBytes(data); const out = new Uint8Array(pl.length + 1); out[0] = fast ? 1 : 0; out.set(pl, 1); this.stat.tx += pl.length; this.stat.txN++; return shimSend(this, out, fast, (u) => this.conn.sendRaw(u));
   }
   lost(why) { if (this.dead) return; this.dead = true; this.o.onclose && this.o.onclose(why); }
   close() { this.dead = true; this.conn.close(); }
@@ -63,7 +72,7 @@ export class RelayHub {
     if (!mask) return false; const fast = kind === 'fast'; if (fast && this.conn.backlog() > 96000) return false;
     const pl = toBytes(data); const out = new Uint8Array(pl.length + 2); out[0] = mask; out[1] = fast ? 1 : 0; out.set(pl, 2); this.stat.tx += pl.length; this.stat.txN++;
     for (const l of this.links.values()) if (mask & (1 << l.gid)) { l.stat.tx += pl.length; l.stat.txN++; }
-    return this.conn.sendRaw(out);
+    return shimSend(this, out, fast, (u) => this.conn.sendRaw(u));
   }
   close() { this.conn.close(); }
 }

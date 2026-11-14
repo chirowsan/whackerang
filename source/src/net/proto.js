@@ -15,7 +15,19 @@ export const ICE_DEFAULT = [
 ];
 export const rndInt = (n) => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; };
 export const makeCode = () => { let s = ''; for (let i = 0; i < CODE_LEN; i++) s += CODE_ALPHA[rndInt(CODE_ALPHA.length)]; return s; };
-export const normCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, CODE_MAX);
+export function normCode(s) {
+  // Accept "BKTQ", "bk tq", a pasted share link (?room=BKTQ), or a sentence that contains the 4-letter code.
+  const raw = String(s || '').trim(); if (!raw) return '';
+  try { const m = raw.match(/[?&#]room=([A-Za-z]+)/i); if (m) return m[1].toUpperCase().replace(/[^A-Z]/g, '').slice(0, CODE_MAX); } catch (e) {}
+  const letters = raw.toUpperCase();
+  const looksUrl = /[A-Z][A-Z0-9+.-]*:\/\//.test(letters) || /^WWW\./.test(letters);
+  const toks = letters.match(/[A-Z]{4,5}/g) || [];
+  const skip = new Set(['HTTP', 'HTTPS', 'WWW', 'HTML', 'COM']);
+  const good = toks.filter((tok) => !skip.has(tok) && [...tok].every((c) => CODE_ALPHA.includes(c)));
+  if (good.length) return good[good.length - 1];
+  if (looksUrl) return '';
+  return letters.replace(/[^A-Z]/g, '').slice(0, CODE_MAX);
+}
 export const validCode = (s) => (s.length === CODE_LEN || s.length === CODE_MAX) && /^[A-Z]+$/.test(s);
 export const rid = (n = 8) => { let s = ''; const a = 'abcdefghijkmnpqrstuvwxyz23456789'; for (let i = 0; i < n; i++) s += a[rndInt(a.length)]; return s; };
 export const shareLink = (code) => `${PAGES_URL}?room=${code}`;

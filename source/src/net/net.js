@@ -39,6 +39,18 @@ export const Net = {
   me() { return this.lobby.players.find((p) => p.slot === this.mySlot) || null; },
   profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail, weapon: getWpn(0, hero) }; },
   defaultSettings() { return { mode: 'classic', arena: 'random', size: 'large', traps: 'some', events: 'some', speed: 'chill', rounds: 3, bots: true, diff: 1, mutator: 'off' }; },
+  normCode, // net415: tests and join-box helpers use the same parser as the UI
+  reconnecting: false,
+  _hiddenAt: 0,
+  _hiddenMs: 0,
+  // How long a peer can go quiet before we treat the link as dropped. Hidden/background time is forgiven (iOS Safari and Android pause freeze JS).
+  silenceMs() { const base = (this.phase === 'match' || this.phase === 'results') ? 12000 : 8000; return this._testSilence || base; },
+  onBackground() { if (!this._hiddenAt) this._hiddenAt = now(); },
+  onForeground() {
+    const dt = this._hiddenAt ? Math.max(0, now() - this._hiddenAt) : 0; this._hiddenAt = 0; this._hiddenMs = dt;
+    if (this.isHost) { if (this.H) { for (const p of this.H.peers.values()) { if (p.lastRx) p.lastRx += dt; } } this.hostRelink(); }
+    if (this.isGuest && this.G) { if (this.G.lastRx) this.G.lastRx += dt; if (this.G.lastFast) this.G.lastFast += dt; if (this.G.welcomed && !this.G.closed && (this.G.linkDead || dt > 2000)) { const seen = Math.max(this.G.lastRx || 0, this.G.lastFast || 0); try { const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(now()) >>> 0); this.G.link && this.G.link.send && this.G.link.send('fast', w.out()); } catch (e) {} clearTimeout(this._probeT); this._probeT = setTimeout(() => { const G = this.G; if (!G || G.closed || this._reconnecting) return; if (G.linkDead || Math.max(G.lastRx || 0, G.lastFast || 0) <= seen) this.beginReconnect('resume'); }, this.G.linkDead ? 0 : 1500); } }
+  },
 
   // ================================================================== HOST
   async host(opts = {}) {
@@ -80,7 +92,7 @@ export const Net = {
   },
   hostTimers() {
     const H = this.H;
-    H.timers.push(setInterval(() => { if (!this.isHost) return; const t = now(); for (const p of [...H.peers.values()]) { if (p.isHost || !p.link) continue; if (p.conn && t - p.lastRx > 6500) this.dropPeer(p, 'timeout'); else if (p.conn) { const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(t) >>> 0); p.link.send('fast', w.out()); } } this.pingTable(); }, 1000));
+    H.timers.push(setInterval(() => { if (!this.isHost) return; const t = now(); const lim = this.silenceMs(); for (const p of [...H.peers.values()]) { if (p.isHost || !p.link) continue; if (p.conn && t - p.lastRx > lim) this.dropPeer(p, 'timeout'); else if (p.conn) { const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(t) >>> 0); p.link.send('fast', w.out()); } } this.pingTable(); }, 1000));
   },
   pingTable() { const H = this.H; const t = {}; for (const p of H.peers.values()) if (p.conn) t[p.slot] = p.isHost ? 0 : Math.round(p.ping); this.pings = t; if (this.phase !== 'lobby' || true) this.sendAll({ t: 'pings', p: t }); },
   // v4.3: a guest arrived through the Cloudflare relay (it could not, or did not, connect directly)
@@ -205,7 +217,7 @@ export const Net = {
     const H = this.H; if (!H || H.closed || !p || p.isHost) return; const wasConn = p.conn; p.conn = false; H.pend.delete(p.pid); try { p.link && p.link.close(); } catch (e) {}
     if (!wasConn) return; this.note(`${p.name} left`);
     if (this.phase === 'lobby' || this.phase === 'results') { if (H.slots[p.slot] === p) H.slots[p.slot] = null; H.peers.delete(p.pid); H.rematch.delete(p.slot); }
-    else { this.botTakeover(p); } // match in progress: keep the seat for a rejoin, a bot plays meanwhile
+    else { this.botTakeover(p); const still = H.slots.filter((q) => q && q.conn && !q.isHost).length; this.friendLeft = still === 0; } // match in progress: keep the seat for a rejoin, a bot plays meanwhile
     this.syncLobby(); this.emit();
   },
   botTakeover(p) {
@@ -217,7 +229,7 @@ export const Net = {
     const g = this.app.game, m = this.app.match; if (!g || !m) return; const def = m.players.find((d) => d.slot === p.slot && d.cid === p.cid); if (!def) return;
     def.ctrl = 'human'; const f = g.fighters.find((q) => q.def === def); if (f) { f.isBot = false; f.bot = null; if (f.model.setMarker) f.model.setMarker(f.color, p.slot === 0 ? 'YOU' : tag(p.name), p.slot === 0); }
     this.sendTo(p, this.roundMsg()); this.resendSlow(true);
-    p.joinedMatch = true; // v4.6.3: snapshots now, not only from the next round (late Auto joiners and rejoins were frozen until then)
+    p.joinedMatch = true; this.friendLeft = false; // v4.6.3: snapshots now, not only from the next round (late Auto joiners and rejoins were frozen until then)
   },
   hostEmote(p, id) {
     const g = this.app.game; if (!g || this.phase !== 'match' || !EMOTES[id]) return; const f = g.fighters.find((q) => !q.isBot && q.def.slot === p.slot); if (!f || !f.alive || f.emoteT > 0) return;
@@ -427,14 +439,14 @@ export const Net = {
     this.setStatus('Direct link blocked or slow. Connecting through the relay...'); const conn = G.rconn = new RelayConn(code, 'guest');
     conn.connect(G.auto ? 10000 : 7000).then(() => {
       if (G.closed) { conn.close(); return; }
-      const link = G.link = new RelayGuestLink(conn, { onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d), onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.fail('no-room'); else this.lost('conn'); } });
+      const link = G.link = new RelayGuestLink(conn, { onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d), onclose: (why) => { if (G.closed) return; G.linkDead = true; if (!G.welcomed) this.fail('no-room'); else this.beginReconnect(why || 'conn'); } });
       this.setStatus('Relay connected. Joining the room...'); this.guestHello(); G.tm.push(setTimeout(() => { if (!G.welcomed && !G.closed) this.fail('no-room'); }, G.auto ? 15000 : 9000));
     }).catch((e) => { if (G.closed) return; this.fail(e.message === 'nohost' ? 'no-room' : e.message === 'full' ? 'reject:full' : 'no-signal', e); });
   },
   makeGuestLink() {
     const G = this.G; const link = new Link({
       onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d),
-      onopen: () => { this.guestHello(); }, onclose: (why) => { if (G.closed) return; if (!G.welcomed) this.dfail(why === 'ice-failed' ? 'nat' : 'no-room'); else this.lost('conn'); },
+      onopen: () => { this.guestHello(); }, onclose: (why) => { if (G.closed) return; G.linkDead = true; if (!G.welcomed) this.dfail(why === 'ice-failed' || why === 'ice-disconnected' ? 'nat' : 'no-room'); else this.beginReconnect(why || 'conn'); },
     }); return link;
   },
   async joinManual(offerOnly) { // guest side of the copy/paste flow, step 1: produce the offer code
@@ -460,12 +472,12 @@ export const Net = {
       case 'rend': app.net_roundEnd && app.net_roundEnd(m); break;
       case 'mend': this.phase = 'results'; this.lastResult = m; this.finishLocal(m); app.net_matchEnd && app.net_matchEnd(m); break;
       case 'tolobby': this.phase = 'lobby'; app.netToLobby(); this.emit(); break;
-      case 'kick': this.end(m.r === 'spam' ? 'You were removed from the room (too many messages).' : 'The host removed you from the room.'); break;
-      case 'closed': this.end('The host closed the room.'); break;
+      case 'kick': this.cancelReconnect(); this.end(m.r === 'spam' ? 'You were removed from the room (too many messages).' : 'The host removed you from the room.'); break;
+      case 'closed': this.cancelReconnect(); this.end('The host closed the room.'); break;
     }
   },
   startGuestTimers() {
-    const G = this.G; G.tm.push(setInterval(() => { if (!this.isGuest || G.closed) return; const t = now(); if (G.lastRx && t - Math.max(G.lastRx, G.lastFast || 0) > 6000) { this.lost('timeout'); return; } const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(t) >>> 0); G.link.send('fast', w.out()); }, 1000));
+    const G = this.G; G.tm.push(setInterval(() => { if (!this.isGuest || G.closed) return; const t = now(); if (G.lastRx && t - Math.max(G.lastRx, G.lastFast || 0) > this.silenceMs()) { this.beginReconnect('timeout'); return; } if (G.link && G.link.send) { const w = new BinWriter(8); w.u8(PK.PING).u32(Math.round(t) >>> 0); G.link.send('fast', w.out()); } }, 1000));
   },
   guestFast(d) {
     if (!(d instanceof ArrayBuffer) || d.byteLength < 1) return; const G = this.G; if (!G) return; G.lastFast = now(); G.lastRx = G.lastFast; const type = new Uint8Array(d, 0, 1)[0];
@@ -497,14 +509,54 @@ export const Net = {
     this.app.gameEvent(m.n, { f: F(m.f), killer: F(m.k), from: F(m.from), kind: m.kind, winner: F(m.w), winTeam: m.wt, draw: m.draw, team: m.team, n: m.num, name: m.name });
   },
   fail(code, err) { if (!this.active || this.phase === 'ended') return; this.error = { code, msg: err && err.message }; this.lastErr = code; const wasJoin = this.phase === 'joining'; this.teardown(); this.onError && this.onError(this.error, wasJoin); },
-  lost(why) { if (!this.active) return; const inMatch = this.phase === 'match' || this.phase === 'results'; this.end(inMatch ? 'Lost connection to the host.' : 'Lost connection to the room.', true); },
+  beginReconnect(why) {
+    if (!this.active || this._reconnecting) return;
+    const inMatch = this.phase === 'match' || this.phase === 'results';
+    if (why === 'hostgone' || why === 'closed') return this.lost(why);
+    if (!this.isGuest || !inMatch || !(this.lastCode || this.code) || !this.G || !this.G.welcomed) return this.lost(why);
+    this._reconnecting = true; this.reconnecting = true; this.reconnectWhy = why || 'drop'; this.reconnectTries = 0;
+    this.setStatus('Reconnecting...'); this.emit();
+    this._tryReconnect();
+  },
+  cancelReconnect() { this._reconnecting = false; this.reconnecting = false; clearTimeout(this._reTm); clearTimeout(this._probeT); },
+  _tryReconnect() {
+    if (!this._reconnecting || !this.active) return;
+    if (this.reconnectTries++ >= 3) { this.cancelReconnect(); return this.end('Lost connection to your friend. Want to try again?', true); }
+    this.guestSoftRelink().then((ok) => {
+      if (!this._reconnecting) return;
+      if (ok === true) { this.cancelReconnect(); this.setStatus(''); this.emit(); }
+      else if (ok === 'gone') { this.cancelReconnect(); return this.end('Lost connection to your friend. Want to try again?', true); }
+      else { this._reTm = setTimeout(() => this._tryReconnect(), 1000 * this.reconnectTries); }
+    }).catch(() => { this._reTm = setTimeout(() => this._tryReconnect(), 1000 * this.reconnectTries); });
+  },
+  // Close only the transport and open a new relay link to the same room, keeping cid so the host can seat us again.
+  guestSoftRelink() {
+    const G = this.G, code = this.lastCode || this.code;
+    if (!G || G.closed || !code) return Promise.resolve(false);
+    try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} try { G.rconn && G.rconn.close(); } catch (e) {}
+    G.link = null; G.sig = null; G.rconn = null; G.linkDead = false; G.welcomed = false; G.relayTried = true; G.via = 'relay';
+    G.tm.forEach((t) => { clearTimeout(t); clearInterval(t); }); G.tm = [];
+    if (!relayOn()) return Promise.resolve('gone');
+    const conn = G.rconn = new RelayConn(code, 'guest');
+    return new Promise((res) => {
+      let done = false; const finish = (v) => { if (done) return; done = true; clearTimeout(tm); res(v); };
+      const tm = setTimeout(() => finish(false), 6000);
+      conn.connect(5000).then(() => {
+        if (!this._reconnecting || G.closed) { try { conn.close(); } catch (e) {} return finish(false); }
+        G.link = new RelayGuestLink(conn, { onrel: (d) => this.guestRel(d), onfast: (d) => this.guestFast(d), onclose: (why) => { if (G.closed || done) return; G.linkDead = true; if (why === 'hostgone') { finish('gone'); this.lost(why); } else if (G.welcomed) this.beginReconnect(why || 'conn'); } });
+        this.guestHello();
+        const iv = setInterval(() => { if (G.welcomed) { clearInterval(iv); finish(true); } else if (done || G.closed || !this._reconnecting) { clearInterval(iv); finish(false); } }, 80);
+      }).catch((e) => { const why = (e && e.message) || ''; finish(why === 'nohost' || why === 'no-room' || why === 'closed' ? 'gone' : false); });
+    });
+  },
+  lost(why) { if (!this.active) return; const inMatch = this.phase === 'match' || this.phase === 'results'; this.end(inMatch ? 'Lost connection to your friend. Want to try again?' : 'Lost connection to the room.', true); },
   // ================================================================== common teardown
   end(msg, canRejoin) { if (!this.active) return; this.teardown(); this.error = { code: 'ended', msg, canRejoin: !!canRejoin && this.role === 'guest' }; this.onError && this.onError(this.error, false); },
   leave() { // user-initiated: say goodbye first, close the links a moment later so the message gets out
-    if (!this.active) return; let d = 0; try { if (this.isGuest) { this.gSend({ t: 'bye' }); d = 250; } else if (this.isHost) { this.sendAll({ t: 'closed' }); d = 250; } } catch (e) {} this.teardown(d); this.error = null;
+    if (!this.active) return; this.cancelReconnect(); let d = 0; try { if (this.isGuest) { this.gSend({ t: 'bye' }); d = 250; } else if (this.isHost) { this.sendAll({ t: 'closed' }); d = 250; } } catch (e) {} this.teardown(d); this.error = null;
   },
   teardown(delay = 0) {
-    const wasActive = this.active; this.active = false; const H = this.H, G = this.G; this.phase = 'ended';
+    this.cancelReconnect(); const wasActive = this.active; this.active = false; const H = this.H, G = this.G; this.phase = 'ended'; this.friendLeft = false;
     const later = (fn) => { if (delay) setTimeout(fn, delay); else fn(); };
     if (H) { H.closed = true; H.timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); H.rec.stop(); later(() => { for (const p of H.peers.values()) { try { p.link && p.link.close(); } catch (e) {} } for (const p of H.pend.values()) { try { p.link && p.link.close(); } catch (e) {} } try { H.sig && H.sig.close(); } catch (e) {} try { H.rly && H.rly.close(); } catch (e) {} }); }
     if (G) { G.closed = true; G.tm.forEach((t) => { clearInterval(t); clearTimeout(t); }); later(() => { try { G.link && G.link.close(); } catch (e) {} try { G.sig && G.sig.close(); } catch (e) {} try { G.rconn && G.rconn.close(); } catch (e) {} }); }
@@ -512,7 +564,10 @@ export const Net = {
     this.H = null; this.G = null; this.world = null; this.input = null;
     if (wasActive && this.app && this.app.netClosed) this.app.netClosed();
   },
-  reset() { this.lobby = { players: [], settings: null }; this.pings = {}; this.rtt = 0; this.rttMax = 0; this.reward = null; this.lastResult = null; this.stat = { snaps: 0, snapBytes: 0, t0: 0, steps: 0 }; this.error = null; this.notes = []; this.status = ''; this.phase = 'idle'; },
+  reset() { this.lobby = { players: [], settings: null }; this.pings = {}; this.rtt = 0; this.rttMax = 0; this.reward = null; this.lastResult = null; this.stat = { snaps: 0, snapBytes: 0, t0: 0, steps: 0 }; this.error = null; this.notes = []; this.status = ''; this.phase = 'idle'; this.friendLeft = false; this.reconnecting = false; },
+  // net415 test hooks (no-ops in production play unless a test calls them)
+  testDropLink() { const G = this.G, H = this.H; if (this.isGuest && G && G.link) { try { G.link.close(); } catch (e) {} G.linkDead = true; if (G.welcomed) this.beginReconnect('test-drop'); } else if (this.isHost && H) { const p = [...H.peers.values()].find((q) => q && !q.isHost && q.conn); if (p) this.dropPeer(p, 'test-drop'); } },
+  testSilence(ms) { this._testSilence = ms || 0; },
   // diagnostics (used by tests and the ?netdebug overlay)
   stats() {
     const links = []; const add = (l, name) => { if (l) links.push({ name, ...l.stat }); };

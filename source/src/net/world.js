@@ -160,7 +160,7 @@ export class GuestWorld {
       { const g = this.g; if (S.state === 0 && g.goAt && !g.cdDone) { const tgt = performance.now() + Math.max(0, S.introT) * 1000 - Math.min(1200, this.rttOf ? this.rttOf() : 0) / 2; g.goAt = g.goLock ? g.goAt + (tgt - g.goAt) * 0.35 : tgt; g.goLock = true; } }
       const ht = S.tick * STEP * 1000; const o = now - ht; this.offs.push(o); if (this.offs.length > 120) this.offs.shift(); let mn = Infinity; for (const v of this.offs) if (v < mn) mn = v; this.off = this.off === null ? mn : this.off + (mn - this.off) * 0.1;
       // jitter estimate (RFC3550 style) drives the interpolation delay
-      const ia = now - this.lastArrive; this.lastArrive = now; const dv = Math.abs((o - (this._lastO || o))); this._lastO = o; this.jit += (dv - this.jit) / 16;
+      const ia = now - this.lastArrive; this.lastArrive = now; const dv = Math.min(80, Math.abs((o - (this._lastO || o)))); this._lastO = o; this.jit += (dv - this.jit) / 16;
       this.buf.push(S); this.buf.sort((a, b) => a.tick - b.tick); while (this.buf.length > 40) this.buf.shift();
       if (S.fx) for (const b of S.fx) { if (this.fxSeen.has(b.s)) continue; this.fxSeen.add(b.s); if (this.fxSeen.size > 24) this.fxSeen.delete(this.fxSeen.values().next().value); this.fxQ.push({ t: b.t * STEP, list: b.l }); }
       this.newest = S; this.reconcile(S);
@@ -244,7 +244,7 @@ export class GuestWorld {
     if (hfN && lf.alive) { const was = this._fire; if (was && !inp.fire && hfN.ammo > 0 && !this.busy(hfN)) { lf.throwT = 1; sfx('throw', Math.min(1, lf.chargeT / 0.7)); this.suppress.throw = now + 280; } this._fire = inp.fire && hfN.ammo > 0; }
     // 3. world interpolation at (hostNow - delay)
     if (this.off !== null && this.buf.length) {
-      const lo = this.relay ? 0.17 : 0.085; const delay = clamp(lo + this.jit / 1000 * 2.2, lo, 0.3); this.interp += (delay - this.interp) * 0.05; const rt = hostNow - this.interp;
+      const lo = this.relay ? 0.18 : 0.09; const delay = clamp(lo + this.jit / 1000 * 2.0, lo, 0.28); this.interp += (delay - this.interp) * 0.08; const rt = hostNow - this.interp;
       this.applyAt(rt, dt);
       while (this.fxQ.length && this.fxQ[0].t <= rt) this.playFx(this.fxQ.shift().list);
       if (this.fxQ.length > 12) this.playFx(this.fxQ.shift().list);

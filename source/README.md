@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.2 (more reliable online play)
+- **More reliable online play:** a short signal drop or a quick tab switch no longer ends the match. The game shows Reconnecting… and tries to get you back in, with Retry and Leave if it cannot. Pasted share links and messy codes (spaces, lowercase, or “Join my room BKTQ”) now join the right room. If your friend leaves, a bot takes their place so you can finish. Error messages are simple, with one Retry button, and the connection signal is just small bars. Default Game speed is still Chill.
+
 ## What's new in v4.11.1 (punchier hits, calmer screen)
 - **Punchier hits and catches:** hits squash, catches stretch with a tiny sparkle, and you feel a short buzz on Android. Sounds are tighter, including a catch clack. The screen stays calm: no full-screen flash on a regular hit, and shake stays small. On iPhone, a sparkle and a punchy sound stand in for vibration (Safari cannot vibrate). You can turn Vibration, Screen shake, and Hit-stop off in Settings. Default Game speed is still Chill.
 
