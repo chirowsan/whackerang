@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.5 (daily quests and unlockables)
+- **Daily quests and looks you earn by playing:** each day you get three short quests, like catching 5 boomerangs or winning a match, and you can swap one for free. They pay stars, which unlock trails, colors, hats, emotes, victory poses, and catch sparkles in Collection. Some looks are free gifts just for playing. There is no real money, no ads, and no random prize boxes, and looks do not change how a fighter plays. Default Game speed is still Chill.
+
 ## What's new in v4.11.4 (first-play practice)
 - **A short first-play practice:** the first time you tap Play, a calm empty yard teaches you to move, throw, catch, shield, swing, use Special, and hide in a bush. Each step has one short, big line and a gentle pulse on the button to use. You can skip any time, and you cannot lose. After You're ready! you go into a normal game. Replay it any time from Practice on the menu or in Settings. Returning players are not asked again. Default Game speed is still Chill.
 

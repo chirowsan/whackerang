@@ -224,8 +224,14 @@ export function animateFighter(m, dt, st) {
   // v3.2: hurt flinch (lean back, jitter) and emote dance (hop + sway)
   if (st.hurt > 0 && !st.dead) { const k = Math.min(1, st.hurt); rx -= k * 0.5; sy -= k * 0.14; sx += k * 0.1; sz += k * 0.1; rz += Math.sin(t * 55) * 0.14 * k; }
   if (st.emote > 0 && !st.dead && !st.win) { const hop = Math.abs(Math.sin(t * 8)); py += hop * 0.18; ry = Math.sin(t * 5) * 0.5; rz += Math.sin(t * 8) * 0.1; sy += (hop - 0.5) * 0.1; }
-  const armsUp = st.win || (st.emote > 0 && !st.dead);
-  if (st.win) { const hop = Math.abs(Math.sin(t * 6.5)); py += hop * 0.22; const land = 1 - hop; sy += (hop - 0.5) * 0.12 + 0.0; sx -= (hop - 0.5) * 0.08; sz = sx; ry = Math.sin(t * 3.2) * 0.45; rz = Math.sin(t * 6.5) * 0.08; rx = -0.05; }
+  const pose = st.pose || 'wave';
+  const armsUp = (st.win && pose !== 'bow') || (st.emote > 0 && !st.dead);
+  if (st.win) {
+    if (pose === 'spin') { const hop = Math.abs(Math.sin(t * 5)); py += hop * 0.12; ry = t * 7; rz = Math.sin(t * 4) * 0.06; rx = -0.04; }
+    else if (pose === 'bow') { const k = Math.min(1, Math.abs(Math.sin(t * 2.2))); rx = 0.55 * k; py += 0.02; ry = 0; rz = 0; sy += 0.02; }
+    else if (pose === 'hop') { const hop = Math.abs(Math.sin(t * 8.5)); py += hop * 0.38; sy += (hop - 0.5) * 0.16; sx -= (hop - 0.5) * 0.1; sz = sx; ry = Math.sin(t * 4) * 0.25; rz = 0; rx = -0.08; }
+    else { const hop = Math.abs(Math.sin(t * 6.5)); py += hop * 0.22; sy += (hop - 0.5) * 0.12; sx -= (hop - 0.5) * 0.08; sz = sx; ry = Math.sin(t * 3.2) * 0.45; rz = Math.sin(t * 6.5) * 0.08; rx = -0.05; }
+  }
   body.position.y = py;
   if (st.dead) { // funny spin-out: wobble squash, game drives the spin
     const w = Math.sin(t * 22); body.scale.set(1 + w * 0.12, 1 - w * 0.12, 1 + w * 0.12); body.position.y = 0;

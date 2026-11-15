@@ -1,6 +1,6 @@
 {
   "name": "whackerang-mobile",
-  "version": "4.11.4",
+  "version": "4.11.5",
   "private": true,
   "description": "Capacitor wrapper (Android + iOS) for Whackerang",
   "scripts": {

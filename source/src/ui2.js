@@ -2,14 +2,14 @@ import { shownHere } from './stealth.js';
 // v2.0 screens: menu, mode select, setup, campaign, shop, profile, results, HUD, tutorial, emotes.
 import { UI, h, $ } from './ui.js';
 import { S, save, resetSave } from './save.js';
-import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, SIGS, MODES, ACHIEVEMENTS, PERSONA_INFO, ABILITIES, heroHp } from './data.js';
+import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKINS, EMOTES, ULTS, SIGS, MODES, ACHIEVEMENTS, PERSONA_INFO, ABILITIES, heroHp, POSES, SPARKLES } from './data.js';
 import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
 import { STORE } from './flags.js';
 import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
 import { todayMutator, MUTATORS } from './mutators.js';
 import { TRAP_INFO, legendImages } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
-import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS, chestState, claimChest, CHEST_GOLD, dailyReadyCount } from './progress.js';
+import { levelInfo, xpNeed, ensureDaily, dailyProgress, claimDaily, SHOP, owns, buy, equip, toggleEmote, LEVEL_REWARDS, chestState, claimChest, CHEST_GOLD, dailyReadyCount, dailyDoneCount, rerollDaily, canReroll, MILESTONES, mileProgress, COLLECTION, starCost, rewardOf } from './progress.js';
 import { sfx, applyVolumes } from './audio.js';
 import { setQuality, gfx, toScreen, fitCamera } from './gfx.js';
 import { AW, AH, HX, HZ } from './util.js';
@@ -37,6 +37,7 @@ Object.assign(UI, {
   _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
   heroLine(hh) { return `<div class="perk hpline">\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}</div><div class="perk howto">★ How to play: ${hh.how||hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
   coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
+  starChip() { const c = h('button', 'chip starchip', `<span class="starcoin">★</span><span class="starval">${S().coins}</span>`, { 'data-nav': 1, title: 'Stars' }); c.addEventListener('click', () => { sfx('click'); this.show('quests'); }); return c; },
   // ================= Gold Store =================
   goldstore(p) {
     const s = S(); const tab = STORE ? 'earn' : p.tab || 'earn'; const el = h('div', 'screen page gold-store'); const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(p.ret || 'menu'))); hd.appendChild(h('h2', '', 'Gold Store')); hd.appendChild(h('div', 'chip', `<span class="coin"></span><span id="coinval">${s.coins}</span>`)); el.appendChild(hd);
@@ -86,22 +87,21 @@ Object.assign(UI, {
     g.appendChild(this.btn('🌐 Play online', 'gold', () => this.show('netMenu')));
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
     g.appendChild(this.btn('⚔ Armory', '', () => this.show('armory', { ret: 'menu' }), { id: 'btn-armory' }));
-    g.appendChild(this.btn('🛒 Shop', '', () => this.show('shop', { tab: 'Hats' })));
+    g.appendChild(this.btn('Collection', '', () => this.show('collection', { tab: 'Hats' }), { id: 'btn-collection' }));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
     g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.5'; save(); this.show('howto', { new: 1 }); }));
     g.appendChild(this.btn('Practice', '', () => a.startTutorial(), { id: 'btn-practice' }));
     left.appendChild(g); el.appendChild(left);
-    const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
+    const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.starChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
     if (canInstall()) { const br = h('div', 'corner tl'); br.appendChild(this.btn(IS_IOS ? '\u2B07 Add to Home Screen' : '\u2B07 Install app', 'gold small', () => promptInstall(this))); el.appendChild(br); }
-    // daily missions card
-    const d = ensureDaily(); const card = h('div', 'mcard'); card.appendChild(h('div', 'mh', `<b>Daily missions</b><span>${d.list.filter((c) => d.claimed[c.id]).length}/3</span>`));
-    d.list.forEach((c, i) => { const pr = dailyProgress(c), done = pr >= c.n, cl = d.claimed[c.id]; const row = h('button', 'mrow' + (cl ? ' claimed' : done ? ' done' : ''), `<span class="mt">${c.text}</span><span class="mbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><span class="mg">${cl ? '✓' : done ? 'CLAIM' : '+' + c.coins}</span>`, { 'data-nav': 1 });
-      row.addEventListener('click', () => { if (done && !cl && claimDaily(i)) { sfx('missionDone'); this.toast(`Mission complete! +${c.coins} gold, +${c.xp} XP`, 1600); this.show('menu'); } else { sfx('click'); this.show('profile'); } }); card.appendChild(row); });
-    const cs = chestState(); if (cs !== 'locked') { const cr = h('button', 'mrow chest' + (cs === 'ready' ? ' done' : ' claimed'), `<span class="mt">Daily chest</span><span class="mg">${cs === 'ready' ? 'OPEN +' + CHEST_GOLD : '✓'}</span>`, { 'data-nav': 1 }); cr.addEventListener('click', () => { if (claimChest()) { sfx('missionDone'); this.toast(`Daily chest! +${CHEST_GOLD} gold`, 1600); this.show('menu'); } }); card.appendChild(cr); }
-    el.appendChild(card);
+    // small Quests badge (uncluttered; full list lives on the Quests screen)
+    const d = ensureDaily(); const doneN = dailyDoneCount(); const ready = dailyReadyCount() > 0;
+    const badge = h('button', 'qbadge' + (ready ? ' ready' : doneN >= 3 ? ' all' : ''), `<span class="qb-ic">★</span><span class="qb-lab"><b>Quests</b><em>${doneN}/3</em></span>` + (ready ? '<i class="dot"></i>' : ''), { id: 'btn-quests', 'data-nav': 1 });
+    badge.addEventListener('click', () => { sfx('click'); this.show('quests'); });
+    el.appendChild(badge);
     const bl = h('div', 'corner bl'); bl.appendChild(h('div', 'chip', `<span>${hero.name}</span><span class="dimc">${hero.title}</span>`)); el.appendChild(bl);
     return el;
   },
@@ -212,6 +212,71 @@ Object.assign(UI, {
       let act;
       if (own) { if (it.cat === 'heroes') act = h('div', 'owned', '✓ Owned'); else act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { if (it.cat === 'emotes') toggleEmote(it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else equip(it.cat, it.id); sfx('click'); this.app.previewCosmetic(null); this.show('shop', { tab }); }); }
       else act = this.btn(`<span class="coin"></span> ${it.cost}`, 'small ' + (s.coins >= it.cost ? 'primary' : 'locked'), () => { if (buy(it)) { sfx('buy'); if (it.cat !== 'hats' && it.cat !== 'heroes') equip(it.cat, it.id); else if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } this.app.previewCosmetic(null); this.show('shop', { tab }); } else { sfx('deny'); this.toast('Not enough gold! Tap the gold counter to see free ways to earn more.'); } });
+      c.appendChild(act); grid.appendChild(c);
+    });
+    if (tab === 'Emotes') grid.appendChild(h('div', 'note-line', 'Equip up to 4 emotes. In a match press 1-4 or tap the chat button.', { style: 'grid-column:1/-1' }));
+    const body = h('div', 'shop-body'); body.appendChild(grid); body.appendChild(cap); el.appendChild(body); return el;
+  },
+  // ================= daily quests =================
+  quests() {
+    const s = S(); const d = ensureDaily(); const el = h('div', 'screen page quests-page');
+    const hd = h('header'); hd.appendChild(this.backBtn(() => this.show('menu'))); hd.appendChild(h('h2', '', 'Quests')); hd.appendChild(this.starChip()); el.appendChild(hd);
+    const body = h('div', 'body qbody scroll');
+    body.appendChild(h('p', 'q-note', 'Earned by playing — no real money'));
+    d.list.forEach((c, i) => {
+      const pr = dailyProgress(c); const done = pr >= c.n, claimed = !!d.claimed[c.id]; const pct = Math.round(pr / c.n * 100);
+      const row = h('div', 'qrow' + (claimed || done ? ' done' : ''), '', { 'data-qid': c.id });
+      row.appendChild(h('div', 'qcopy', `<b>${c.text}</b><span class="xpbar qbar"><i style="width:${pct}%"></i></span><small>${pr}/${c.n} · +${rewardOf(c)} stars</small>`));
+      const acts = h('div', 'qacts');
+      if (claimed || done) acts.appendChild(h('span', 'owned', '✓'));
+      if (!d.rerolled && !claimed && !done) {
+        const rb = this.btn('New quest', 'small qreroll', () => { const nxt = rerollDaily(i); if (nxt) { sfx('click'); this.toast('New quest: ' + nxt.text, 1600); this.show('quests'); } else { sfx('deny'); this.toast('Already used today’s free reroll', 1600); } });
+        rb.id = 'btn-reroll-' + i; acts.appendChild(rb);
+      }
+      row.appendChild(acts); body.appendChild(row);
+    });
+    body.appendChild(h('p', 'q-reroll-note', d.rerolled ? 'You used today’s free reroll. A new set arrives tomorrow.' : 'You can swap one quest for free today.'));
+    const cs = chestState();
+    body.appendChild(h('div', 'qchest ' + cs, `<b>All 3 done bonus</b><small>${cs === 'claimed' ? 'Collected today' : cs === 'ready' ? 'Ready!' : 'Finish all 3 quests'} · +${CHEST_GOLD} stars</small>`));
+    body.appendChild(h('h3', 'qsec', 'Play unlocks'));
+    body.appendChild(h('p', 'q-note dim', 'These are gifts for playing. They do not cost stars.'));
+    MILESTONES.forEach((m) => {
+      const pr = mileProgress(m); const got = !!(s.mile && s.mile[m.id]); const pct = Math.round(pr / m.n * 100);
+      const k = Object.keys(m.give)[0], id = m.give[k];
+      const name = (k === 'hats' ? (HATS.find((h) => h.id === id) || {}).name : k === 'emotes' ? (EMOTES[id] || {}).text : k === 'trails' ? (TRAILS[id] || {}).name : k === 'poses' ? (POSES[id] || {}).name : k === 'sparkles' ? (SPARKLES[id] || {}).name : id);
+      body.appendChild(h('div', 'milerow' + (got ? ' got' : ''), `<div><b>${m.text}</b><small>${got ? ('Unlocked ' + (name || '')) : (pr + '/' + m.n)}</small><span class="xpbar"><i style="width:${pct}%"></i></span></div>`));
+    });
+    const go = this.btn('Open Collection', 'primary qopen', () => this.show('collection', { tab: 'Hats' })); go.id = 'btn-open-collection'; body.appendChild(go);
+    el.appendChild(body); return el;
+  },
+  // ================= collection (cosmetics only; earned with stars) =================
+  collection(p) {
+    const s = S(); const tab = (p && p.tab && COLLECTION[p.tab]) ? p.tab : 'Hats'; const el = h('div', 'screen page shop-split collection-page');
+    const hd = h('header'); hd.appendChild(this.backBtn(() => { this.app.previewCosmetic(null); this.show('menu'); })); hd.appendChild(h('h2', '', 'Collection')); hd.appendChild(this.starChip()); el.appendChild(hd);
+    el.appendChild(h('p', 'q-note coll-note', 'Earned by playing — no real money'));
+    const tabs = h('div', 'tabs'); Object.keys(COLLECTION).forEach((t) => { const b = h('button', 'tab' + (t === tab ? ' on' : ''), t, { 'data-nav': 1 }); b.addEventListener('click', () => { sfx('click'); this.app.previewCosmetic(null); this.show('collection', { tab: t }); }); tabs.appendChild(b); }); el.appendChild(tabs);
+    const grid = h('div', 'shop-grid scroll'); const hero = this.heroById(s.hero); const cap = h('div', 'pv-cap', '<small>Looks only — they don’t change how you play. Tap to preview.</small>');
+    const setCap = (it) => { const own = owns(it.cat, it.id); cap.innerHTML = `<b>${it.cat === 'emotes' ? 'Emote ' + it.name : it.name}</b><small>${it.desc || (own ? 'Owned' : 'Preview')}</small>${own ? '' : `<span class="pvp"><span class="starcoin">★</span> ${starCost(it)}</span>`}`; };
+    COLLECTION[tab].forEach((it) => {
+      const own = owns(it.cat, it.id); const eqd = (it.cat === 'skins' && s.eq.skin === it.id) || (it.cat === 'trails' && s.eq.trail === it.id) || (it.cat === 'emotes' && s.eq.emotes.includes(it.id)) || (it.cat === 'hats' && s.hats[s.hero] === it.id) || (it.cat === 'poses' && (s.eq.pose || 'wave') === it.id) || (it.cat === 'sparkles' && (s.eq.sparkle || 'none') === it.id);
+      let prev = ''; const col = it.color || 0xffffff;
+      if (it.cat === 'skins') prev = `<div class="prev">${boomSvg(hex(col))}</div>`;
+      else if (it.cat === 'trails') prev = `<div class="prev trailp" style="${it.rainbow ? 'background:linear-gradient(90deg,#f55,#fd5,#5f5,#5df,#a5f)' : `background:linear-gradient(90deg,transparent,${hex(col)})`}"></div>`;
+      else if (it.cat === 'emotes') prev = `<div class="prev emo" style="color:${hex(col)}">${it.name}</div>`;
+      else if (it.cat === 'poses') prev = `<div class="prev emo">🎭</div>`;
+      else if (it.cat === 'sparkles') prev = `<div class="prev emo">✨</div>`;
+      else prev = `<div class="prev hatp"><img src="${portrait(hero, it.id)}"></div>`;
+      const c = h('div', 'card' + (eqd ? ' eq' : ''), `${prev}<h4>${it.cat === 'emotes' ? 'Emote' : it.name}</h4><p>${it.desc || ''}</p>`, { 'data-nav': 1, 'data-cid': it.cat + ':' + it.id });
+      c.addEventListener('click', (e) => { if (e.target.closest('button')) return; sfx('click'); [...grid.children].forEach((q) => q.classList.remove('pv')); c.classList.add('pv'); if (it.cat === 'hats' || it.cat === 'skins' || it.cat === 'trails') this.app.previewCosmetic({ cat: it.cat, id: it.id }); else this.app.previewCosmetic(null); if (it.cat === 'poses' && this.app.game && this.app.game.fighters[0]) this.app.playPose(this.app.game.fighters[0], it.id); if (it.cat === 'sparkles' && this.app.game && this.app.game.fighters[0]) this.app.catchSparkle(this.app.game.fighters[0]); setCap(it); });
+      let act;
+      if (own) {
+        if (it.id === 'none' && it.cat === 'hats') act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { s.hats[s.hero] = 'none'; save(); this.app.previewCosmetic(null); this.show('collection', { tab }); });
+        else if (it.cat === 'emotes') act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { toggleEmote(it.id); this.show('collection', { tab }); });
+        else act = this.btn(eqd ? '✓ Equipped' : 'Equip', eqd ? 'small gold' : 'small', () => { if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else equip(it.cat, it.id); sfx('click'); this.app.previewCosmetic(null); this.show('collection', { tab }); });
+      } else {
+        const cost = starCost(it);
+        act = this.btn(`Unlock · ★ ${cost}`, 'small ' + (s.coins >= cost ? 'primary qunlock' : 'locked qunlock'), () => { if (buy(it)) { sfx('buy'); if (it.cat === 'hats') { s.hats[s.hero] = it.id; save(); } else if (it.cat !== 'emotes') equip(it.cat, it.id); this.app.previewCosmetic(null); this.show('collection', { tab }); } else { sfx('deny'); this.toast('Need more stars — play quests to earn them!'); } });
+      }
       c.appendChild(act); grid.appendChild(c);
     });
     if (tab === 'Emotes') grid.appendChild(h('div', 'note-line', 'Equip up to 4 emotes. In a match press 1-4 or tap the chat button.', { style: 'grid-column:1/-1' }));

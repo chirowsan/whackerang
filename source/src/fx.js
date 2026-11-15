@@ -107,6 +107,8 @@ export const fx = {
       case 'leaf': if (R() < 0.45) this.debris.spawn(x, y, z, (R() - 0.5) * 1.2, 0.8, (R() - 0.5) * 1.2, 0.09, 0.8, R() < 0.5 ? 0x7dff6a : 0x3fc04a, 2.5, 0.8, 9); break;
       case 'petal': if (R() < 0.45) this.debris.spawn(x, y, z, (R() - 0.5) * 1.2, 0.8, (R() - 0.5) * 1.2, 0.09, 0.8, R() < 0.5 ? 0xff7ac8 : 0xffd0e4, 2.5, 0.8, 9); break;
       case 'pixel': if (R() < 0.6) this.debris.spawn(x, y, z, (R() - 0.5) * 0.6, (R() - 0.5) * 0.6, (R() - 0.5) * 0.6, 0.11, 0.5, [0x7dff6a, 0x4fd1ff, 0xffffff, 0xff5ad8][Math.floor(R() * 4)], 0, 1, 0); break;
+      case 'dew': if (R() < 0.55) g.spawn(x + (R() - 0.5) * 0.35, y + 0.05, z + (R() - 0.5) * 0.35, (R() - 0.5) * 0.25, -0.15, (R() - 0.5) * 0.25, 0.07 + R() * 0.05, 0.85, R() < 0.5 ? 0xe8fbff : 0xc8f4ff, 0, 0.4, 0, -0.15); break;
+      case 'firefly': if (R() < 0.4) g.spawn(x + (R() - 0.5) * 0.55, y + R() * 0.25, z + (R() - 0.5) * 0.55, (R() - 0.5) * 0.2, 0.15, (R() - 0.5) * 0.2, 0.08, 1.1, R() < 0.5 ? 0xffe080 : 0xfff6c8, 0, 0.7, 0, -0.05); break;
     }
   },
   trail(x, y, z, color, size) { this.glow.spawn(x, y, z, 0, 0.1, 0, size, 0.28, color, 0, 0, 0, -0.3); },

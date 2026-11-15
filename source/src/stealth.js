@@ -24,6 +24,8 @@ export function stealthTick(g, dt) {
     f.revealT = Math.max(0, (f.revealT || 0) - dt);
     const can = f.alive && !f.show && !f.boss && !f.hasBomb && !f.carry && g.state !== 'intro';
     f.bushIn = can && inBush(g, f.x, f.z); f.hid = f.bushIn && f.revealT <= 0; f.seen = 0;
+    if (f.hid && !f._hidQuest) { f._hidQuest = true; if (g.onEvent) g.onEvent('hide', { f }); }
+    if (!f.bushIn) f._hidQuest = false;
     if (f.hid) for (const o of g.fighters) if (o.alive && o.team !== f.team && Math.hypot(o.x - f.x, o.z - f.z) < STEALTH.detect) f.seen |= 1 << (o.team & 7);
   }
 }

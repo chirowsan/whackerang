@@ -35,6 +35,8 @@ export const HATS = [
   { id: 'cowboy', name: 'Cowboy hat', cost: 130 },
   { id: 'wizard', name: 'Wizard hat', cost: 150 },
   { id: 'viking', name: 'Viking helm', cost: 160 },
+  { id: 'sprout', name: 'Sprout', cost: 70 },
+  { id: 'moon', name: 'Moon clasp', cost: 90 },
   { id: 'crown', name: 'Crown', cost: 900, premium: true },
 ];
 export const ARENAS = [
@@ -82,6 +84,8 @@ export const TRAILS = {
   pixel: { name: 'Pixel', color: 0x7dff6a, cost: 180, fx: 'pixel' },
   star: { name: 'Stardust', color: 0xffe066, cost: 220, fx: 'star' },
   heart: { name: 'Hearts', color: 0xff6aa8, cost: 260, fx: 'heart' },
+  dew: { name: 'Dewdrop', color: 0xc8f4ff, cost: 80, fx: 'dew' },
+  firefly: { name: 'Firefly', color: 0xffe080, cost: 90, fx: 'firefly' },
   cosmic: { name: 'Cosmic', color: 0xffffff, cost: 1200, rainbow: true, premium: true, fx: 'star' },
   comet: { name: 'Comet', color: 0xbfe8ff, cost: 800, premium: true, fx: 'comet' },
   prism: { name: 'Prism', color: 0xffffff, cost: 1000, rainbow: true, premium: true, fx: 'pixel' },
@@ -105,7 +109,19 @@ export const SKINS = {
 };
 export const EMOTES = {
   gg: { text: 'GG!', color: '#ffd23c', cost: 0 }, nice: { text: 'Nice!', color: '#7dff6a', cost: 0 }, oops: { text: 'Oops!', color: '#ff9a5a', cost: 0 }, wow: { text: 'Wow!', color: '#4fd1ff', cost: 0 },
-  haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 }, party: { text: 'Party!', color: '#ffd23c', cost: 150, premium: true }, bonk: { text: 'BONK!', color: '#ff9a5a', cost: 150, premium: true },
+  haha: { text: 'Haha!', color: '#ff7ad9', cost: 60 }, taunt: { text: 'Catch me!', color: '#ff5a8a', cost: 80 }, thanks: { text: 'Thanks!', color: '#9dffb0', cost: 60 }, grr: { text: 'Grrr!!', color: '#ff5a5a', cost: 80 }, yay: { text: 'Yay!', color: '#ffe066', cost: 50 }, hi: { text: 'Hi!', color: '#8fe8ff', cost: 40 }, party: { text: 'Party!', color: '#ffd23c', cost: 150, premium: true }, bonk: { text: 'BONK!', color: '#ff9a5a', cost: 150, premium: true },
+};
+export const POSES = {
+  wave: { name: 'Happy wave', cost: 0, desc: 'A cheerful arms-up wave.' },
+  hop: { name: 'Victory hop', cost: 80, desc: 'A bouncy little hop.' },
+  spin: { name: 'Spin', cost: 90, desc: 'A gentle spin in place.' },
+  bow: { name: 'Friendly bow', cost: 70, desc: 'A kind little bow.' },
+};
+export const SPARKLES = {
+  none: { name: 'No sparkle', cost: 0, desc: 'Just the usual catch flash.' },
+  twinkle: { name: 'Twinkle', cost: 60, fx: 'star', desc: 'Soft star twinkles when you catch.' },
+  petals: { name: 'Petals', cost: 80, fx: 'petal', desc: 'Calm falling petals on a catch.' },
+  firefly: { name: 'Fireflies', cost: 90, fx: 'firefly', desc: 'Tiny glowing fireflies on a catch.' },
 };
 /* v4.7: every hero has its own health (hearts per life) and a unique passive ability. */
 export const ABILITIES = {

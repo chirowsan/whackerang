@@ -7,12 +7,12 @@ const defaults = () => ({
   setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'large', sizeMig: 47, traps: 'some', mutator: 'off' },
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
-  own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'] },
+  own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'], poses: ['wave'], sparkles: ['none'] },
   wpn: ['boom', 'boom'], // v4.10 Armory: equipped weapon per local player slot (P1, P2), validated on use
   loadout: [{}, {}], // v4.11: per local player slot, per character: { heroId: weaponId } (validated against that character's own list)
-  eq: { type: 'classic', trail: 'none', skin: 'default', emotes: ['gg', 'nice', 'oops', 'wow'] },
+  eq: { type: 'classic', trail: 'none', skin: 'default', emotes: ['gg', 'nice', 'oops', 'wow'], pose: 'wave', sparkle: 'none' },
   stats: { ko: 0, catch: 0, deflect: 0, win: 0, play: 0, wave: 0, kothwin: 0, bombwin: 0, teamwin: 0, boss: 0, shatter: 0, chainko: 0, ult: 0, stars: 0, level: 1, throw: 0, dash: 0 },
-  ach: {}, daily: { date: '', list: [], prog: {}, claimed: {} },
+  ach: {}, daily: { date: '', list: [], prog: {}, claimed: {} }, mile: {},
   camp: { stars: [], best: {} }, best: { survival: 0, koth: 0 },
 });
 const migQ = (q) => (q === 'sharp' || q === 'balanced' || q === 'fast' ? q : q === 'low' ? 'fast' : q === 'medium' || q === 'high' ? 'balanced' : 'sharp');
@@ -22,7 +22,7 @@ export const SPEEDS = { chill: { name: 'Chill', ts: 0.62, catch: 1.35, camWide: 
 let data = defaults();
 const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so old saves gain new keys
   const r = { ...d, ...o };
-  for (const k of ['hats', 'settings', 'setup', 'own', 'eq', 'stats', 'ach', 'daily', 'camp', 'best']) r[k] = { ...d[k], ...((o && o[k]) || {}) };
+  for (const k of ['hats', 'settings', 'setup', 'own', 'eq', 'stats', 'ach', 'daily', 'camp', 'best', 'mile']) r[k] = { ...d[k], ...((o && o[k]) || {}) };
   if (typeof r.settings.events !== 'string') r.settings.events = 'some';
   // v3.1: one-time migration -> everyone starts on the calmer Chill speed with the wider aim assist (can be changed afterwards in Settings)
   if (!SPEEDS[r.settings.speed] || (o && o.settings ? o.settings.speedMig !== 31 : false)) { r.settings.speed = 'chill'; r.settings.aimAssist = true; }

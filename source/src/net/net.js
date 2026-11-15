@@ -406,7 +406,7 @@ export const Net = {
     }
     coins = Math.min(coins, ONLINE_COIN_CAP); xp = Math.min(xp, ONLINE_XP_CAP);
     const o = s.online = s.online || { day: '', gold: 0 }; const day = new Date().toDateString(); if (o.day !== day) { o.day = day; o.gold = 0; } const room = Math.max(0, ONLINE_DAY_CAP - o.gold); const capped = coins > room; coins = Math.min(coins, room); o.gold += coins;
-    s.played++; track('play'); if (won) { s.wins++; track('win'); if (mode === 'team') track('teamwin'); if (mode === 'koth') track('kothwin'); if (mode === 'bomb') track('bombwin'); if (['ctf', 'coins', 'ball', 'crumble'].includes(mode)) track(mode + 'win'); }
+    s.played++; track('play'); { const hid = (me && me.hero && (me.hero.id || me.hero)) || S().hero; if (hid) track('as:' + hid); } if (won) { s.wins++; track('win'); if (mode === 'team') track('teamwin'); if (mode === 'koth') track('kothwin'); if (mode === 'bomb') track('bombwin'); if (['ctf', 'coins', 'ball', 'crumble'].includes(mode)) track(mode + 'win'); }
     if (coins > 0) addCoins(coins, 'online'); const ups = addXp(xp); save();
     this.reward = { won, coins, xp, kos, capped, time, ups }; return this.reward;
   },

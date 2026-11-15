@@ -2,9 +2,9 @@ import * as STEALTHM from './stealth.js'; gfx.touchCtl = () => Input.touch.enabl
 import { encodeFast as _encF, decodeFast as _decF, decodeFastRest as _decFR } from './net/world.js';
 import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
 import { S, save, loadSave, getWpn } from './save.js';
-import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS, TRAITS, ABILITIES } from './data.js';
+import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS, TRAITS, ABILITIES, SPARKLES, POSES } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
-import { track, addCoins, addXp, levelInfo, setNotifier, dailySnapshot, ensureDaily } from './progress.js';
+import { track, addCoins, addXp, levelInfo, setNotifier, setQuestNotifier, dailySnapshot, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf } from './progress.js';
 import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence } from './audio.js';
 import { feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap } from './feel.js';
 import { prefersReducedMotion } from './gfx.js';
@@ -146,13 +146,13 @@ const app = {
     else if (modeId === 'survival') { players[0].team = 0; players[0].lives = 3; }
     else { const nb = Math.max(modeId === 'bomb' ? 2 : 1, Math.min(st.bots, 4 - nh)); pool().slice(0, nb).forEach((hh) => players.push(this.botDef(hh))); if (modeId === 'koth' || modeId === 'coins') players.forEach((p) => (p.lives = 99)); }
     this.match = { mode: modeId, rulesMode, players, round: 0, need, arena: st.arena, size: (MODES[modeId] && MODES[modeId].size) || st.size || 'large', traps: st.traps, trapSet: modeId === 'ball' ? [['bumper', 'q4'], ['jump', 'r2']] : null, mutator: st.mutator, humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
-    s.played++; track('play'); save(); this.dailyBefore = dailySnapshot(); this.nextRound(true);
+    s.played++; track('play'); if (players[0] && players[0].hero) track('as:' + players[0].hero.id); save(); this.dailyBefore = dailySnapshot(); this.nextRound(true);
   },
   quickPlay() { const s = S(); const md = s.setup.mode; this.startMode(MODES[md] && md !== 'campaign' ? md : 'classic'); },
   startStage(n) {
     const stage = STAGES[n - 1]; const s = S(); const hd = this.humanDef(0); hd.name = hd.hero.name; const { players, rules } = stageSetup(stage, hd);
     this.match = { mode: 'campaign', stage, rules, players, round: 0, need: 1, arena: stage.arena, size: stage.size || 'small', traps: stage.traps || 'some', mutator: 'off', humanWins: 0, coins: 0, xp: 0, st: { deaths: 0, passes: 0, kos: 0 }, teamWins: {} };
-    s.played++; track('play'); save(); this.dailyBefore = dailySnapshot(); this.nextRound(true);
+    s.played++; track('play'); if (hd.hero) track('as:' + hd.hero.id); save(); this.dailyBefore = dailySnapshot(); this.nextRound(true);
   },
   startTutorial() {
     const hd = this.humanDef(0); hd.name = hd.hero.name; hd.lives = 99; const dummy = this.botDef(pick(HEROES.filter((h) => h.id !== hd.hero.id)), { diff: 0, team: 1, persona: 'defender', lives: 1, name: 'Dummy' });
@@ -208,11 +208,12 @@ const app = {
     else if (n === 'pickup') { if (human) track('pickup'); }
     else if (n === 'throw') { if (human) track('throw'); }
     else if (n === 'dash') { if (human) track('dash'); }
-    else if (n === 'catch') { if (human) track('catch'); }
+    else if (n === 'catch') { if (human) { track('catch'); this.catchSparkle(d.f); } }
     else if (n === 'parry') { if (human) track('deflect'); }
     else if (n === 'shatter') { if (mine(d.killer)) track('shatter'); }
     else if (n === 'chainko') { if (human) track('chainko'); }
     else if (n === 'ult') { if (human) track('ult'); if (mine(d.f)) UI.banner(ULTS[d.f.hero.id].name.toUpperCase(), null, '#ffe066'); }
+    else if (n === 'hide') { if (human) track('bush'); }
     else if (n === 'bomb') { if (mine(d.from) && m) m.st.passes++; if (mine(d.f)) UI.toast('You have the bomb! Hit a rival to pass it!', 1800); }
     else if (n === 'wave') { UI.banner('WAVE ' + d.n, d.n % 5 === 0 ? 'Elite incoming!' : null, '#ff9a6a'); if (m) track('wave', d.n); }
     else if (n === 'wind') { UI.toast('Wind gust!', 1400); }
@@ -270,7 +271,7 @@ const app = {
     if (m.stage) { const stg = m.stage; stars = evalStars(stg, st); const cur = s.camp.stars[stg.n - 1] || 0; prevStars = cur; firstClear = won && cur === 0; if (stars > cur) { s.camp.stars[stg.n - 1] = stars; } if (stg.kind === 'boss' && won) { track('boss', 0); s.camp.bosses = s.camp.bosses || {}; if (!s.camp.bosses[stg.n]) { s.camp.bosses[stg.n] = 1; track('boss', 1); } } const tot = s.camp.stars.reduce((a, b) => a + (b || 0), 0); track('stars', tot); if (won) { coins += 15 * stars + (firstClear ? 60 : 0); xp += 12 * stars + (firstClear ? 50 : 0); } rows.push(['Time', fmtT(g.playTime)], ['Times KO\u2019d', String(m.st.deaths)]); }
     if (m.tutorial) { s.tutorialDone = true; coins = 40; xp = 60; rows.length = 0; rows.push(['Tutorial', 'Complete!']); }
     addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {}
-    if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); }
+    if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); this.playPose(g.winner, s.eq.pose || 'wave'); }
     const lv = levelInfo();
     const base = { won, mode, stage: m.stage || null, stars, prevStars, firstClear, rows, coins, xp, lvBefore, lv, ups, winnerName: o.winnerName, champ: o.champ, info: o.info, tutorial: !!m.tutorial };
     this.lastResult = base; setTimeout(() => { if (this.mode === 'matchEnd') { UI.show('matchEnd', base); this.applyTouch(); } }, 400);
@@ -295,13 +296,20 @@ const app = {
     UI.banner(t1, `Next round starting...`, '#ffd23c'); sfx('round');
   },
   net_matchEnd(res) {
-    this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {} const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) fx.confetti(f.x, f.z, 80, 1.6); } this.applyTouch();
+    this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {} const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) { fx.confetti(f.x, f.z, 80, 1.6); this.playPose(f, S().eq.pose || 'wave'); } } this.applyTouch();
     setTimeout(() => { if (this.mode === 'matchEnd' && this.net) { UI.show('netResults'); this.applyTouch(); } }, 900);
   },
   netToLobby() { this.match = null; this.mode = 'menu'; this.paused = false; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show('netLobby'); this.applyTouch(); },
   netClosed() {},
   netFailed(err, wasJoin) { // async failure or the room ended: back to the menu with a plain-language reason
     this.tut = null; this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); this.applyTouch(); UI.show(wasJoin && ['no-room', 'bad-code', 'reject:full', 'reject:locked', 'reject:version'].includes(err.code) ? 'netJoin' : 'netMsg', { err, wasJoin });
+  },
+  playPose(f, id) {
+    if (!f || !f.model) return; const pid = POSES[id] ? id : 'wave'; f.poseId = pid; f.poseT = 2.2; f.happyT = Math.max(f.happyT || 0, 2.2);
+  },
+  catchSparkle(f) {
+    if (!f) return; const sp = SPARKLES[S().eq.sparkle]; if (!sp || !sp.fx) return;
+    const style = sp.fx; for (let i = 0; i < 8; i++) fx.trailFx(style, f.x + (Math.random() - 0.5) * 0.6, 0.6 + Math.random() * 0.5, f.z + (Math.random() - 0.5) * 0.6, sp.fx === 'petal' ? 0xffc0dc : 0xffe080);
   },
   // ---- LOCAL-dev-tut417 first-play practice: move, throw, catch, shield, melee, special, bush, ready.
   // No fail states. Returning players are never forced (tutorialDone stays set until they choose Practice).
@@ -354,7 +362,7 @@ function boot() {
   if (!initGfx(canvas)) { $('#loading').innerHTML = '<div class="errbox">WebGL is not available on this device/browser.</div>'; return; }
   fx.init(gfx.scene); applyVolumes();
   initInput(canvas); initTouch($('#touch'));
-  UI.init(app); makePortraits(); setNotifier((msg, kind) => UI.notify(msg, kind)); Input.onEmoteBtn = () => UI.emoteToggle();
+  UI.init(app); makePortraits(); setNotifier((msg, kind) => UI.notify(msg, kind)); setQuestNotifier((info) => { if (app.mode === 'play' || app.mode === 'matchEnd') UI.toast(info.msg, 2200); }); Input.onEmoteBtn = () => UI.emoteToggle();
   window.addEventListener('keydown', (e) => { if (app.mode === 'play' && !app.paused && /^Digit[1-4]$/.test(e.code)) app.emote(S().eq.emotes[+e.code.slice(5) - 1]); });
   Input.unproject = (x, y) => { const c = gfx.camera; c.updateMatrixWorld(); const rc = canvas.getBoundingClientRect(); const v = new THREE.Vector3(((x - rc.left) / rc.width) * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1, 0.5).unproject(c); const o = c.position; const dy = v.y - o.y; if (Math.abs(dy) < 1e-4) return null; const k = -o.y / dy; if (k <= 0) return null; return [o.x + (v.x - o.x) * k, o.z + (v.z - o.z) * k]; };
   Input.onPause = () => { if (app.mode === 'play') { app.paused ? (UI.cur === 'pause' && app.resume()) : app.pause(); } };
@@ -401,5 +409,6 @@ function boot() {
   };
   requestAnimationFrame(frame);
   if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
+  if (!STORE) Object.assign(window.__bg, { track, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf, POSES, SPARKLES });
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }
