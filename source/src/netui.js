@@ -198,7 +198,7 @@ Object.assign(UI, {
       body.appendChild(segN('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]));
       if (['classic', 'team', 'crumble'].includes(set.mode)) body.appendChild(segN('First to', 'rounds', [[1, '1'], [2, '2'], [3, '3'], [5, '5']]));
       body.appendChild(segN('Empty slots', 'bots', [[true, 'Bots'], [false, 'None']]));
-      if (set.bots) body.appendChild(segN('Bot skill', 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
+      if (set.bots) body.appendChild(segN('Bot skill', 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]));
       if (!MODES[set.mode].size) body.appendChild(segN('Map size', 'size', [['small', 'Small'], ['large', 'Large']]));
       if (!MODES[set.mode].noTraps) body.appendChild(segN('Traps', 'traps', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
       body.appendChild(segN('Arena events', 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));

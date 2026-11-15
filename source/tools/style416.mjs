@@ -405,7 +405,7 @@ const balance = await page.evaluate((N0) => {
 
 const wrMax = Math.max(...balance.table.map((r) => r.winRate));
 const wrMin = Math.min(...balance.table.map((r) => r.winRate));
-ok('bot-vs-bot win rates are bunched (target about 42–58%)', wrMax <= 0.58 && wrMin >= 0.35, { max: wrMax, min: wrMin, table: balance.table, byMap: balance.byMap });
+ok('bot-vs-bot win rates are bunched (40–60%)', wrMax <= 0.60 && wrMin >= 0.40, { max: wrMax, min: wrMin, table: balance.table, byMap: balance.byMap });
 ok('every fighter played the same number of sim matches', balance.table.every((r) => r.games === balance.table[0].games) && balance.table[0].games >= 200, balance.table.map((r) => [r.id, r.games]));
 
 const wrLine = (r) => { const dec = r.wins + r.losses; const dwr = dec ? r.wins / dec : 0; return `  ${r.name.padEnd(8)} ${r.id.padEnd(5)}  ${r.wins}-${r.losses}-${r.draws}  ${(r.winRate * 100).toFixed(1)}%  (decided ${(dwr * 100).toFixed(1)}%, n=${r.games})`; };

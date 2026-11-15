@@ -132,7 +132,7 @@ Object.assign(UI, {
     if (mode === 'classic' && !touch) add(this.seg('Players', v, 'players', [[1, '1 Player'], [2, '2 Local']]));
     if (mode === 'classic') add(this.seg('Bots', v, 'bots', [[1, '1'], [2, '2'], [3, '3']]));
     if (mode === 'koth' || mode === 'bomb') add(this.seg('Bots', v, 'bots', [[mode === 'bomb' ? 2 : 1, mode === 'bomb' ? '2' : '1'], [2, mode === 'bomb' ? '2' : '2'], [3, '3']].filter((x, i, a) => a.findIndex((y) => y[0] === x[0]) === i)));
-    if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Medium'], [2, 'Hard']]));
+    if (mode !== 'survival' && mode !== 'crumble' || mode === 'crumble') add(this.seg('Bot skill', v, 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]));
     if (mode === 'classic' || mode === 'team') add(this.seg('First to', v, 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins'], [5, '5 wins']]));
     add(this.seg('Arena events', s.settings, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]));
     if (!M.size) add(this.seg('Map size', v, 'size', [['small', 'Small'], ['large', 'Large'], ['huge', 'Huge']], () => { v.sizeSet = true; save(); }));

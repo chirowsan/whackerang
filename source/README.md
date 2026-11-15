@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.7 (smarter bots)
+- **Smarter bots that play like their fighter:** Nori dashes in and out, Gus brawls up close, Wisp hides then pops out, Yuki chills a rival and chases, and the others play their own way too. Bot skill is Easy (the default, kinder for new players), Normal, or Hard. Hard is sharp, but not an aimbot, and bots still cannot see through bushes. Default Game speed is still Chill. Battery saver is still Auto.
+
 ## What's new in v4.11.6 (cooler phones)
 - **Battery saver (Settings, Auto by default):** on a phone the game caps at 30 frames a second and draws a slightly softer picture so the device stays cooler. On always does that; Off stays at 60. The game also rests when it is in the background or a still screen (Quests, Collection, Settings, a paused match) is up, and it pauses sound while hidden. Default Game speed is still Chill.
 
@@ -138,12 +141,13 @@ Every round now starts with a big **3-2-1-GO** (3 s real time, independent of Ga
 ## What's new in v4.2 (full-screen play, 40-second tutorial, nicer arenas)
 - **The arena fills the screen:** on phone landscape the floor now covers ~87-100% of the viewport (was ~11-41%). The camera is tighter and follows you, the HUD is a thin strip, and the touch controls are smaller, semi-transparent (brighter when touched), tucked into the bottom corners. Off-screen rivals still get edge arrows. Settings > Camera > Wide restores the old zoomed-out view.
 - **Hands-on tutorial (first run, 30-45 s):** MOVE, THROW, CATCH, DODGE (a real spike pit with a red warning), done. 1-3 words per step, a ghost thumb shows the gesture, each step advances only when you really do it, Skip is always visible. Replay it from How to play.
+- **Battery saver (Settings, Auto by default):** on a phone the game caps at 30 frames a second and a slightly softer picture so the device stays cooler. On always does that; Off stays at 60. The game also rests when it is in the background or a still screen (Quests, Collection, Settings, a paused match) is up, and it pauses sound while hidden. Default Game speed is still Chill.
 - **Graphics:** baked ambient occlusion on the floor (soft contact shadows around crates/walls, zero extra draw calls), tile variation on every arena, crates with lids/grooves/studs, stronger rim light, impact stars on hits and deflects, crisper HUD type. Sharp tier stays shadow-free; draw calls and render CPU are lower than v4.1.
 - Tests: tools/layout42.mjs (arena coverage >= 85% at 915x412, 740x340, 640x320), tools/tut42.mjs (18 tutorial checks).
 - Android versionCode 42 / versionName 4.2.0 (same signing key).
 
 ## What's new in v4.1 (easier online, clearer traps)
-- **Online in two taps:** Play online shows just *Create room* and *Join room*. Create goes straight to a lobby with a huge 4-letter code, **Share** (native share sheet, or copy link) and **Start**. Defaults: Classic, Chill, Medium bots fill empty slots, heroes auto-picked, guests auto-ready. Mode, arena, speed, hero and emotes live behind a small **Options** button. Join shows four big boxes, opens the keyboard, and joins by itself on the 4th letter (clear error if the room isn't found). `?room=CODE` links still auto-join; old 5-letter codes still work.
+- **Online in two taps:** Play online shows just *Create room* and *Join room*. Create goes straight to a lobby with a huge 4-letter code, **Share** (native share sheet, or copy link) and **Start**. Defaults: Classic, Chill, Easy bots fill empty slots, heroes auto-picked, guests auto-ready. Mode, arena, speed, hero and emotes live behind a small **Options** button. Join shows four big boxes, opens the keyboard, and joins by itself on the 4th letter (clear error if the room isn't found). `?room=CODE` links still auto-join; old 5-letter codes still work.
 - **Traps you can read at a glance:** every harmful trap now shares one look: red/orange stripes, a skull/spikes/flame badge, a ground decal, and a blinking warning before it fires. Teleporters are upright blue/violet swirling portals with a number (1/2) and are never red or striped. Jump pads are green/yellow with chevrons. A small legend is at the top of How to play.
 - Android versionCode 41 / versionName 4.1.0 (same signing key).
 
@@ -170,7 +174,7 @@ A "game feel" release. Chill stays the default speed, payments stay TEST MODE, n
 - **Power-ups:** new **Magnet** (pulls pick-ups, bigger catch circle, boomerang homes in) and **Time Bubble** (rivals and their boomerangs near you move slower). Both are tuned for Chill.
 - **Cosmetics:** 5 new hats (cat ears, propeller cap, cowboy, wizard, viking), 4 new trails (bubbles, pixels, stardust, hearts) + premium Prism, 4 new boomerang skins + premium Void. The Shop has a live 3D preview and several items are free level rewards. Fighters flinch when hit and dance when you use an emote.
 - **Progression:** Daily Missions (3 a day with gold + XP) on the main menu and in Profile, a Daily Chest when all 3 are done, an animated results screen (XP bar, gold count-up, mission progress) and a one-tap Play Again.
-- **Quick start:** Play jumps straight into a Classic match (Chill, Medium bots). First time? A skippable 45-second training with highlighted controls. About 9 s from tap to playing on a first launch.
+- **Quick start:** Play jumps straight into a Classic match (Chill, Easy bots). First time? A skippable 45-second training with highlighted controls. About 9 s from tap to playing on a first launch.
 - Android versionCode 32 / versionName 3.2.0 (same signing key, updates v3.1 in place).
 
 ## What's new in v3.1 (calmer, easier to play)
@@ -180,7 +184,7 @@ Feedback from a phone player: "fun, but the controls are too hard and it is way 
 - **Bigger, more forgiving throw pad:** larger boomerang pad and dash button; a quick tap is auto-aim at the nearest rival (more tolerant of finger wobble). **Aim assist** now snaps drags within about +/-34 degrees to a rival on touch (was +/-13) and can be turned off in Settings.
 - **Easier catches:** larger catch radius and a gentle glide-in/stronger homing on the return (Chill +35%, Normal +18%).
 - **Dash cooldown clarity:** the dash and deflect buttons show the remaining seconds.
-- **Bots:** skill is Easy / Medium / Hard (Medium is the default and is softer than v3.0's "Normal": slower reactions, less accurate, throws less often).
+- **Bots:** skill is Easy / Normal / Hard. Easy is the default (kinder for Chill and new players): slower reactions, wider aim, and occasional kid-readable mistakes. Normal is a fair fight. Hard is sharp, but not an aimbot, and bots still cannot see through bushes.
 - **Camera:** on Large/Huge maps the follow camera zooms out a little on Chill/Normal and eases more slowly, so scrolling feels slower too.
 - Updated How-to-play. Android versionCode 31 / versionName 3.1.0.
 

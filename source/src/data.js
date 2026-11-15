@@ -1,14 +1,14 @@
 // Fighters, hats, arenas, power-ups. All original.
 // t420u / style416: one clear, felt-on-first-try playstyle per fighter (passive). Tags, signatures and 3 weapons stay the same.
 export const TRAITS = {
-  bao:  { how: 'Slow and sturdy. Easy catches, extra heart.', mods: { speed: 0.86, catchR: 1.26, range: 1, ret: 1 } },
-  nori: { how: 'Fastest runner — but she is fragile!', mods: { speed: 1.16, dashCd: 0.80, range: 1, ret: 1 } },
+  bao:  { how: 'Slow and sturdy. Easy catches, extra heart.', mods: { speed: 0.86, catchR: 1.40, range: 1, ret: 1.08, throwCd: 0.76 } },
+  nori: { how: 'Fastest runner — but she is fragile!', mods: { speed: 1.16, dashCd: 0.72, range: 1, ret: 1 } },
   tako: { how: 'Every throw zaps and stuns.', mods: { speed: 1.04, charge: 1.12, stun: 0.62, throwCd: 0.78, range: 1, ret: 1.12 } },
-  kuma: { how: 'Comes back quick. Catch to steal!', mods: { catchR: 1.15, ret: 1.15, steal: 1, range: 1, throwCd: 0.88 } },
-  pico: { how: 'Longest throws. Slower to come back.', mods: { range: 1.04, ret: 0.82, puDur: 1.12 } },
-  yuki: { how: 'She slides as she runs. Hits chill rivals.', mods: { speed: 1.07, slide: 1, chillT: 2.2, chillK: 0.35, range: 1, ret: 1.12, throwCd: 0.78 } },
+  kuma: { how: 'Comes back quick. Catch to steal!', mods: { catchR: 1.15, ret: 1.30, steal: 1, range: 1, throwCd: 1.0 } },
+  pico: { how: 'Longest throws. They fly out quick, but come back slower.', mods: { speed: 1.06, range: 1.04, ret: 0.96, v: 1.35, throwCd: 0.68, puDur: 1.18, catchR: 1.14 } },
+  yuki: { how: 'She slides as she runs. Hits chill rivals.', mods: { speed: 1.07, slide: 1, chillT: 2.5, chillK: 0.32, range: 1, ret: 1.18, throwCd: 0.68, catchR: 1.10 } },
   gus:  { how: 'Short throws, huge shoves. Get close!', mods: { speed: 0.96, range: 0.97, catchR: 1.10, meleeKb: 1.75, meleeR: 1.20, ret: 1 } },
-  wisp: { how: 'Goes see-through when she stands still.', mods: { speed: 1.08, dashCd: 0.75, fade: 1, range: 1, ret: 1 } },
+  wisp: { how: 'Goes see-through when she stands still.', mods: { speed: 1.08, dashCd: 0.75, fade: 1, range: 1, ret: 1.12, catchR: 1.15, v: 1.16, throwCd: 0.88 } },
 };
 export const traitOf = (id) => TRAITS[id] || TRAITS.bao;
 
@@ -125,11 +125,11 @@ export const SPARKLES = {
 };
 /* v4.7: every hero has its own health (hearts per life) and a unique passive ability. */
 export const ABILITIES = {
-  bao: { hp: 4, name: 'Sturdy Chef', desc: 'Extra heart, a bigger catch, and a slower walk. Regains 1 heart after 8 s without getting hit.' },
-  nori: { hp: 2, name: 'Swift Step', desc: 'Fastest walk and dash, but only 2 hearts. Dashes keep her untouchable a bit longer.' },
+  bao: { hp: 4, name: 'Sturdy Chef', desc: 'Extra heart, a bigger catch, and a slower walk. Regains 1 heart after 5 s without getting hit.' },
+  nori: { hp: 2, name: 'Swift Step', desc: 'Fastest walk and dash, but only 2 hearts. Dashes keep her untouchable longer, and a hit gives her a longer safe blink.' },
   tako: { hp: 3, name: 'Static Throw', desc: 'Every throw zaps and stuns. The zap can pop a rival boomerang.' },
   kuma: { hp: 3, name: 'Hook Hands', desc: 'Boomerang comes back faster and pulls pickups. A catch can steal a snack. Once per round he shrugs off a knockout.' },
-  pico: { hp: 3, name: 'Long Throw', desc: 'Throws a little farther. The boomerang takes a little longer to come back.' },
+  pico: { hp: 3, name: 'Long Throw', desc: 'Throws a little farther, and the boomerang gets there quicker. It still takes a moment to come back.' },
   yuki: { hp: 3, name: 'Ice Skates', desc: 'She slides with momentum. Her hits chill rivals: slower movement for 2 s.' },
   gus: { hp: 5, name: 'Heavyweight', desc: 'Tankiest hero: slightly shorter throws, huge melee shoves, half knockback taken, walks a bit slower.' },
   wisp: { hp: 3, name: 'Fade', desc: 'Goes see-through when she stands still or hides in bushes. Still floats over holes for 1 s.' },

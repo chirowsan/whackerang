@@ -17,6 +17,7 @@ import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
 import { Input } from './input.js';
 import { Traps } from './traps.js';
+export const STEAL_R = 0.70, STEAL_CD = 6.5; // Salty steal: must be closer, and only every 6.5 s
 import { keepMarkOn, STEALTH, stealthOn, stealthTick, stealthVis, canSee, reveal, bushClean } from './stealth.js';
 
 export const FR = 0.4, SPEED = 5.75, CURVE = 0.62, SUDDEN_AT = 48;
@@ -55,7 +56,7 @@ class Fighter {
     for (const k in this.pu) if (this.pu[k] > 0) this.pu[k] = Math.max(0, this.pu[k] - dt);
     this.hurtT = Math.max(0, this.hurtT - dt * 3); this.slowK = 1; for (const o of g.fighters) { if (o !== this && o.alive && o.pu.slow > 0 && o.team !== this.team && Math.hypot(o.x - this.x, o.z - this.z) < 4.6) { this.slowK = 0.6; break; } }
     if (this.pu.magnet > 0) { for (const p of g.powerups) { const dx = this.x - p.x, dz = this.z - p.z, d = Math.hypot(dx, dz); if (d < 7 && d > 0.3) { p.x += dx / d * 7 * dt; p.z += dz / d * 7 * dt; p.mesh.position.x = p.x; p.mesh.position.z = p.z; } } this.magT -= dt; if (this.magT <= 0) { this.magT = 0.09; const a = Math.random() * 6.28; fx.glow.spawn(this.x + Math.cos(a) * 2.6, 0.5, this.z + Math.sin(a) * 2.6, -Math.cos(a) * 9, 0.2, -Math.sin(a) * 9, 0.1, 0.28, 0xff6a7a, 0, 0, 0, -0.5); } }
-    if (this.chillT > 0) this.chillT -= dt; else this.chillK = 1; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 8) { this.regenT = 0; this.hp++; if (!this.hid) { fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
+    if (this.chillT > 0) this.chillT -= dt; else this.chillK = 1; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 5) { this.regenT = 0; this.hp++; if (!this.hid) { fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
     this.emoteT = Math.max(0, this.emoteT - dt); this.frozenT = Math.max(0, this.frozenT - dt); this.stunT = Math.max(0, this.stunT - dt); this.tagImmune -= dt; this.tagCd -= dt; this.hitFlash = Math.max(0, this.hitFlash - dt); if (this.typeT > 0) { this.typeT -= dt; if (this.typeT <= 0) this.type = this.baseType; } if (this.ultT > 0) { this.ultT -= dt; if (this.ultT <= 0) g.endUlt(this); } if (g.state === 'play' && this.ultT <= 0) { const cd = (SIGS[this.hero && this.hero.id] && SIGS[this.hero.id].cd) || 12; this.ult = Math.min(100, this.ult + dt * (this.boss ? 0 : 100 / cd)); }
     this.dashCd -= dt; this.deflectCd -= dt; this.throwCd -= dt; this.throwT = Math.max(0, this.throwT - dt * 4); this.inv = Math.max(0, this.inv - dt); this.deflectT = Math.max(0, this.deflectT - dt);
     let inp = NOINP;
@@ -68,7 +69,7 @@ class Fighter {
     if (g.melee) this.meleeTick(dt, inp); // v4.10 close-range swing (before dash/parry so a swing in progress blocks them)
     if (inp.dash && this.dashCd <= 0 && this.dashT <= 0 && this.slT < 0) {
       let dx = inp.mx, dz = inp.mz; if (Math.hypot(dx, dz) < 0.2) { dx = dirx(this.face); dz = dirz(this.face); } const l = Math.hypot(dx, dz) || 1;
-      this.dashDir = [dx / l, dz / l]; this.dashT = (g.mut && g.mut.grav ? 0.24 : 0.17) * (this.abil === 'nori' ? 1.12 : 1); this.dashCd = 0.95 * this.mods.dashCd; this.inv = Math.max(this.inv, this.abil === 'nori' ? 0.55 : (this.mods && this.mods.fade ? 0.38 : 0.22)); this.pushed = false; this.charging = false; this.chargeT = 0; this.vface = this.face = Math.atan2(dx, dz);
+      this.dashDir = [dx / l, dz / l]; this.dashT = (g.mut && g.mut.grav ? 0.24 : 0.17) * (this.abil === 'nori' ? 1.16 : 1); this.dashCd = 0.95 * this.mods.dashCd; this.inv = Math.max(this.inv, this.abil === 'nori' ? 0.62 : (this.mods && this.mods.fade ? 0.38 : 0.22)); this.pushed = false; this.charging = false; this.chargeT = 0; this.vface = this.face = Math.atan2(dx, dz);
       sfx('dash'); fx.puff(this.x, 0.15, this.z, 6, 0xffffff, 0.3); feel('dash', { f: this, game: g }); g.onEvent('dash', { f: this });
     }
     // --- deflect
@@ -108,7 +109,7 @@ class Fighter {
       const busy = this.charging || this.dashT > 0 || this.slT >= 0 || this.ultT > 0 || this.hurtT > 0 || (this.revealT || 0) > 0 || this.throwT > 0.2;
       const still = !busy && this.move < 0.28;
       const cover = still || !!(this.bushIn) || (this.fadeHold || 0) > 0;
-      this.fadeOn = cover ? Math.min(1, (this.fadeOn || 0) + dt / 0.25) : Math.max(0, (this.fadeOn || 0) - dt / 0.18);
+      this.fadeOn = cover ? Math.min(1, (this.fadeOn || 0) + dt / 0.18) : Math.max(0, (this.fadeOn || 0) - dt / 0.18);
       if (this.fadeOn > 0.55 && !this.hid && Math.random() < dt * 8) fx.glow.spawn(this.x, 0.45, this.z, 0, 0.4, 0, 0.08, 0.35, 0x8ffcff, 0, 0, 0, -0.2);
     } else this.fadeOn = 0;
     // --- aiming / throwing
@@ -177,7 +178,7 @@ class Fighter {
     if (hazard && this.inv > 0 && !this.boss) { if (kind !== 'spike' && kind !== 'poison') g.rescue(this, false); return false; } // v4.7: invulnerable (just hit / respawned / saved) -> rescued for free, never a death
     if (this.hp > 1) {
       if (this.inv > 0 && !hazard) return false; // v4.7: brief invulnerability after losing a heart
-      reveal(this, STEALTH.hurt); this.hp--; this.regenT = 0; this.inv = this.boss ? 1.0 : 1.4; this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0;
+      reveal(this, STEALTH.hurt); this.hp--; this.regenT = 0; this.inv = this.boss ? 1.0 : (this.abil === 'nori' ? 1.5 : 1.4); this.hitFlash = 0.5; this.frozenT = 0; this.dmgTaken++; this.charging = false; this.chargeT = 0;
       if (hazard || kind === 'bomb') { this.vx = this.vz = 0; if (kind !== 'spike' && kind !== 'bomb' && kind !== 'poison') g.rescue(this, true); } else { const l = Math.hypot(kx, kz) || 1; const kb = this.abil === 'gus' ? 4.5 : 9; this.vx = kx / l * kb; this.vz = kz / l * kb; }
       g.onHurt(this, killer, kind); return false;
     }
@@ -197,7 +198,9 @@ const TYPEFX = { classic: {}, razor: { pierce: 1, v: 1.06 }, frost: { freeze: 1,
 function flightParams(f, c, g) {
   const WP = W(wpnOf(f.wpn)); const T = TYPEFX[f.type || 'classic'] || {};
   const curveK = clamp(WP.curve, 0.40, 1.20);
-  const v0 = (14 + 4 * c) * (T.v || 1) * (WP.v || 1);
+  const vK = clamp((f.mods && f.mods.v) || 1, 0.80, 1.35);
+  const v0base = (14 + 4 * c) * (T.v || 1) * (WP.v || 1);
+  const v0 = v0base * vK; // mods.v speeds the outbound throw only; return speed is retK * v0base
   const arenaK = clamp((2 * HX) / 26, 0.75, 1.05);
   const wpnK = clamp(WP.tout || 1, 0.78, 1.22);
   const grav = (g && g.mut && g.mut.grav) ? 1.15 : 1;
@@ -206,15 +209,15 @@ function flightParams(f, c, g) {
   const w = CURVE * curveK; // charge no longer changes the curve
   const homeK = (WP.fx && WP.fx.home) || 0;
   const retK = clamp((f.mods && f.mods.ret) || 1, 0.70, 1.50);
-  return { WP, v0, rMax, w, homeK, curveK, rangeK, retK };
+  return { WP, v0, v0base, rMax, w, homeK, curveK, rangeK, retK };
 }
 class Boom {
   constructor(g, owner, x, z, ang, c, o) {
     this.g = g; this.owner = owner; this.x = x; this.z = z; this.th = ang; this.t = 0; this.phase = 'out'; this.alive = true; this.carry = o.carry; this.bounces = 0; this.total = 0;
     this.type = o.type || 'classic'; const T = TYPEFX[this.type] || {}; this.pierce = !!T.pierce; this.freeze = !!T.freeze; this.chains = T.chain || 0; this.ghost = !!T.ghost; this.hit = new Set(); this.chainHits = 0;
-    this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = (o.giant ? 0.85 : 0.3) * (owner.abil === 'tako' ? 1.22 : 1); this.shock = owner.abil === 'tako'; /* style416 Bolt: every throw zaps, not only a full charge */ this.shockT = this.shock ? (((owner.mods && owner.mods.stun) || 0.4) + 0.12 * c) : 0; this.retT = 0; this.spin = 0; this.fade = 0;
+    this.giant = o.giant; this.fire = o.fire || !!T.fire; this.homing = o.homing; this.hitR = (o.giant ? 0.85 : 0.3) * (owner.abil === 'tako' ? 1.22 : 1) * (owner.abil === 'pico' ? 1.22 : 1); this.shock = owner.abil === 'tako'; /* style416 Bolt: every throw zaps, not only a full charge */ this.shockT = this.shock ? (((owner.mods && owner.mods.stun) || 0.4) + 0.12 * c) : 0; this.retT = 0; this.spin = 0; this.fade = 0;
     this.wpn = wpnOf(o.wpn || owner.wpn); this.x0 = x; this.z0 = z; // t414u: no velocity inheritance; outbound turns around at a fixed range from this launch point
-    { const P = flightParams({ wpn: this.wpn, type: this.type, mods: owner.mods }, c, g); const WP = P.WP; this.v0 = P.v0; this.rMax = P.rMax; this.w = P.w; this.homeK = P.homeK; this.retK = P.retK || 1; this.tout = Math.max(0.35, P.rMax / Math.max(4, P.v0 * 0.75)); this.hitR *= WP.hitR; const X = WP.fx || {}; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; }
+    { const P = flightParams({ wpn: this.wpn, type: this.type, mods: owner.mods }, c, g); const WP = P.WP; this.v0 = P.v0; this.v0base = P.v0base || P.v0; this.rMax = P.rMax; this.w = P.w; this.homeK = P.homeK; this.retK = P.retK || 1; this.tout = Math.max(0.35, P.rMax / Math.max(4, P.v0 * 0.75)); this.hitR *= WP.hitR; const X = WP.fx || {}; if (X.pierce) this.pierce = true; this.wstun = X.stun || 0; this.wchill = X.chill || 0; }
     this.mesh = buildWeapon(this.wpn, owner.color, owner.hero, owner.skin, this.type); this.mesh.scale.setScalar(o.giant ? 2.3 : 1); g.scene.add(this.mesh); this.reflected = 0;
     const tr = TRAILS[owner.trail] || TRAILS.none; const rcol = owner.trail !== 'none' ? tr.color : (this.type !== 'classic' ? BOOM_TYPES[this.type].color : owner.color);
     this.ribbon = fx.ribbon(rcol, o.giant ? 0.4 : 0.2, !!tr.rainbow && owner.trail !== 'none'); this.rcol = rcol; this.tstyle = tr.fx || null; /* t405u: thinner ribbon */
@@ -233,7 +236,7 @@ class Boom {
         speed = this.v0 * (1 - 0.50 * k); this.th += this.w * h; // constant curve (not charge-scaled)
         if (this.homing || this.homeK) { const tg = g.nearestEnemy(this.owner, this.x, this.z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - this.x, tg.z - this.z); const hk = this.homing ? 3.4 : this.homeK; this.th += clamp(angDiff(this.th, a), -hk * h, hk * h); } }
       } else {
-        this.retT += h; const retK = this.retK || 1; speed = (0.40 * this.v0 + 12 * Math.min(1, this.retT / 0.55)) * retK; const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
+        this.retT += h; const retK = this.retK || 1; speed = (0.40 * (this.v0base || this.v0) + 12 * Math.min(1, this.retT / 0.55)) * retK; const E = o.isBot ? 0 : g.cfg.ease; if (E > 0) { const dd = Math.hypot(o.x - this.x, o.z - this.z); if (dd < 4) speed *= 1 - E * 0.5 * (1 - dd / 4); }
         if (!o.alive) { this.fade = 1; return; }
         const a = Math.atan2(o.x - this.x, o.z - this.z); const rate = (10 + this.retT * 5) * (this.retK || 1) * (1 + (o.isBot ? 0 : g.cfg.ease) * 0.6) * (mg ? 1.5 : 1); this.th += clamp(angDiff(this.th, a), -rate * h, rate * h);
       }
@@ -266,7 +269,7 @@ class Boom {
       }
       // catch
       if (o.alive && o.stunT <= 0 && o.frozenT <= 0 && (this.phase === 'ret' || this.t > 0.22) && Math.hypot(o.x - this.x, o.z - this.z) < 0.62 * o.mods.catchR * (o.isBot ? 1 : g.cfg.catch) * (mg ? 1.5 : 1) * (o.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0) && this.total > 0.25) { this.caught(); return; }
-      if (this.phase === 'ret' || this.t > 0.28) { for (const f of g.fighters) { if (f === o || !f.alive || !f.mods.steal || f.stunT > 0 || f.frozenT > 0) continue; const dF = Math.hypot(f.x - this.x, f.z - this.z); const dO = o ? Math.hypot(o.x - this.x, o.z - this.z) : 99; const r = 0.62 * f.mods.catchR * (f.isBot ? 1 : g.cfg.catch) * (f.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0); if (dF < r && dF < dO && this.total > 0.25) { this.caughtBy(f); return; } } }
+      if (this.phase === 'ret' || this.t > 0.28) { for (const f of g.fighters) { if (f === o || !f.alive || !f.mods.steal || f.stunT > 0 || f.frozenT > 0 || (f.stealT || 0) > g.time) continue; const dF = Math.hypot(f.x - this.x, f.z - this.z); const dO = o ? Math.hypot(o.x - this.x, o.z - this.z) : 99; const r = 0.62 * f.mods.catchR * (f.isBot ? 1 : g.cfg.catch) * (f.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0); if (dF < r * STEAL_R && dF < dO && this.total > 0.25) { f.stealT = g.time + STEAL_CD; this.caughtBy(f); return; } } }
       g.boomHitFighters(this);
       if (!this.alive) return;
     }
@@ -417,7 +420,7 @@ export class Game {
         if (homeK) { const tg = this.nearestEnemy(f, x, z, 1e9, null, true); if (tg) { const a = Math.atan2(tg.x - x, tg.z - z); th += clamp(angDiff(th, a), -homeK * h, homeK * h); } }
       } else {
         if (outOnly) break;
-        retT += h; const retK = P.retK || 1; speed = (0.40 * v0 + 12 * Math.min(1, retT / 0.55)) * retK;
+        retT += h; const retK = P.retK || 1; speed = (0.40 * (P.v0base || v0) + 12 * Math.min(1, retT / 0.55)) * retK;
         const a = Math.atan2(f.x - x, f.z - z); const rate = (10 + retT * 5) * retK; th += clamp(angDiff(th, a), -rate * h, rate * h);
         if (Math.hypot(f.x - x, f.z - z) < 0.65 && retT > 0.12) { raw.push([x, z]); break; }
       }
@@ -466,7 +469,7 @@ export class Game {
     const ang = f.isBot ? base : this.pickAim(f, base, explicit); f.face = ang; f.vface = ang;
     const tri = f.pu.triple > 0; const angs = tri ? [ang - 0.3, ang, ang + 0.3] : [ang];
     angs.forEach((a, i) => this.booms.push(new Boom(this, f, f.x + dirx(a) * 0.6 * f.bs, f.z + dirz(a) * 0.6 * f.bs, a, c, { carry: i === 0 ? 1 : 0, giant: f.pu.giant > 0 || !!(this.mut && this.mut.giant), fire: f.pu.fire > 0, homing: f.pu.homing > 0, type: f.type })));
-    reveal(f, STEALTH.reveal); f.ammo--; f.throwCd = ((f.type === 'boom' ? 0.55 : 0.16) + W(f.wpn).cd) * ((f.mods && f.mods.throwCd) || 1); f.throwT = 1; sfx('throw', c); feel('throw', { f, game: this }); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
+    reveal(f, (f.mods && f.mods.fade) ? 1.1 : STEALTH.reveal); if (f.mods && f.mods.fade) f.fadeHold = Math.max(f.fadeHold || 0, 0.4); f.ammo--; f.throwCd = ((f.type === 'boom' ? 0.55 : 0.16) + W(f.wpn).cd) * ((f.mods && f.mods.throwCd) || 1); f.throwT = 1; sfx('throw', c); feel('throw', { f, game: this }); fx.ring(f.x + dirx(ang) * 0.7, 0.45, f.z + dirz(ang) * 0.7, f.color, 1.1 + c * 0.9, 0.2); fx.puff(f.x + dirx(ang) * 0.6, 0.5, f.z + dirz(ang) * 0.6, 3, 0xffffff, 0.2);
     this.onEvent('throw', { f });
   }
   boomCollide(b) {
@@ -491,7 +494,7 @@ export class Game {
     for (const f of this.fighters) {
       if (!f.alive || f === own || f.team === own.team) continue; if (b.hit.has(f)) continue; const d = Math.hypot(f.x - b.x, f.z - b.z);
       if (f.deflectT > 0 && d < 1.2 + (b.giant ? 0.5 : 0)) { this.reflect(b, f); return; }
-      const fadeR = (f.mods && f.mods.fade && (f.fadeOn || 0) > 0.5 && f.dashT <= 0 && (f.hurtT || 0) <= 0) ? 0.55 : 1;
+      const fadeR = (f.mods && f.mods.fade && (f.fadeOn || 0) > 0.5 && f.dashT <= 0 && (f.hurtT || 0) <= 0) ? 0.48 : 1;
       if (d < (b.hitR + FR * 0.92 * f.bs) * fadeR) {
         if (f.inv > 0 || f.dashT > 0) continue;
         if (this.rules.stunOnly) { f.stunT = 1.4; f.charging = false; f.chargeT = 0; f.vx = Math.sin(b.th) * 7; f.vz = Math.cos(b.th) * 7; b.hit.add(f); sfx('hit'); fx.sparks(f.x, 0.7, f.z, 10, [0xffffff, own.color], { speed: 5, life: 0.4 }); fx.popup('BONK!', f.x, f.z, 'pop-cyan'); shake(0.12); if (b.phase === 'out') { b.phase = 'ret'; b.retT = 0; } return; }
