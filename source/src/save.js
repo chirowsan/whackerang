@@ -3,7 +3,7 @@ import { wpnFor, migrateOld } from './weapons.js';
 const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
   coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
-  settings: { autoMatch: !KIDS, autoMode: 'classic', speed: 'chill', speedMig: 31, sfx: 0.85, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false, edgeHelp: true, netDiag: false, aimStyle: 'B' },
+  settings: { autoMatch: !KIDS, autoMode: 'classic', speed: 'chill', speedMig: 31, sfx: 0.85, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false, edgeHelp: true, netDiag: false, aimStyle: 'B', battery: 'auto' },
   setup: { bots: 3, diff: 1, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'large', sizeMig: 47, traps: 'some', mutator: 'off' },
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
@@ -27,6 +27,7 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   // v3.1: one-time migration -> everyone starts on the calmer Chill speed with the wider aim assist (can be changed afterwards in Settings)
   if (!SPEEDS[r.settings.speed] || (o && o.settings ? o.settings.speedMig !== 31 : false)) { r.settings.speed = 'chill'; r.settings.aimAssist = true; }
   if (!['off', 'low', 'full'].includes(r.settings.shakeLvl)) r.settings.shakeLvl = r.settings.shake === false ? 'off' : 'full'; r.settings.shake = r.settings.shakeLvl !== 'off';
+  if (!['auto', 'on', 'off'].includes(r.settings.battery)) r.settings.battery = 'auto';
   if (typeof r.settings.musicOn !== 'boolean') r.settings.musicOn = true; if (typeof r.settings.master !== 'number') r.settings.master = 1; if (!['close', 'wide'].includes(r.settings.camera)) r.settings.camera = 'close';
   // v4.7: default map size is now Large (the middle size). One-time switch for saves whose size was never picked by the player (sizeSet is set when they tap Map size)
   { const os = (o && o.setup) || {}; if (!os.sizeSet && os.sizeMig !== 47) r.setup.size = 'large'; } r.setup.sizeMig = 47; if (!['small', 'large', 'huge'].includes(r.setup.size)) r.setup.size = 'large';

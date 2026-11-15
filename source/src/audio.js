@@ -29,7 +29,15 @@ export function applyVolumes() {
   if (!ctx || !sfxVol) return; const s = S().settings;
   const m = s.mute ? 0 : 1, mo = s.musicOn === false ? 0 : 1, mv = s.master === undefined ? 1 : s.master; master.gain.value = 0.8 * mv; sfxVol.gain.value = s.sfx * m; musVol.gain.value = s.music * 0.6 * m * mo;
 }
-export function resumeAudio() { if (ctx && ctx.state !== 'running') { try { const p = ctx.resume(); p && p.catch && p.catch(() => {}); } catch (e) {} } }
+let schedId = 0;
+export function suspendAudio() {
+  if (schedId) { clearInterval(schedId); schedId = 0; }
+  if (ctx && ctx.state === 'running') { try { const p = ctx.suspend(); p && p.catch && p.catch(() => {}); } catch (e) {} }
+}
+export function resumeAudio() {
+  if (ctx && ctx.state !== 'running') { try { const p = ctx.resume(); p && p.catch && p.catch(() => {}); } catch (e) {} }
+  if (ctx) startScheduler();
+}
 
 function env(g, t, a, d, peak, sus = 0) {
   g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(0.0001, t);
@@ -166,7 +174,7 @@ export function music(name) {
 }
 export function setTempo(m) { tempoMul = m; }
 export function musicName() { return curName; }
-function startScheduler() { nextT = ctx.currentTime + 0.1; setInterval(sched, 30); }
+function startScheduler() { if (schedId || !ctx) return; nextT = ctx.currentTime + 0.1; schedId = setInterval(sched, 30); }
 function sched() {
   if (!ctx || ctx.state !== 'running' || !cur) { if (ctx && cur && nextT < ctx.currentTime) nextT = ctx.currentTime + 0.05; return; }
   while (nextT < ctx.currentTime + 0.14) musicStep(cur);

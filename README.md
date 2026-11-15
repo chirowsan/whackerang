@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.6 (cooler phones)
+- **Battery saver (Settings, Auto by default):** on a phone the game caps at 30 frames a second and draws a slightly softer picture so the device stays cooler. On always does that; Off stays at 60. The game also rests when it is in the background or a still screen (Quests, Collection, Settings, a paused match) is up, and it pauses sound while hidden. Default Game speed is still Chill.
+
 ## What's new in v4.11.5 (daily quests and unlockables)
 - **Daily quests and looks you earn by playing:** each day you get three short quests, like catching 5 boomerangs or winning a match, and you can swap one for free. They pay stars, which unlock trails, colors, hats, emotes, victory poses, and catch sparkles in Collection. Some looks are free gifts just for playing. There is no real money, no ads, and no random prize boxes, and looks do not change how a fighter plays. Default Game speed is still Chill.
 

@@ -129,10 +129,18 @@ export function initGfx(canvas) {
   setQuality(S().settings.quality);
   return true;
 }
-export const isCoarse = () => matchMedia('(pointer:coarse)').matches;
-// Graphics tiers. sharp = crisp native-resolution, no shadows/post-fx (default); balanced = shadows + bloom; fast = reduced resolution for weak GPUs.
+export const isCoarse = () => { try { return matchMedia('(pointer:coarse)').matches; } catch (e) { return false; } };
+export const isPhoneLike = () => { try { return !!(isCoarse() || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '')); } catch (e) { return false; } };
+// perf420: Battery saver Auto/On/Off. Auto uses saver on phones, or if frames stay heavy on a desktop.
+export function saverActive(set) {
+  const v = (set && set.battery) || 'auto';
+  if (v === 'on') return true;
+  if (v === 'off') return false;
+  return !!(isPhoneLike() || gfx.autoSaver);
+}
+// Graphics tiers. sharp = crisp, no shadows/post-fx (default); balanced = shadows + bloom; fast = reduced resolution for weak GPUs.
 export const TIERS = {
-  sharp: { eff: 'low', dprCap: 2.5, floor: 0.85, shadow: 0, bloom: false, density: 0.6, outlines: true, msaa: 0 },
+  sharp: { eff: 'low', dprCap: 2, floor: 0.85, shadow: 0, bloom: false, density: 0.6, outlines: true, msaa: 0 },
   balanced: { eff: 'medium', dprCap: 2, floor: 0.85, shadow: 1024, bloom: true, density: 0.8, outlines: true, msaa: 4 },
   fast: { eff: 'low', dprCap: 1.25, floor: 0.6, shadow: 0, bloom: false, density: 0.5, outlines: false, msaa: 0 },
 };
@@ -143,14 +151,19 @@ export function setQuality(q0) {
   gfx.tier = q; gfx.quality = T.eff; gfx.qSetting = q; gfx.floor = T.floor;
   const r = gfx.renderer; if (!r) return;
   const dev = window.devicePixelRatio || 1;
-  gfx.dprMax = Math.max(1, Math.min(dev, T.dprCap));
+  const set = (typeof S === 'function' && S().settings) || {};
+  const saver = saverActive(set);
+  gfx.saver = saver; gfx.fpsCap = saver ? 30 : 60;
+  gfx.dprMaxBase = Math.max(1, Math.min(dev, T.dprCap));
+  const cap = saver ? 1.5 : Math.min(gfx.dprMaxBase, isPhoneLike() ? 2 : gfx.dprMaxBase);
+  gfx.dprMax = Math.max(1, Math.min(dev, cap));
   gfx.dprCur = gfx.dprMax; gfx.dpr = gfx.dprCur; adaptAcc = 0; adaptN = 0; slowWin = 0;
-  const low = !T.shadow;
-  if (T.shadow && gfx.sun.shadow.mapSize.x !== T.shadow) { gfx.sun.shadow.mapSize.set(T.shadow, T.shadow); if (gfx.sun.shadow.map) { gfx.sun.shadow.map.dispose(); gfx.sun.shadow.map = null; } }
+  const low = !T.shadow || saver;
+  if (T.shadow && !saver && gfx.sun.shadow.mapSize.x !== T.shadow) { gfx.sun.shadow.mapSize.set(T.shadow, T.shadow); if (gfx.sun.shadow.map) { gfx.sun.shadow.map.dispose(); gfx.sun.shadow.map = null; } }
   r.shadowMap.enabled = !low; gfx.sun.castShadow = !low;
-  gfx.useBloom = T.bloom && S().settings.bloom !== false;
+  gfx.useBloom = !saver && T.bloom && set.bloom !== false;
+  gfx.density = saver ? Math.min(T.density, 0.45) : T.density;
   gfx.composer.renderTarget1.samples = T.msaa; gfx.composer.renderTarget2.samples = T.msaa;
-  gfx.density = T.density;
   gfx.outlinesAll = T.outlines; document.body.classList.toggle('q-low', low);
   gfx.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.ol !== undefined) o.visible = gfx.outlinesAll || o.userData.ol === 'hero'; });
   if (prevShadow === low) gfx.scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true)); });
@@ -168,6 +181,11 @@ export function adaptRes(ms) {
   if (avg > 24) { slowWin++; if (slowWin >= 2) { next = Math.max(lo, gfx.dprCur - (avg > 34 ? 0.3 : 0.15)); adaptCool = 8000; slowWin = 0; } }
   else { slowWin = 0; if (avg < 15.5 && adaptCool <= 0 && gfx.dprCur < gfx.dprMax) { next = Math.min(gfx.dprMax, gfx.dprCur + 0.15); adaptCool = 8000; } }
   if (avg > 24 && next === gfx.dprCur && gfx.dprCur <= lo + 0.01 && gfx.tier !== 'fast') { slowHint++; if (slowHint === 4) window.dispatchEvent(new CustomEvent('bb-slow')); }
+  // perf420: Auto battery saver kicks in if frames stay heavy on a desktop (phones already start in saver)
+  if (avg > 22 && !gfx.autoSaver && !isPhoneLike()) {
+    const st = (typeof S === 'function' && S().settings) || {};
+    if ((st.battery || 'auto') === 'auto') { gfx.autoSaver = true; setQuality(st.quality || 'sharp'); return; }
+  }
   if (next !== gfx.dprCur) { gfx.dprCur = +next.toFixed(2); resize(); }
 }
 // canvas is position:fixed;inset:0 so its CSS box is what is really visible (never 100vh)

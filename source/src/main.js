@@ -1,11 +1,11 @@
 import * as STEALTHM from './stealth.js'; gfx.touchCtl = () => Input.touch.enabled; /* v4.9: arena view presses foliage flat under the touch buttons */ const { shownHere } = STEALTHM;
 import { encodeFast as _encF, decodeFast as _decF, decodeFastRest as _decFR } from './net/world.js';
-import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
+import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, isPhoneLike, saverActive, shake, toon, toScreen } from './gfx.js';
 import { S, save, loadSave, getWpn } from './save.js';
 import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS, TRAITS, ABILITIES, SPARKLES, POSES } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier, setQuestNotifier, dailySnapshot, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf } from './progress.js';
-import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence } from './audio.js';
+import { initAudio, resumeAudio, suspendAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence } from './audio.js';
 import { feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap } from './feel.js';
 import { prefersReducedMotion } from './gfx.js';
 import { Input, initInput, initTouch } from './input.js';
@@ -278,7 +278,7 @@ const app = {
   },
   rematch() { const m = this.match; if (!m) return; if (m.stage) this.startStage(m.stage.n); else if (m.mode === 'tutorial') this.startTutorial(); else this.startMode(m.mode); },
   pause() { if (this.net && this.mode === 'play' && this.game) { if (UI.cur === 'netPause') UI.clear(); else { UI.show('netPause'); sfx('click'); } this.applyTouch(); return; } if (this.mode !== 'play' || this.paused || !this.game || this.game.state === 'matchEnd') return; this.paused = true; this.applyTouch(); UI.show('pause'); sfx('click'); },
-  resume() { if (this.net) { UI.clear(); Input.flush(); this.applyTouch(); return; } if (!this.paused) return; this.paused = false; UI.clear(); Input.flush(); this.applyTouch(); },
+  resume() { if (this.net) { UI.clear(); Input.flush(); this.applyTouch(); if (gfx.kick) gfx.kick(); return; } if (!this.paused) return; this.paused = false; UI.clear(); Input.flush(); this.applyTouch(); if (gfx.kick) gfx.kick(); },
   quitToMenu(play) { if (this.net) this.net.leave(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show(play ? 'modes' : 'menu'); this.applyTouch(); },
   startAttractKeep() { this.startAttract(); },
   // ---------- online (v4.0) ----------
@@ -377,7 +377,7 @@ function boot() {
   window.addEventListener('blur', () => { if (app.mode === 'play' && !app.paused && !app.net && !S().settings.noAutoPause) app.pause(); });
   const unlock = () => { initAudio(); resumeAudio(); iosAudioKick(); applyVolumes(); if (!app.musicOn) { app.musicOn = true; music(app.mode === 'play' && app.game ? app.game.arenaId : 'menu'); } };
   ['pointerdown', 'pointerup', 'keydown', 'touchstart', 'touchend', 'click'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
-  document.addEventListener('visibilitychange', () => { if (document.hidden) Net.onBackground && Net.onBackground(); else { resumeAudio(); Net.onForeground && Net.onForeground(); } }); // net415: forgive hidden time and reconnect; host still re-registers the room code
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { suspendAudio(); if (gfx.stopLoop) gfx.stopLoop(); Net.onBackground && Net.onBackground(); } else { resumeAudio(); if (gfx.kick) gfx.kick(); Net.onForeground && Net.onForeground(); } }); // net415: forgive hidden time and reconnect; perf420: rest the loop and audio while hidden
   window.addEventListener('pageshow', () => { resumeAudio(); if (Net.onForeground) Net.onForeground(); }); window.addEventListener('focus', () => resumeAudio());
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   let slowToast = false; window.addEventListener('bb-slow', () => { if (!slowToast && app.mode === 'play') { slowToast = true; UI.toast('Running slow? Settings > Graphics > Fast', 4200); } });
@@ -388,11 +388,38 @@ function boot() {
   Net.init(app, UI); Net.onError = (e, j) => { if (Match.netError(e, j)) { app.mode = 'menu'; app.match = null; if (UI.cur !== 'netSearch') UI.show('netSearch'); } else app.netFailed(e, j); };
   try { const q = new URLSearchParams(location.search); const rc = q.get('room'); if (rc) { history.replaceState(null, '', location.pathname); setTimeout(() => UI.show('netMenu', { auto: rc }), 300); } } catch (e) {}
   console.log('Whackerang', BUILD, gfx.quality, 'dpr', gfx.dprCur);
-  // loop
-  let last = performance.now(), fAcc = 0, fN = 0;
-  const prof = { frames: 0, sum: 0, max: 0, sim: 0, rend: 0, over: 0 }; 
+  // loop (perf420: cap 60, Battery saver 30, rest on still screens and when hidden)
+  let last = performance.now(), fAcc = 0, fN = 0, raf = 0, waitT = 0, loopOn = false;
+  const prof = { frames: 0, sum: 0, max: 0, sim: 0, rend: 0, over: 0, raf: 0, drawn: 0, skipped: 0, static: 0 };
+  const ANIM_UI = { menu: 1, heroes: 1, setup: 1, char: 1 };
+  const wantKind = () => {
+    if (document.hidden) return 'hidden';
+    if (app.mode === 'play' && !app.paused) return 'full';
+    if (app.tut && !app.paused) return 'full';
+    if (app.mode === 'menu' && ANIM_UI[UI.cur || 'menu']) return 'idle';
+    return 'static';
+  };
+  const fpsCapOf = (kind) => kind === 'static' ? 8 : (kind === 'idle' ? Math.min(30, gfx.fpsCap || 60) : (gfx.fpsCap || 60));
+  const stopLoop = () => { loopOn = false; if (raf) { cancelAnimationFrame(raf); raf = 0; } if (waitT) { clearTimeout(waitT); waitT = 0; } };
+  const arm = (kind) => {
+    if (!loopOn) return;
+    const wait = Math.max(0, 1000 / fpsCapOf(kind) - (performance.now() - last));
+    if (wait > 4) waitT = setTimeout(() => { waitT = 0; raf = requestAnimationFrame(frame); }, wait);
+    else raf = requestAnimationFrame(frame);
+  };
+  const kickPerf = () => { gfx.dirty = true; if (document.hidden) return; if (!loopOn) { last = performance.now(); startLoop(); } };
+  const startLoop = () => { if (loopOn) return; loopOn = true; raf = requestAnimationFrame(frame); };
+  gfx.kick = kickPerf; gfx.stopLoop = stopLoop;
   const frame = (now) => {
-    requestAnimationFrame(frame); let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1; if (dt <= 0) return;
+    prof.raf++;
+    const kind = wantKind();
+    if (kind === 'hidden') { stopLoop(); return; }
+    arm(kind);
+    if ((now - last) < (1000 / fpsCapOf(kind)) - 1.25) { prof.skipped++; return; }
+    let dt = (now - last) / 1000; last = now; if (dt > 0.1) dt = 0.1; if (dt <= 0) return;
+    const doRender = kind !== 'static' || gfx.dirty;
+    if (!doRender) { prof.static++; Input.menuPoll(); if (UI.cur) UI.padMenu(Input.menuPoll()); return; }
+    gfx.dirty = false;
     const t0 = performance.now(); app.frames++;
     if (app.game && (!app.paused || app.mode === 'menu')) { app.acc += dt; let n = 0; const hn = app.net && app.net.isHost && app.mode === 'play' && app.game.mode !== 'attract' ? app.net : null; while (app.acc >= STEP && n < 4) { if (hn) hn.beforeStep(); app.game.live = true; app.game._pw = 0; app.game.update(STEP); if (hn) hn.afterStep(); app.acc -= STEP; n++; } if (app.acc > STEP * 4) app.acc = 0; } else if (app.game) { const g = app.game, t = performance.now(); g.live = false; if (g._pw) g.goWall += t - g._pw; g._pw = t; } // paused: push the countdown's wall deadline back so it does not jump on resume
     const dts = app.paused ? 0 : dt; fx.update(dts); app.showcaseTick(dt); gfx.time = (gfx.time || 0) + dt; if (app.game && app.mode === 'play' && gfx.follow) app.camFollow(dt); updateGfx(dt, gfx.time);
@@ -404,11 +431,11 @@ function boot() {
     { const ew = document.getElementById('edgewarn') || (() => { const e = document.createElement('div'); e.id = 'edgewarn'; e.innerHTML = '<i>\u26A0 EDGE</i>'; document.body.appendChild(e); return e; })(); const on = !!(app.game && app.mode === 'play' && !app.paused && app.game.edgeNear > 0.3); if (on !== ew._on) { ew._on = on; ew.classList.toggle('on', on); } }
     if (Input.touch.enabled && Input.touch.sync) { const th = app.touchF && app.touchF.g === app.game ? app.touchF.f : (app.touchF = { g: app.game, f: app.game && app.mode === 'play' ? app.game.fighters.find((x) => !x.isBot && x.def.slot === 0) : null }).f; if (th && app.mode === 'play') Input.touch.sync({ charge: th.alive && th.charging ? Math.min(1, th.chargeT / 0.7) : 0, dash: th.dashCd > 0 ? Math.min(1, th.dashCd / (0.95 * th.mods.dashCd)) : 0, dashS: Math.max(0, th.dashCd) / (app.game.cfg ? app.game.cfg.ts : 1), defl: th.deflectCd > 0 ? Math.min(1, th.deflectCd / 0.85) : 0, deflS: Math.max(0, th.deflectCd) / (app.game.cfg ? app.game.cfg.ts : 1), ammo: th.alive ? th.ammo : 1, ult: th.alive ? th.ult / 100 : 0 }); else Input.touch.sync(null); }
     const t1 = performance.now(); render(); const t2 = performance.now();
-    prof.frames++; prof.sum += dt * 1000; prof.max = Math.max(prof.max, dt * 1000); prof.sim += t1 - t0; prof.rend += t2 - t1; if (dt > 0.034) prof.over++;
+    prof.drawn++; prof.frames++; prof.sum += dt * 1000; prof.max = Math.max(prof.max, dt * 1000); prof.sim += t1 - t0; prof.rend += t2 - t1; if (dt > 0.034) prof.over++;
     adaptRes(dt * 1000);
   };
-  requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
+  startLoop();
+  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, applyPerf: () => setQuality(S().settings.quality), saverActive, isPhoneLike, suspendAudio, kickPerf, wantKind, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; prof.raf = prof.drawn = prof.skipped = prof.static = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
   if (!STORE) Object.assign(window.__bg, { track, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf, POSES, SPARKLES });
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

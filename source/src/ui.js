@@ -32,7 +32,7 @@ export const UI = {
     Input.onAnyKey = (e) => this.onKey(e);
   },
   clear() { const was = this.cur; this.root.innerHTML = ''; this.cur = null; this.focusEl = null; if (was === 'netPause' && this.app && this.app.applyTouch) this.app.applyTouch(); }, // t393u: whatever closes the online menu (round end, results) restores the touch controls
-  show(name, props) { const same = this.cur === name; this.clear(); this.cur = name; const el = this[name](props || {}); if (same && el && el.classList) el.classList.add('still'); this.root.appendChild(el); this.shows = (this.shows || 0) + 1; this.setFocus(this.navList()[0] || null); this.onShown && this.onShown(name); return el; },
+  show(name, props) { const same = this.cur === name; this.clear(); this.cur = name; const el = this[name](props || {}); if (same && el && el.classList) el.classList.add('still'); this.root.appendChild(el); this.shows = (this.shows || 0) + 1; this.setFocus(this.navList()[0] || null); this.onShown && this.onShown(name); gfx.dirty = true; if (gfx.kick) gfx.kick(); return el; },
   toast(msg, ms = 1800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('show'), ms); },
   banner(b1, b2, color) { const b = this.bannerRoot; b.innerHTML = ''; const d = h('div', 'b1', b1); if (color) d.style.color = color; b.appendChild(d); if (b2) b.appendChild(h('div', 'b2', b2)); clearTimeout(this._bt); this._bt = setTimeout(() => (b.innerHTML = ''), 1400); },
   navList() { return [...this.root.querySelectorAll('[data-nav]')].filter((e) => e.offsetParent !== null && !e.disabled); },
@@ -143,6 +143,8 @@ export const UI = {
     slider('Music', 'music', applyVolumes); slider('Sound FX', 'sfx', applyVolumes);
     toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Edge help (warn near drops, 1 free save)', 'edgeHelp'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');
     segr('Graphics', 'quality', [['sharp', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']], () => setQuality(s.quality));
+    segr('Battery saver', 'battery', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => setQuality(s.quality));
+    grid.appendChild(h('div', 'note-line', 'Auto (the default) keeps phones cooler: 30 frames a second and a slightly softer picture on a phone, or if the game starts to chug. On always does that. Off stays at 60. The game also rests when it is in the background or a still screen is up.'));
     toggle('Bloom glow', 'bloom', () => setQuality(s.quality));
     segr('Touch controls', 'touch', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => this.app.applyTouch());
     toggle('Left-handed layout', 'leftHanded', () => this.app.applyTouch());
