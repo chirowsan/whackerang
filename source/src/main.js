@@ -2,7 +2,7 @@ import * as STEALTHM from './stealth.js'; gfx.touchCtl = () => Input.touch.enabl
 import { encodeFast as _encF, decodeFast as _decF, decodeFastRest as _decFR } from './net/world.js';
 import { THREE, gfx, initGfx, setQuality, resize, fitCamera, followCam, updateGfx, render, adaptRes, isCoarse, shake, toon, toScreen } from './gfx.js';
 import { S, save, loadSave, getWpn } from './save.js';
-import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS } from './data.js';
+import { HEROES, HATS, ARENAS, MODES, PLAYER_COLORS, PERSONAS, EMOTES, ULTS, SIGS, TRAILS, TRAITS, ABILITIES } from './data.js';
 import { STAGES, stageSetup, rulesFor, evalStars } from './modes.js';
 import { track, addCoins, addXp, levelInfo, setNotifier, dailySnapshot, ensureDaily } from './progress.js';
 import { initAudio, resumeAudio, applyVolumes, sfx, music, AU, setIntensity, setTempo, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence } from './audio.js';
@@ -11,7 +11,7 @@ import { prefersReducedMotion } from './gfx.js';
 import { Input, initInput, initTouch } from './input.js';
 import { Bot } from './ai.js';
 import { fx } from './fx.js';
-import { Game } from './game.js';
+import { Game, flightParams } from './game.js';
 import { UI, $ } from './ui.js';
 import './ui2.js';
 import { buildFighter, buildBoomerang } from './models.js';
@@ -373,6 +373,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, HEROES, ARENAS, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
+  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

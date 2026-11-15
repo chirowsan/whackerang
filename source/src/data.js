@@ -1,13 +1,26 @@
 // Fighters, hats, arenas, power-ups. All original.
+// t420u / style416: one clear, felt-on-first-try playstyle per fighter (passive). Tags, signatures and 3 weapons stay the same.
+export const TRAITS = {
+  bao:  { how: 'Slow and sturdy. Easy catches, extra heart.', mods: { speed: 0.86, catchR: 1.26, range: 1, ret: 1 } },
+  nori: { how: 'Fastest runner — but she is fragile!', mods: { speed: 1.16, dashCd: 0.80, range: 1, ret: 1 } },
+  tako: { how: 'Every throw zaps and stuns.', mods: { speed: 1.04, charge: 1.12, stun: 0.62, throwCd: 0.78, range: 1, ret: 1.12 } },
+  kuma: { how: 'Comes back quick. Catch to steal!', mods: { catchR: 1.15, ret: 1.15, steal: 1, range: 1, throwCd: 0.88 } },
+  pico: { how: 'Longest throws. Slower to come back.', mods: { range: 1.04, ret: 0.82, puDur: 1.12 } },
+  yuki: { how: 'She slides as she runs. Hits chill rivals.', mods: { speed: 1.07, slide: 1, chillT: 2.2, chillK: 0.35, range: 1, ret: 1.12, throwCd: 0.78 } },
+  gus:  { how: 'Short throws, huge shoves. Get close!', mods: { speed: 0.96, range: 0.97, catchR: 1.10, meleeKb: 1.75, meleeR: 1.20, ret: 1 } },
+  wisp: { how: 'Goes see-through when she stands still.', mods: { speed: 1.08, dashCd: 0.75, fade: 1, range: 1, ret: 1 } },
+};
+export const traitOf = (id) => TRAITS[id] || TRAITS.bao;
+
 export const HEROES = [
-  { id: 'bao', name: 'Bao', title: 'Panda Chef', color: 0xf3eee2, accent: 0xe8503a, trail: 0xff7a5a, shape: 'panda', blurb: 'A round panda chef who cooks up chaos.', quip: '"Order up! Extra spicy."', perk: 'Balanced', mods: {}, cost: 0, cam: [0.76, 4.0] },
-  { id: 'nori', name: 'Nori', title: 'Ninja Fox', color: 0xff8a2e, accent: 0xd8283c, trail: 0xff4a5a, shape: 'fox', blurb: 'A tall, tail-swishing shadow with a red scarf.', quip: '"You never saw me. Nobody does."', perk: 'Quick dash (-25% cooldown)', mods: { dashCd: 0.75 }, cost: 0, cam: [0.86, 4.2] },
-  { id: 'tako', name: 'Bolt', title: 'Tiny Robot', color: 0x59c2ff, accent: 0xffb02e, trail: 0x5cf0ff, shape: 'robot', blurb: 'A pocket-sized bot with a big battery.', quip: '"Calculating... yep, you\'re toast."', perk: 'Fast charge-up', mods: { charge: 1.5 }, cost: 0, cam: [0.62, 2.9] },
-  { id: 'kuma', name: 'Salty', title: 'Cat Pirate', color: 0x7d8fc4, accent: 0xe8b23a, trail: 0xffd060, shape: 'pirate', blurb: 'One eye, one hook, nine lives (give or take).', quip: '"Arr! Yer boomerang be mine now!"', perk: 'Big catch radius', mods: { catchR: 1.35 }, cost: 0, cam: [0.72, 3.9] },
-  { id: 'pico', name: 'Pico', title: 'Lizard Monk', color: 0x5fd16b, accent: 0xff9a2e, trail: 0x9dff7a, shape: 'monk', blurb: 'Calm, green and suspiciously fast with a tongue.', quip: '"Inner peace. Outer boomerang."', perk: 'Power-ups last 40% longer', mods: { puDur: 1.4 }, cost: 300, cam: [0.7, 3.9] },
-  { id: 'yuki', name: 'Yuki', title: 'Penguin Samurai', color: 0x2b3a67, accent: 0xb5342a, trail: 0x9ad8ff, shape: 'peng', blurb: 'A waddling ice-slider with a very sharp helmet.', quip: '"Honor first. Snacks second."', perk: 'Faster walking (+8%)', mods: { speed: 1.08 }, cost: 450, cam: [0.74, 3.8] },
-  { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: 'Heavy thrower (+25% charge speed, +10% catch radius, -8% walk speed)', mods: { charge: 1.25, catchR: 1.1, speed: 0.92 }, cost: 500, cam: [0.8, 4.1] },
-  { id: 'wisp', name: 'Wisp', title: 'Ghost Apprentice', color: 0xdff7ff, accent: 0x6ff0ff, trail: 0x8ffcff, shape: 'ghost', blurb: 'A shy little ghost who floats through the party. Light, quick and a bit spooky.', quip: '"Boo! ...sorry, was that too loud?"', perk: 'Floaty (+5% speed, -10% dash cooldown)', mods: { speed: 1.05, dashCd: 0.9 }, cost: 650, cam: [0.7, 4.0] },
+  { id: 'bao', name: 'Bao', title: 'Panda Chef', color: 0xf3eee2, accent: 0xe8503a, trail: 0xff7a5a, shape: 'panda', blurb: 'A round panda chef who cooks up chaos.', quip: '"Order up! Extra spicy."', perk: TRAITS.bao.how, how: TRAITS.bao.how, mods: { ...TRAITS.bao.mods }, cost: 0, cam: [0.76, 4.0] },
+  { id: 'nori', name: 'Nori', title: 'Ninja Fox', color: 0xff8a2e, accent: 0xd8283c, trail: 0xff4a5a, shape: 'fox', blurb: 'A tall, tail-swishing shadow with a red scarf.', quip: '"You never saw me. Nobody does."', perk: TRAITS.nori.how, how: TRAITS.nori.how, mods: { ...TRAITS.nori.mods }, cost: 0, cam: [0.86, 4.2] },
+  { id: 'tako', name: 'Bolt', title: 'Tiny Robot', color: 0x59c2ff, accent: 0xffb02e, trail: 0x5cf0ff, shape: 'robot', blurb: 'A pocket-sized bot with a big battery.', quip: '"Calculating... yep, you\'re toast."', perk: TRAITS.tako.how, how: TRAITS.tako.how, mods: { ...TRAITS.tako.mods }, cost: 0, cam: [0.62, 2.9] },
+  { id: 'kuma', name: 'Salty', title: 'Cat Pirate', color: 0x7d8fc4, accent: 0xe8b23a, trail: 0xffd060, shape: 'pirate', blurb: 'One eye, one hook, nine lives (give or take).', quip: '"Arr! Yer boomerang be mine now!"', perk: TRAITS.kuma.how, how: TRAITS.kuma.how, mods: { ...TRAITS.kuma.mods }, cost: 0, cam: [0.72, 3.9] },
+  { id: 'pico', name: 'Pico', title: 'Lizard Monk', color: 0x5fd16b, accent: 0xff9a2e, trail: 0x9dff7a, shape: 'monk', blurb: 'Calm, green and suspiciously fast with a tongue.', quip: '"Inner peace. Outer boomerang."', perk: TRAITS.pico.how, how: TRAITS.pico.how, mods: { ...TRAITS.pico.mods }, cost: 300, cam: [0.7, 3.9] },
+  { id: 'yuki', name: 'Yuki', title: 'Penguin Samurai', color: 0x2b3a67, accent: 0xb5342a, trail: 0x9ad8ff, shape: 'peng', blurb: 'A waddling ice-slider with a very sharp helmet.', quip: '"Honor first. Snacks second."', perk: TRAITS.yuki.how, how: TRAITS.yuki.how, mods: { ...TRAITS.yuki.mods }, cost: 450, cam: [0.74, 3.8] },
+  { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: TRAITS.gus.how, how: TRAITS.gus.how, mods: { ...TRAITS.gus.mods }, cost: 500, cam: [0.8, 4.1] },
+  { id: 'wisp', name: 'Wisp', title: 'Ghost Apprentice', color: 0xdff7ff, accent: 0x6ff0ff, trail: 0x8ffcff, shape: 'ghost', blurb: 'A shy little ghost who floats through the party. Light, quick and a bit spooky.', quip: '"Boo! ...sorry, was that too loud?"', perk: TRAITS.wisp.how, how: TRAITS.wisp.how, mods: { ...TRAITS.wisp.mods }, cost: 650, cam: [0.7, 4.0] },
 ];
 export const HATS = [
   { id: 'none', name: 'No hat', cost: 0 },
@@ -96,14 +109,14 @@ export const EMOTES = {
 };
 /* v4.7: every hero has its own health (hearts per life) and a unique passive ability. */
 export const ABILITIES = {
-  bao: { hp: 4, name: 'Comfort Food', desc: 'Regains 1 heart after 8 s without getting hit.' },
-  nori: { hp: 2, name: 'Smoke Dodge', desc: 'Dashes make him untouchable twice as long.' },
-  tako: { hp: 3, name: 'Static Throw', desc: 'Fully charged throws also stun the target.' },
-  kuma: { hp: 3, name: 'Nine Lives', desc: 'Once per round, survives a knockout with 1 heart.' },
-  pico: { hp: 3, name: 'Long Tongue', desc: 'Grabs power-ups from 2.5x farther away.' },
-  yuki: { hp: 3, name: 'Frostbite', desc: 'Her hits chill rivals: half speed for 1.5 s.' },
-  gus: { hp: 5, name: 'Heavyweight', desc: 'Tankiest hero: half knockback, but walks a bit slower.' },
-  wisp: { hp: 2, name: 'Hover', desc: 'Floats over holes for 1 s before dropping.' },
+  bao: { hp: 4, name: 'Sturdy Chef', desc: 'Extra heart, a bigger catch, and a slower walk. Regains 1 heart after 8 s without getting hit.' },
+  nori: { hp: 2, name: 'Swift Step', desc: 'Fastest walk and dash, but only 2 hearts. Dashes keep her untouchable a bit longer.' },
+  tako: { hp: 3, name: 'Static Throw', desc: 'Every throw zaps and stuns. The zap can pop a rival boomerang.' },
+  kuma: { hp: 3, name: 'Hook Hands', desc: 'Boomerang comes back faster and pulls pickups. A catch can steal a snack. Once per round he shrugs off a knockout.' },
+  pico: { hp: 3, name: 'Long Throw', desc: 'Throws a little farther. The boomerang takes a little longer to come back.' },
+  yuki: { hp: 3, name: 'Ice Skates', desc: 'She slides with momentum. Her hits chill rivals: slower movement for 2 s.' },
+  gus: { hp: 5, name: 'Heavyweight', desc: 'Tankiest hero: slightly shorter throws, huge melee shoves, half knockback taken, walks a bit slower.' },
+  wisp: { hp: 3, name: 'Fade', desc: 'Goes see-through when she stands still or hides in bushes. Still floats over holes for 1 s.' },
 };
 export const heroHp = (id) => (ABILITIES[id] ? ABILITIES[id].hp : 3);
 /* t417u: a short-cooldown Signature (fired with the existing SPECIAL button). Ready at round start, then 10–14 s. Kid-readable tag + a simple move. Old long-charge ultimates were almost never seen on Chill. */
@@ -119,7 +132,7 @@ export const SIGS = {
 };
 export const sigOf = (id) => SIGS[id] || SIGS.bao;
 export const ULTS = Object.fromEntries(Object.entries(SIGS).map(([k, v]) => [k, { name: v.name, desc: v.desc }]));
-export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'sniper', kuma: 'aggressor', pico: 'collector', yuki: 'duelist', gus: 'defender', wisp: 'trickster' };
+export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'duelist', kuma: 'collector', pico: 'sniper', yuki: 'duelist', gus: 'aggressor', wisp: 'trickster' };
 export const PERSONA_INFO = { defender: 'Patient, deflects a lot', trickster: 'Dashes and weaves', sniper: 'Long range, fully charged', aggressor: 'Rushes you down', collector: 'Hunts power-ups', duelist: 'Precise one-on-one fighter', boss: 'Boss' };
 export const MODES = {
   classic: { name: 'Classic', icon: '🏆', color: '#ffd23c', blurb: 'Free-for-all rounds. Last fighter standing wins.' },

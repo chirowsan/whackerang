@@ -35,7 +35,7 @@ const campStars = () => (S().camp.stars || []).reduce((a, b) => a + (b || 0), 0)
 Object.assign(UI, {
   notify(msg, kind) { this._nq = this._nq || []; this._nq.push({ msg, kind }); if (!this._nr) this._nextNote(); },
   _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
-  heroLine(hh) { return `<div class="perk hpline">\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}</div><div class="perk">★ ${hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
+  heroLine(hh) { return `<div class="perk hpline">\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}</div><div class="perk howto">★ How to play: ${hh.how||hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
   coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
   // ================= Gold Store =================
   goldstore(p) {

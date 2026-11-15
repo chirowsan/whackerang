@@ -40,10 +40,13 @@ export function shownHere(g, f) { if (!f.hid) return true; const vt = viewTeams(
 export const allyHidden = (g, f) => { if (!f.hid) return false; const vt = viewTeams(g); return !!vt && vt.includes(f.team); };
 // per-frame visuals: opponents in cover vanish (model, ring, marker, shadow); you / teammates in cover are drawn faint
 export function stealthVis(g) {
-  if (!stealthOn(g)) return;
+  const bushes = stealthOn(g);
   for (const f of g.fighters) {
-    const m = f.model; if (!m) continue; const show = !f.alive || shownHere(g, f); m.root.visible = show || !!f.show;
-    ghost(m, f.alive && f.hid && allyHidden(g, f) ? GHOST.body : 1);
+    const m = f.model; if (!m) continue;
+    if (bushes) { const show = !f.alive || shownHere(g, f); m.root.visible = show || !!f.show; }
+    if (f.alive && bushes && f.hid && allyHidden(g, f)) ghost(m, GHOST.body);
+    else if (f.alive && (f.fadeOn || 0) > 0.05) ghost(m, 1 - 0.72 * Math.min(1, f.fadeOn)); // style416 Wisp: faint but still visible and hittable
+    else ghost(m, 1);
   }
 }
 // own / allied fighter in cover: translucent body, the ink outline turns into a soft light rim, and the team ring / YOU ring / marker draw over the foliage

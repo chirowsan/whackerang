@@ -104,7 +104,7 @@ export const UI = {
     const render = () => {
       list.innerHTML = '';
       HEROES.forEach((hh) => {
-        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div><div class="htag">${(SIGS[hh.id]&&SIGS[hh.id].tag)||hh.perk}</div><div class="ti hp">${'\u2665'.repeat(heroHp(hh.id))}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
+        const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div><div class="htag">${(SIGS[hh.id]&&SIGS[hh.id].tag)||hh.perk}</div><div class="how">${hh.how||hh.perk||''}</div><div class="ti hp">${'\u2665'.repeat(heroHp(hh.id))}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
         if (!owned(hh)) c.appendChild(h('div', 'lock', `🔒<span style="display:flex;align-items:center;gap:.3em"><span class="coin"></span>${hh.cost}</span>`));
         c.addEventListener('click', () => { sel = hh.id; sfx('click'); render(); }); c.addEventListener('pointerenter', () => this.setFocus(c)); list.appendChild(c);
       });
@@ -114,10 +114,10 @@ export const UI = {
       det.appendChild(h('div', '', hh.blurb, { style: 'color:var(--dim);font-weight:700;font-size:calc(var(--u)*1)' }));
       const sig = SIGS[hh.id];
       det.appendChild(h('div', 'htag big', (sig && sig.tag) || 'Fighter'));
+      det.appendChild(h('div', 'perk howto', '★ How to play: ' + (hh.how || hh.perk)));
       det.appendChild(h('div', 'perk hpline', `♥ <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}`));
       if (sig) det.appendChild(h('div', 'perk sigline', `⚡ <b>${sig.name}</b> — ${sig.desc} <em>Special · ${sig.cd}s</em>`, { 'data-sig': hh.id }));
       det.appendChild(h('div', 'wpn-row', heroWeapons(hh.id).map((id) => { const w = WEAPONS[id]; return `<span class="wpn-chip" title="${w.blurb}">${wpnSvg(id)}${w.name}</span>`; }).join('')));
-      det.appendChild(h('div', 'perk', '★ ' + hh.perk));
       const hats = h('div', 'hats'); const cur = s.hats[hh.id] || 'none';
       HATS.forEach((ht) => { const has = s.unlockedHats.includes(ht.id); const b = h('button', 'hat' + (cur === ht.id ? ' on' : '') + (has ? '' : ' lk'), `${ht.name}${has ? '' : `<small><span class="coin"></span>${ht.cost}</small>`}`, { 'data-nav': 1 });
         b.addEventListener('click', () => { if (!owned(hh)) { sfx('deny'); this.toast('Unlock the fighter first'); return; } if (!has) { if (s.coins >= ht.cost) { s.coins -= ht.cost; s.unlockedHats.push(ht.id); sfx('buy'); $('#coinval').textContent = s.coins; } else { sfx('deny'); this.toast('Not enough coins - win some rounds!'); return; } } s.hats[hh.id] = ht.id; save(); sfx('click'); render(); });

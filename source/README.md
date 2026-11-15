@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.3 (each fighter plays differently)
+- **Each fighter plays their own way:** Bao is slow and tough with easy catches, Nori is the fastest but fragile, Bolt's throws zap and stun, Salty's boomerang comes back quick and he can steal a catch, Pico throws farthest but waits longer for it to return, Yuki slides and her hits chill rivals, Gus has short throws and huge close-up shoves, and Wisp turns see-through when she stands still. Character cards show a short How to play line. Default Game speed is still Chill.
+
 ## What's new in v4.11.2 (more reliable online play)
 - **More reliable online play:** a short signal drop or a quick tab switch no longer ends the match. The game shows Reconnecting… and tries to get you back in, with Retry and Leave if it cannot. Pasted share links and messy codes (spaces, lowercase, or “Join my room BKTQ”) now join the right room. If your friend leaves, a bot takes their place so you can finish. Error messages are simple, with one Retry button, and the connection signal is just small bars. Default Game speed is still Chill.
 

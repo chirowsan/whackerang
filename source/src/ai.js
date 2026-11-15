@@ -1,4 +1,12 @@
 import { canSee } from './stealth.js';
+// style416: a faded Wisp is hard for bots to track at range (humans can still see the faint ghost).
+// Do not change stealth canSee. Close up, bots still notice her.
+function fadedFrom(f, e) {
+  if (!e || !e.alive || !e.mods || !e.mods.fade) return false;
+  if ((e.fadeOn || 0) < 0.35) return false;
+  if ((e.revealT || 0) > 0 || e.charging || e.dashT > 0 || e.throwT > 0.25 || e.slT >= 0 || (e.hurtT || 0) > 0) return false;
+  return Math.hypot(e.x - f.x, e.z - f.z) > 2.5;
+}
 // Bot brain: dodge incoming boomerangs, keep distance, aim with imperfect accuracy, avoid hazards.
 import { AW, AH, HX, HZ, clamp, ci, cj, cx, cz, idx, inb, angDiff, rr } from './util.js';
 import { T } from './arena.js';
@@ -14,7 +22,7 @@ const OUT = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect:
 const PM = { // persona tuning: range, err, deflect+, dash chance, pref distance, cd mult, pickup radius, charge
   defender: { range: 1, err: 1, def: 0.28, dash: 0.5, pref: 1.15, cd: 1.0, pu: 9, ch: 1 },
   trickster: { range: 1, err: 1.1, def: 0.05, dash: 0.95, pref: 0.95, cd: 0.9, pu: 10, ch: 0.6 },
-  sniper: { range: 1.3, err: 0.6, def: 0.1, dash: 0.5, pref: 1.5, cd: 1.1, pu: 8, ch: 2 },
+  sniper: { range: 1.3, err: 0.7, def: 0.1, dash: 0.5, pref: 1.35, cd: 1.05, pu: 8, ch: 1.6 },
   aggressor: { range: 0.9, err: 1.2, def: 0.05, dash: 0.7, pref: 0.65, cd: 0.6, pu: 7, ch: 0.5 },
   collector: { range: 1, err: 1, def: 0.1, dash: 0.6, pref: 1.05, cd: 1.0, pu: 16, ch: 1 },
   duelist: { range: 1.05, err: 0.8, def: 0.15, dash: 0.6, pref: 1.0, cd: 0.85, pu: 9, ch: 1.2 },
@@ -23,7 +31,7 @@ const PM = { // persona tuning: range, err, deflect+, dash chance, pref distance
 
 export class Bot {
   constructor(g, f, diff, persona) {
-    this.g = g; this.f = f; this.pm = PM[persona] || PM.duelist; this.persona = persona; const base = P[Math.max(0, Math.min(2, diff))]; this.d = { ...base, range: base.range * this.pm.range, err: base.err * this.pm.err, deflect: Math.min(0.85, base.deflect + this.pm.def * (diff + 1) / 2), cd: base.cd * this.pm.cd }; this.thinkT = Math.random() * 0.2; this.dir = [0, 0]; this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 1; this.threatT = 0; this.holdT = 0; this.holding = false; this.aim = [0, 0];
+    this.g = g; this.f = f; this.pm = PM[persona] || PM.duelist; this.persona = persona; const base = P[Math.max(0, Math.min(2, diff))]; this.d = { ...base, range: base.range * this.pm.range, err: base.err * this.pm.err, deflect: Math.min(0.85, base.deflect + this.pm.def * (diff + 1) / 2), cd: base.cd * this.pm.cd }; if (f.mods && f.mods.stun) { this.d.err *= 0.6; this.d.dodge = Math.min(1, (this.d.dodge || 0.66) * 1.2); this.d.cd *= 0.85; } this.thinkT = Math.random() * 0.2; this.dir = [0, 0]; this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 1; this.threatT = 0; this.holdT = 0; this.holding = false; this.aim = [0, 0];
     this.throwWait = 0.5 + Math.random() * 0.8; this.pendDash = 0; this.sideLock = 0; this.target = null; this.goalPU = null; this.out = { ...OUT };
   }
   predict(b, T, steps, f) {
@@ -77,7 +85,7 @@ export class Bot {
       if (!this.dodgeRoll) evade = null;
     }
     // ---- ultimate
-    if (f.ult >= 100 && g.state === 'play' && !f.boss) { this.ultT = (this.ultT || 0) - dt; if (this.ultT <= 0) { this.ultT = 0.45; const tgt = this.target; const d = tgt && tgt.alive ? Math.hypot(tgt.x - f.x, tgt.z - f.z) : 99; const need = f.hero && (f.hero.id === 'bao' || f.hero.id === 'pico') ? 12 : 8; if (d < need && Math.random() < 0.75) o.ult = true; else if (f.hero && f.hero.id === 'bao' && f.hp < f.maxHp && Math.random() < 0.8) o.ult = true; } }
+    if (f.ult >= 100 && g.state === 'play' && !f.boss) { this.ultT = (this.ultT || 0) - dt; if (this.ultT <= 0) { this.ultT = 0.35; const tgt = this.target; const d = tgt && tgt.alive ? Math.hypot(tgt.x - f.x, tgt.z - f.z) : 99; const bolt = f.mods && f.mods.stun; const need = f.hero && (f.hero.id === 'bao' || f.hero.id === 'pico') ? 12 : (bolt ? 9.5 : 8); const p = bolt ? 0.9 : 0.75; if (d < need && Math.random() < p) o.ult = true; else if (f.hero && f.hero.id === 'bao' && f.hp < f.maxHp && Math.random() < 0.8) o.ult = true; } }
     // ---- decisions
     this.thinkT -= dt; if (this.thinkT <= 0) { this.thinkT = d.think * (0.8 + Math.random() * 0.4); this.think(); }
     // ---- aiming/throwing
@@ -85,14 +93,41 @@ export class Bot {
     const tg = this.target;
     if (this.holding) {
       this.holdT -= dt; o.fire = this.holdT > 0; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
-      if (this.holdT <= 0 || !f.alive || f.ammo <= 0) { this.holding = false; o.fire = false; this.throwWait = d.cd * (0.7 + Math.random() * 0.8); }
+      if (this.holdT <= 0 || !f.alive || f.ammo <= 0) { this.holding = false; o.fire = false; this.throwWait = d.cd * ((f.mods && f.mods.stun) || (this.target && this.target.chillT > 0) ? 0.4 : 0.7) * (0.7 + Math.random() * 0.8); }
     } else if (f.ammo > 0 && tg && tg.alive && this.throwWait <= 0 && f.throwCd <= 0 && f.dashT <= 0 && !evade) {
       const dist = Math.hypot(tg.x - f.x, tg.z - f.z);
-      if (dist < d.range && this.los(f, tg)) {
+      const rangeMul = (f.mods && f.mods.range) || 1;
+      const ghost = fadedFrom(f, tg);
+      // Gus only holds ammo for a shove when he is already in melee range; throw on the way in
+      if (f.mods && f.mods.meleeKb > 1 && dist < 1.5) { /* hold for shove */ }
+      else if (ghost && Math.random() < 0.8) { this.throwWait = 0.18 + Math.random() * 0.28; } // hesitate / lose aim on a faded Wisp
+      else if (dist < d.range * rangeMul && this.los(f, tg)) {
         // lead the target a bit on higher difficulties
-        let tx = tg.x + tg.vx * 0.25 * d.lead, tz = tg.z + tg.vz * 0.25 * d.lead; const a0 = Math.atan2(tx - f.x, tz - f.z); const ft = Math.min(0.9, dist / 11);
-        const a = a0 - 0.5 * CURVE * ft * 0.9 + (Math.random() - 0.5) * 2 * d.err * (1 + dist / 12);
-        this.aim = [Math.sin(a), Math.cos(a)]; this.holding = true; this.holdT = dist > 7 ? clamp((dist - 5.5) / 9, 0.05, 0.55) * this.pm.ch / f.mods.charge : 0.05; o.fire = true; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
+        let tx = tg.x + tg.vx * 0.25 * d.lead, tz = tg.z + tg.vz * 0.25 * d.lead;
+        if (ghost) { tx = (this._lastGhostX ?? tx); tz = (this._lastGhostZ ?? tz); }
+        else { this._lastGhostX = tg.x; this._lastGhostZ = tg.z; }
+        const a0 = Math.atan2(tx - f.x, tz - f.z); const ft = Math.min(0.9, dist / 11);
+        const errMul = ghost ? 3.2 : 1;
+        const a = a0 - 0.5 * CURVE * ft * 0.9 + (Math.random() - 0.5) * 2 * d.err * errMul * (1 + dist / 12);
+        this.aim = [Math.sin(a), Math.cos(a)]; this.holding = true;
+        const wantCharge = !(f.mods && f.mods.stun) && dist > 6; /* Bolt always taps so the zap lands first */
+        this.holdT = wantCharge ? clamp((dist - 4.5) / 10, 0.05, f.mods.stun ? 0.28 : 0.55) * this.pm.ch / f.mods.charge : 0.05; o.fire = true; o.aimX = this.aim[0]; o.aimZ = this.aim[1];
+      }
+    }
+    if (this.target && (this.target.stunT || 0) > 0.05) this.throwWait = Math.min(this.throwWait, 0.02);
+    // style416: Nori dashes to poke or slip by when her dash is ready
+    if (!evade && f.abil === 'nori' && f.dashCd <= 0 && f.dashT <= 0 && Math.random() < 0.08) {
+      const dsh = this.target && this.target.alive ? [this.target.x - f.x, this.target.z - f.z] : this.dir;
+      if (Math.hypot(dsh[0], dsh[1]) > 0.4) { o.dash = true; o.mx = dsh[0]; o.mz = dsh[1]; return this.finish(o); }
+    }
+    // Gus closes the last gap for a shove; Wisp dashes after a fade
+    if (!evade && f.dashCd <= 0 && f.dashT <= 0 && tg && tg.alive) {
+      const dd = Math.hypot(tg.x - f.x, tg.z - f.z);
+      if (f.mods && f.mods.meleeKb > 1 && dd > 1.6 && dd < 5 && Math.random() < 0.055) {
+        o.dash = true; o.mx = tg.x - f.x; o.mz = tg.z - f.z; return this.finish(o);
+      }
+      if (f.mods && f.mods.fade && (f.fadeOn || 0) > 0.65 && dd < 6 && Math.random() < 0.12) {
+        o.dash = true; o.mx = tg.x - f.x; o.mz = tg.z - f.z; return this.finish(o);
       }
     }
     // ---- movement
@@ -140,7 +175,7 @@ export class Bot {
         if (best) { o.mx = best[0]; o.mz = best[1]; } else o.dash = false; }
     }
     // v4.10 melee: swing only at a rival this bot can SEE (slashTarget skips hidden bush rivals) already inside reach, after a human-like reaction delay; same cooldown as players
-    { const g = this.g, f = this.f; if (g.melee && g.state === 'play' && f.canSlash()) { const tg = f.slashTarget(0); if (tg) { this.slWait = (this.slWait === undefined || this.slWait < 0 ? this.d.react : this.slWait) - (this._dt || 1 / 60); if (this.slWait <= 0) { o.melee = true; o.fire = false; this.slWait = -1; this.holding = false; } } else this.slWait = -1; } }
+    { const g = this.g, f = this.f; if (g.melee && g.state === 'play' && f.canSlash()) { const tg = f.slashTarget(0); if (tg) { const slMul = (f.mods && f.mods.meleeKb > 1) ? 0.55 : 1; this.slWait = (this.slWait === undefined || this.slWait < 0 ? this.d.react * slMul : this.slWait) - (this._dt || 1 / 60); if (this.slWait <= 0) { o.melee = true; o.fire = false; this.slWait = -1; this.holding = false; } } else this.slWait = -1; } }
     return o;
   }
   think() {
@@ -150,7 +185,7 @@ export class Bot {
     if (R.type === 'bomb') { const hd = g.mst.holder; if (hd === f) { tg = null; bd = 1e9; for (const e of g.fighters) { if (e === f || !e.alive || e.tagImmune > 0 || !canSee(g, f.team, e)) continue; const dist = Math.hypot(e.x - f.x, e.z - f.z); if (dist < bd) { bd = dist; tg = e; } } } }
     this.target = tg; let gx = 0, gz = 0;
     // power-up goal
-    let pu = null, pd = 1e9; for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < this.pm.pu) { pd = dist; pu = p; } }
+    let pu = null, pd = 1e9; const puR = this.pm.pu * ((f.mods && f.mods.steal) ? 1.45 : 1); for (const p of g.powerups) { const dist = Math.hypot(p.x - f.x, p.z - f.z); if (dist < pd && dist < puR) { pd = dist; pu = p; } }
     if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = 0.8 + Math.random() * 1.6; }
     const ob = g.objective ? g.objective(f) : null;
     const tp = (g.traps && g.traps.botPlan && Math.random() < 0.7) ? g.traps.botPlan(f) : null;
@@ -158,7 +193,7 @@ export class Bot {
     else if (tp && (!tg || bd > 2.6)) { gx = tp.x - f.x; gz = tp.z - f.z; }
     else if (pu && (!tg || bd > 3.2)) { gx = pu.x - f.x; gz = pu.z - f.z; }
     else if (tg) {
-      const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; let pref = (f.ammo > 0 ? 6.2 : 8.5) * this.pm.pref; if (R.type === 'bomb') pref = g.mst.holder === f ? 3.5 : 9; if (f.boss) pref = 4.6;
+      const dx = tg.x - f.x, dz = tg.z - f.z, dist = bd || 1; const ux = dx / dist, uz = dz / dist; let pref = (f.ammo > 0 ? 6.2 : 8.5) * this.pm.pref * (0.5 + 0.5 * ((f.mods && f.mods.range) || 1)); if (R.type === 'bomb') pref = g.mst.holder === f ? 3.5 : 9; if (f.boss) pref = 4.6; if (f.mods && f.mods.meleeKb > 1) pref = Math.min(pref, 4.2); if (f.mods && f.mods.catchR > 1.15 && f.ammo === 0) pref = Math.min(pref, 5.2); if (tg && (tg.chillT || 0) > 0.15) pref = 5.0; if (tg && (tg.stunT || 0) > 0.05) pref = Math.min(pref, 4.4); if (tg && ((tg.mods && tg.mods.range) || 1) > 1 && f.ammo > 0) pref = Math.max(pref, 6.5); // joust a sniper, don't walk into the first throw
       let k = clamp((dist - pref) / 3, -1, 1); gx = ux * k; gz = uz * k;
       gx += -uz * this.strafe * 0.8; gz += ux * this.strafe * 0.8;
       if (f.ammo > 0 && !this.los(f, tg)) { gx += ux * 0.8; gz += uz * 0.8; }
@@ -167,7 +202,23 @@ export class Bot {
       gx += clamp(-f.x / HX, -1, 1) * 0.25 * Math.max(0, Math.abs(f.x) / HX - 0.6) * 4; gz += clamp(-f.z / HZ, -1, 1) * 0.25 * Math.max(0, Math.abs(f.z) / HZ - 0.6) * 4;
       if (R.type === 'koth' && g.zone) { const zx = g.zone.x - f.x, zz = g.zone.z - f.z, zd = Math.hypot(zx, zz); if (zd > 1.6 && (bd > 3 || zd < 4.5)) { gx = zx / zd * 0.95; gz = zz / zd * 0.95; } else if (zd <= 1.6) { gx *= 0.25; gz *= 0.25; gx += -uz * this.strafe * 0.4; gz += ux * this.strafe * 0.4; } }
       // keep clear of returning boomerangs' lane: stand still near owner path if waiting for catch
-      for (const b of g.booms) if (b.owner === f && b.phase === 'ret') { gx += (b.x - f.x) * 0.15; gz += (b.z - f.z) * 0.15; }
+      for (const b of g.booms) if (b.owner === f && b.phase === 'ret') { gx += (b.x - f.x) * (f.mods && f.mods.catchR > 1.15 ? 0.28 : 0.15); gz += (b.z - f.z) * (f.mods && f.mods.catchR > 1.15 ? 0.28 : 0.15); }
+      if (f.mods && f.mods.steal) { for (const b of g.booms) { if (b.owner === f || !b.alive || b.phase !== 'ret') continue; const dd = Math.hypot(b.x - f.x, b.z - f.z); if (dd < 2.2) { gx += (b.x - f.x) * 0.3; gz += (b.z - f.z) * 0.3; } } }
+    }
+    if (f.mods && f.mods.fade && !pu) {
+      // Wisp: stand still in the open to fade, then jump back in. Also briefly use a nearby bush.
+      let bx = null, bz = null, bd2 = 8;
+      const B = g.layout && g.layout.bush; if (B) { for (let k = 0; k < B.length; k++) if (B[k]) { const x = cx(k % AW), z = cz((k / AW) | 0); const dd = Math.hypot(x - f.x, z - f.z); if (dd < bd2) { bd2 = dd; bx = x; bz = z; } } }
+      const hidden = !!(f.bushIn) || (f.fadeOn || 0) > 0.7;
+      if (hidden) this._wispHide = (this._wispHide || 0) + 1; else this._wispHide = 0;
+      if (this._wispHide > 5 && tg) { gx = tg.x - f.x; gz = tg.z - f.z; }
+      else if ((!tg || bd > 5.5) && !hidden && bx != null) { gx = bx - f.x; gz = bz - f.z; }
+      else if (hidden && this._wispHide <= 5 && (!tg || bd > 4)) { gx *= 0.25; gz *= 0.25; }
+    }
+    if (f.mods && f.mods.slide) { // Yuki keeps a little drift so the slide stays visible, but stands to catch
+      let catching = false;
+      for (const b of g.booms) if (b.owner === f && b.alive && b.phase === 'ret') catching = true;
+      if (Math.hypot(gx, gz) < 0.15 && f.ammo > 0 && !catching) { gx += this.strafe * 0.45; gz += 0.2; }
     }
     const l = Math.hypot(gx, gz); if (l > 0.01) { const s = Math.min(1, l); this.dir = [gx / l * s, gz / l * s]; } else this.dir = [0, 0];
   }
