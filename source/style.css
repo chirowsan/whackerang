@@ -491,14 +491,13 @@ body.touch-on #hud .top .grp:last-child { margin-right: calc(var(--u)*12.2); } b
 
 /* ===== v4.2 hands-on tutorial: almost no words, ghost thumb + icons ===== */
 #tut { position: fixed; inset: 0; transform: none; top: 0; left: 0; max-width: none; padding: 0; border: 0; background: none; border-radius: 0; z-index: 8; pointer-events: none; display: none; text-align: left; } #tut.show { display: block; animation: none; }
-#tut .tt { position: absolute; top: calc(var(--u)*3.4); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u)*.7); padding: calc(var(--u)*.35) calc(var(--u)*1.3) calc(var(--u)*.35) calc(var(--u)*.5); border-radius: 99px; background: rgba(10,8,40,.72); border: 2px solid #ffe066; font-size: calc(var(--u)*1.7); font-weight: 900; letter-spacing: .06em; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5); animation: tutpop .3s both; white-space: nowrap; }
+#tut .tt { position: absolute; top: calc(max(var(--sait, 0px), 0px) + var(--u)*3.2); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u)*.6); padding: calc(var(--u)*.45) calc(var(--u)*1.4) calc(var(--u)*.45) calc(var(--u)*.55); border-radius: 99px; background: rgba(10,8,40,.78); border: 2px solid #ffe066; font-size: max(18px, calc(var(--u)*2)); font-weight: 900; letter-spacing: .02em; color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.5); animation: tutpop .3s both; white-space: nowrap; }
 @keyframes tutpop { 0% { transform: translateX(-50%) scale(.7); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
 #tut .ti { display: block; width: calc(var(--u)*2.8); height: calc(var(--u)*2.8); } #tut .ti svg { width: 100%; height: 100%; display: block; }
-#tut.s3 .tt { border-color: #ff4a3a; background: rgba(60,8,12,.78); animation: tutpop .3s both, tutred .5s .3s infinite alternate; } @keyframes tutred { to { box-shadow: 0 0 calc(var(--u)*1.4) rgba(255,50,40,.9); } }
-#tut.s4 .tt { border-color: #3ddc6a; }
+#tut.s7 .tt { border-color: #3ddc6a; background: rgba(8,40,18,.78); }
 #tut .tk { display: inline-flex; gap: 3px; margin-left: calc(var(--u)*.3); } #tut .kc { background: #fff; color: #1a1030; border-radius: 5px; font-size: .55em; padding: .15em .45em; min-width: 1.6em; text-align: center; box-shadow: 0 2px 0 #9aa; text-shadow: none; } #tut .kc.w { padding: .15em .8em; }
-#tut .td { position: absolute; top: calc(var(--u)*8); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; margin: 0; } #tut .td i { width: calc(var(--u)*.9); height: calc(var(--u)*.9); border-radius: 50%; background: rgba(255,255,255,.28); display: block; } #tut .td i.cur { background: #ffe066; box-shadow: 0 0 8px #ffe066; } #tut .td i.done { background: #3ddc6a; }
-#tut .tskip { position: absolute; bottom: calc(max(var(--saib, 0px), 0px) + var(--u)*.7); left: 50%; transform: translateX(-50%); margin: 0; pointer-events: auto; background: rgba(10,8,40,.6); border: 1.5px solid rgba(255,255,255,.55); color: #fff; font-weight: 900; font-size: calc(var(--u)*1); letter-spacing: .1em; padding: calc(var(--u)*.45) calc(var(--u)*1.6); border-radius: 99px; touch-action: manipulation; } #tut .tskip span { font-size: .8em; }
+#tut .td { position: absolute; top: calc(max(var(--sait, 0px), 0px) + var(--u)*8.2); left: 50%; transform: translateX(-50%); display: flex; gap: 6px; margin: 0; } #tut .td i { width: calc(var(--u)*.9); height: calc(var(--u)*.9); border-radius: 50%; background: rgba(255,255,255,.28); display: block; } #tut .td i.cur { background: #ffe066; box-shadow: 0 0 8px #ffe066; } #tut .td i.done { background: #3ddc6a; }
+#tut .tskip { position: absolute; bottom: calc(max(var(--saib, 0px), 8px) + var(--u)*.7); left: 50%; transform: translateX(-50%); margin: 0; pointer-events: auto; background: rgba(10,8,40,.78); border: 2px solid rgba(255,255,255,.7); color: #fff; font-weight: 900; font-size: max(16px, calc(var(--u)*1.15)); letter-spacing: .08em; padding: calc(var(--u)*.5) calc(var(--u)*1.8); min-height: 44px; min-width: 96px; border-radius: 99px; touch-action: manipulation; z-index: 9; } #tut .tskip span { font-size: .8em; }
 #tut .ghost { position: absolute; width: 0; height: 0; display: none; }
 #tut .ghost i { position: absolute; left: 0; top: 0; width: calc(var(--u)*5); height: calc(var(--u)*5); margin: calc(var(--u)*-2.5) 0 0 calc(var(--u)*-2.5); border-radius: 50%; border: 3px solid rgba(255,255,255,.9); background: radial-gradient(circle, rgba(127,232,255,.55), rgba(127,232,255,0) 70%); box-shadow: 0 0 calc(var(--u)*1.6) rgba(127,232,255,.9); }
 #tut .ghost svg { position: absolute; left: 0; top: 0; width: calc(var(--u)*4); height: calc(var(--u)*4.8); transform: translate(-35%, -8%); filter: drop-shadow(0 0 calc(var(--u)*.6) rgba(127,232,255,.95)); }
@@ -657,3 +656,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .wpn-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 4px; border-radius: 10px; background: rgba(0,0,0,.28); font-weight: 800; font-size: calc(var(--u)*.9); }
 .wpn-chip svg, .wpn-chip .wsv { width: calc(var(--u)*1.6); height: calc(var(--u)*1.6); }
 .arm-who .htag { margin-left: 6px; vertical-align: middle; }
+
+/* ===== LOCAL-dev-tut417: gentle pulsing highlight on the exact control ===== */
+.tut-pulse { box-shadow: 0 0 0 3px #ffe066, 0 0 16px 4px rgba(255,224,102,.55) !important; animation: tutpulse 1.15s ease-in-out infinite; }
+.tbtn.tut-pulse { z-index: 6; }
+@keyframes tutpulse { 0%, 100% { box-shadow: 0 0 0 3px #ffe066, 0 0 10px 2px rgba(255,224,102,.4); } 50% { box-shadow: 0 0 0 6px #ffe066, 0 0 22px 6px rgba(255,224,102,.7); } }
+#tut .ghost.gtap i, #tut .ghost.gtap svg { animation: none; }
+#tut .ghost.gtap svg { animation: gtap 1.2s ease-in-out infinite; transform-origin: 35% 8%; }
+#tut .ghost.gtap i { animation: gring 1.2s ease-out infinite; border-color: #ffe066; background: radial-gradient(circle, rgba(255,210,60,.55), rgba(255,210,60,0) 70%); }
+#tut .ghost.gbush i { border-color: #5ad46e; background: radial-gradient(circle, rgba(90,212,110,.55), rgba(90,212,110,0) 70%); box-shadow: 0 0 calc(var(--u)*1.6) rgba(90,212,110,.9); animation: gring 1.4s ease-out infinite; }
+#tut .ghost.gbush svg { display: none; }
+#tut .tt b { font-weight: 900; text-transform: none; letter-spacing: .01em; }

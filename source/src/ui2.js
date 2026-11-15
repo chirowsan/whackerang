@@ -91,6 +91,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
     g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.5'; save(); this.show('howto', { new: 1 }); }));
+    g.appendChild(this.btn('Practice', '', () => a.startTutorial(), { id: 'btn-practice' }));
     left.appendChild(g); el.appendChild(left);
     const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.coinChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
@@ -105,7 +106,7 @@ Object.assign(UI, {
     return el;
   },
   tutintro() {
-    const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Welcome to Whackerang!')); d.appendChild(h('p', 'lead', 'New here? A quick 45-second training teaches you to <b>throw</b>, <b>catch</b> and <b>dash</b>. Or jump straight in. The game starts on <b>Chill</b> speed with <b>Medium</b> bots.'));
+    const el = h('div', 'screen center'); const d = h('div', 'panel dialog'); d.appendChild(h('h2', '', 'Welcome to Whackerang!')); d.appendChild(h('p', 'lead', 'Want a short practice? You will learn to move, throw, catch, shield, swing, use Special and hide. You can skip any time. The game starts on <b>Chill</b> speed.'));
     const b = h('div', 'btns'); b.appendChild(this.btn('▶ Quick training', 'primary', () => this.app.startTutorial())); b.appendChild(this.btn('Skip, just play', '', () => { S().tutorialDone = true; save(); this.app.quickPlay(); })); d.appendChild(b); el.appendChild(d); return el;
   },
   // ================= modes =================
@@ -336,29 +337,55 @@ Object.assign(UI, {
     const bb = $('#bossbar'); if (bb) { const b = ms.boss; this.hudSet('bossbar', b ? `<div class="bn">${b.name}</div><div class="bhp">${Array.from({ length: b.max }, (_, i) => `<i class="${i < b.hp ? 'on' : ''}"></i>`).join('')}</div>` : ''); }
   },
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },
-  // ================= tutorial =================
+  // ================= LOCAL-dev-tut417 tutorial =================
+  tutPulseClear() { document.querySelectorAll('.tut-pulse').forEach((e) => e.classList.remove('tut-pulse')); },
   tutorialShow(t) {
-    const touch = Input.touch.enabled; const ICO = {
+    const touch = Input.touch.enabled;
+    const ICO = {
       move: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="none" stroke="#7fe8ff" stroke-width="3"/><circle cx="24" cy="24" r="8" fill="#7fe8ff"/><path d="M24 4l-5 7h10zM24 44l-5-7h10zM4 24l7-5v10zM44 24l-7-5v10z" fill="#fff"/></svg>',
       throw: '<svg viewBox="0 0 48 48"><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#3a1600" stroke-width="11" stroke-linecap="round"/><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#ffcf3a" stroke-width="7" stroke-linecap="round"/></svg>',
       catch: '<svg viewBox="0 0 48 48"><path d="M40 10C20 8 8 18 10 34" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="2 5" stroke-linecap="round"/><path d="M6 30l4 8 7-6z" fill="#fff"/><circle cx="24" cy="26" r="9" fill="none" stroke="#ffe066" stroke-width="3"/><path d="M17 28c1-6 4-9 7-9s6 3 7 9" fill="none" stroke="#ffcf3a" stroke-width="4" stroke-linecap="round"/></svg>',
-      dodge: '<svg viewBox="0 0 48 48"><path d="M24 4L3 42h42z" fill="#ff3b30" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><path d="M24 17v12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/><circle cx="24" cy="35" r="2.8" fill="#fff"/></svg>',
-      done: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#3ddc6a" stroke="#fff" stroke-width="3"/><path d="M13 25l8 8 15-17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' };
-    const steps = [['move', 'MOVE'], ['throw', 'THROW'], ['catch', 'CATCH'], ['dodge', 'DODGE'], ['done', 'NICE!']];
-    const keys = ['<span class="kc">W</span><span class="kc">A</span><span class="kc">S</span><span class="kc">D</span>', '<span class="kc w">CLICK</span>', '', '<span class="kc w">SPACE</span>', ''];
+      shield: '<svg viewBox="0 0 48 48"><path d="M24 4.5l15 5.5v13c0 10-6.5 17.2-15 20.5C15.5 40.2 9 33 9 23V10z" fill="#fff" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/><path d="M24 12l8 3v8c0 6-3.5 10-8 12-4.5-2-8-6-8-12v-8z" fill="#7fe8ff"/></svg>',
+      melee: '<svg viewBox="0 0 48 48"><path d="M10 34l20-20 4 4-20 20z" fill="#fff" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/><path d="M28 12l4-4 4 4-4 4z" fill="#ffd23c"/></svg>',
+      special: '<svg viewBox="0 0 48 48"><path d="M27 3L10 27h11l-4 18 21-26H27z" fill="#ffe066" stroke="#1a1030" stroke-width="3" stroke-linejoin="round"/></svg>',
+      bush: '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="32" rx="16" ry="9" fill="#2f8a44"/><ellipse cx="16" cy="24" rx="9" ry="8" fill="#3dab55"/><ellipse cx="32" cy="23" rx="10" ry="9" fill="#46c05e"/><ellipse cx="24" cy="18" rx="9" ry="8" fill="#5ad46e"/></svg>',
+      ready: '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#3ddc6a" stroke="#fff" stroke-width="3"/><path d="M13 25l8 8 15-17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    };
+    // Short kid-readable lines. Keyboard hints only when touch is off.
+    const steps = [
+      { id: 'move', title: 'Move around!', keys: '<span class="kc">W</span><span class="kc">A</span><span class="kc">S</span><span class="kc">D</span>' },
+      { id: 'throw', title: 'Aim and throw!', keys: '<span class="kc w">CLICK</span><span class="kc">F</span>' },
+      { id: 'catch', title: 'Catch it!', keys: '' },
+      { id: 'shield', title: 'Tap Shield!', keys: '<span class="kc">E</span>' },
+      { id: 'melee', title: 'Swing up close!', keys: '<span class="kc">G</span>' },
+      { id: 'special', title: 'Use Special!', keys: '<span class="kc">R</span>' },
+      { id: 'bush', title: 'Hide in a bush!', keys: '<span class="kc">W</span><span class="kc">A</span><span class="kc">S</span><span class="kc">D</span>' },
+      { id: 'ready', title: "You're ready!", keys: '' }
+    ];
     let c = $('#tut'); if (!c) { c = h('div', '', '', { id: 'tut' }); document.body.appendChild(c); }
-    const st = steps[Math.min(t.step, steps.length - 1)]; c.className = 'show s' + t.step + (touch ? ' touch' : '');
-    c.innerHTML = `<div class="tt"><i class="ti">${ICO[st[0]]}</i><b>${st[1]}</b>${touch ? '' : `<span class="tk">${keys[t.step]}</span>`}</div><div class="td">${steps.slice(0, 4).map((_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div><button class="tskip" id="tskip" aria-label="Skip">SKIP <span>&#9654;</span></button><div class="ghost" id="ghost"><i></i><svg viewBox="0 0 40 48"><path d="M14 4c3 0 5 2 5 5v14l3-1c3-1 6 1 6 4l2-1c3-1 6 1 5 4 3-1 5 2 4 5l-2 12c-1 5-5 8-10 8H19c-4 0-7-2-9-5L3 31c-1-3 2-6 5-4l3 3V9c0-3 1-5 3-5z" fill="#fff" fill-opacity=".92" stroke="#7fe8ff" stroke-width="2" stroke-linejoin="round"/></svg></div>`;
+    const st = steps[Math.min(t.step, steps.length - 1)];
+    c.className = 'show s' + t.step + (touch ? ' touch' : ' kbd');
+    const nAct = 7;
+    c.innerHTML = `<div class="tt"><i class="ti">${ICO[st.id]}</i><b>${st.title}</b>${touch || !st.keys ? '' : `<span class="tk">${st.keys}</span>`}</div><div class="td">${Array.from({ length: nAct }, (_, i) => `<i class="${i < t.step ? 'done' : i === t.step ? 'cur' : ''}"></i>`).join('')}</div><button class="tskip" id="tskip" aria-label="Skip">Skip</button><div class="ghost" id="ghost"><i></i><svg viewBox="0 0 40 48"><path d="M14 4c3 0 5 2 5 5v14l3-1c3-1 6 1 6 4l2-1c3-1 6 1 5 4 3-1 5 2 4 5l-2 12c-1 5-5 8-10 8H19c-4 0-7-2-9-5L3 31c-1-3 2-6 5-4l3 3V9c0-3 1-5 3-5z" fill="#fff" fill-opacity=".92" stroke="#7fe8ff" stroke-width="2" stroke-linejoin="round"/></svg></div>`;
     const sk = c.querySelector('#tskip'); if (sk) sk.addEventListener('click', (e) => { e.stopPropagation(); sfx('click'); this.app.skipTutorial(); });
     this.tutorialGhost();
   },
-  tutorialGhost() { // park the ghost thumb on the control for this step (touch only)
+  tutorialGhost() { // pulse the exact control for this step (touch), or a bush marker
+    this.tutPulseClear();
     const c = $('#tut'), g = $('#ghost'); if (!c || !g || !this.app.tut) return; const t = this.app.tut; const touch = Input.touch.enabled;
-    const target = [ 'joybase', 'aimbase', 'joybase', 'joybase', null ][Math.min(t.step, 4)]; const e = target && document.getElementById(target);
-    if (!touch || !e) { g.style.display = 'none'; return; } const r = e.getBoundingClientRect(); g.style.display = 'block'; g.style.left = (r.left + r.width / 2) + 'px'; g.style.top = (r.top + r.height / 2) + 'px'; g.style.setProperty('--gr', Math.round(r.width * 0.3) + 'px');
-    g.className = 'ghost g' + t.step;
+    const target = ['joybase', 'aimbase', null, 'btnDef', 'btnMelee', 'btnUlt', 'bush', null][Math.min(t.step, 7)];
+    if (target === 'bush') {
+      const pos = this.app.game && this.app.game.tutBush; const vis = pos && toScreen(pos[0], 0.4, pos[1]);
+      if (vis && vis[2]) { g.style.display = 'block'; g.style.left = (vis[0] * innerWidth) + 'px'; g.style.top = (vis[1] * innerHeight) + 'px'; g.className = 'ghost gbush'; return; }
+      g.style.display = 'none'; return;
+    }
+    const e = target && document.getElementById(target);
+    if (!touch || !e) { g.style.display = 'none'; return; }
+    e.classList.add('tut-pulse');
+    const r = e.getBoundingClientRect(); g.style.display = 'block'; g.style.left = (r.left + r.width / 2) + 'px'; g.style.top = (r.top + r.height / 2) + 'px'; g.style.setProperty('--gr', Math.round(r.width * 0.3) + 'px');
+    g.className = 'ghost g' + (t.step === 1 ? '1' : t.step === 3 || t.step === 4 || t.step === 5 ? 'tap' : '0');
   },
-  tutorialHide() { const c = $('#tut'); if (c) { c.className = ''; c.innerHTML = ''; } },
+  tutorialHide() { this.tutPulseClear(); const c = $('#tut'); if (c) { c.className = ''; c.innerHTML = ''; } },
   // ================= emotes =================
   emoteToggle() { if ($('#emotes.show')) this.emoteClose(); else this.emoteOpen(); },
   emoteOpen() { let r = $('#emotes'); if (!r) { r = h('div', '', '', { id: 'emotes' }); document.body.appendChild(r); } r.className = 'show'; r.innerHTML = ''; S().eq.emotes.forEach((id, i) => { const e = EMOTES[id]; const b = h('button', 'emo-btn', e.text, { style: `--ec:${hex(e.color)}` }); b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); this.app.emote(id); }); r.appendChild(b); }); },
@@ -385,7 +412,7 @@ UI.settings = function (p) {
       let has = false; try { has = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'); } catch (e) {}
       if (!has) { const hint = document.createElement('div'); hint.className = 'iphone-vibe-hint'; hint.style.cssText = 'font-size:11px;opacity:.7;margin:2px 0 6px;max-width:28ch;line-height:1.3'; hint.textContent = 'On iPhone, hits play a tiny sparkle and a punchy sound instead — Safari cannot vibrate.'; vr.appendChild(hint); }
     } }
-  const tr = h('div', 'row', '<span>Training</span>'); tr.appendChild(this.btn('Replay tutorial', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); })); grid.appendChild(tr);
+  const tr = h('div', 'row', '<span>Practice</span>'); tr.appendChild(this.btn('Practice', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); }, { id: 'btn-practice-set' })); grid.appendChild(tr);
   return el;
 };
 
@@ -398,7 +425,7 @@ UI.howto = function (p) {
   const tt = `<li><b>DEADLY (red):</b></li>${tl(true)}<li><b>NOT deadly (yellow/colour):</b></li>${tl(false)}`;
   const mu = MUTATORS.map((m) => `<li><b>${m.icon} ${m.name}</b> <small>${m.desc}</small></li>`).join('');
   const LG = legendImages();
-  const wn41 = h('div', 'hw-new', `<div class="hw-top"><button class="btn primary" id="hw-replay">&#9654; Replay tutorial</button></div>
+  const wn41 = h('div', 'hw-new', `<div class="hw-top"><button class="btn primary" id="hw-replay">&#9654; Practice</button></div>
     <div class="hw-legend"><div><img src="${LG.hazard}" alt="deadly"><b>DEADLY (red)</b><small>asleep until armed</small></div><div><span class="two"><img src="${LG.soft1}" alt="shove"><img src="${LG.soft2}" alt="dizzy"></span><b>ANNOYING (yellow)</b><small>never kills</small></div><div><span class="two"><img src="${LG.portal1}" alt="portal 1"><img src="${LG.portal2}" alt="portal 2"></span><b>PORTAL</b></div><div><img src="${LG.pad}" alt="jump pad"><b>JUMP PAD</b></div><div><span class="lg-drop" aria-label="drop"></span><b>DROP (cyan edge)</b><small>no floor: you fall</small></div></div>
     <div class="hw-keys"><span><i>&#128073;</i> Left thumb: <b>MOVE</b></span><span><i>&#129667;</i> Right thumb: <b>THROW</b> (drag to aim)</span><span><i>&#10148;</i> <b>DASH</b> / <b>DEFLECT</b> buttons</span></div>`);
   wn41.style.gridColumn = '1 / -1'; pn.insertBefore(wn41, pn.firstChild); if (p && p.new) setTimeout(() => { pn.scrollTop = 0; }, 0);

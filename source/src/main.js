@@ -166,8 +166,14 @@ const app = {
     if (m.mode === 'survival' || m.mode === 'koth' || m.mode === 'bomb' || m.mode === 'team' || m.mode === 'classic') { if (!m.rules) { const r2 = rulesFor(m.mode, { arena: aid, eventLevel: m.events || S().settings.events }); Object.assign(rules, r2); } }
     if (rules.poison && !(this.net && !this.net.isHost)) rules.poisonCfg = { ...POISON }; // v4.8: host-authoritative poison tuning rides in the round rules
     m.curRules = rules; this.mode = 'play';
-    { const o = { mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, edgeSaves: (m.edgeSaves = m.edgeSaves || {}), cdShort: !!(m.tutorial || m.mode === 'tutorial') }; this.setGame(this.net && this.net.isHost ? this.net.hostGameOpts(o) : o); } music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
-    if (m.tutorial) { this.tut = { step: 0, t: 0, moved: 0 }; const d = this.game.fighters[1]; if (d) { d.stunT = 9999; d.inv = 1e9; d.x = 6; d.z = -3; } const hf = this.humanF(); if (hf) hf.inv = 0; UI.tutorialShow(this.tut); }
+    { const o = { mode: 'vs', arenaId: aid, players: m.players, round: m.round, rules, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, edgeSaves: (m.edgeSaves = m.edgeSaves || {}), cdShort: !!(m.tutorial || m.mode === 'tutorial') }; if (m.tutorial) { o.tutorial = true; o.events = false; o.traps = 'off'; } this.setGame(this.net && this.net.isHost ? this.net.hostGameOpts(o) : o); } music(m.stage && m.stage.kind === 'boss' || m.mode === 'bossrush' ? 'boss' : m.mode === 'bomb' ? 'bomb' : m.mode === 'koth' ? 'koth' : aid); setIntensity(0); AU.mute = false; Input.flush(); this.applyTouch(); this.simT = 0; this.touchF = null;
+    if (m.tutorial) { // LOCAL-dev-tut417
+      this.tut = { step: 0, t: 0, moved: 0, bushWait: 8 };
+      const d = this.game.fighters[1];
+      if (d) { d.stunT = 9999; d.inv = 1e9; d.hp = d.maxHp; d.x = -5; d.z = 3.5; d.vx = d.vz = 0; if (d.bot) d.bot.update = () => ({ mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflect: false, ult: false, melee: false }); }
+      const hf = this.humanF(); if (hf) { hf.inv = 1e9; hf.ult = 100; hf.ammo = Math.max(1, hf.ammo); }
+      UI.tutorialShow(this.tut);
+    }
   },
   // v4.5 big 3-2-1-GO overlay (#countdown): pop animation per number, beep (audio.js), haptic. n: 4 = title card, 3/2/1, 0 = GO.
   cdHide() { clearTimeout(this._cdT); const el = document.getElementById('countdown'), cp = document.getElementById('cdcap'); if (el) { el.className = ''; el.querySelector('.cdnum').textContent = ''; } if (cp) { cp.className = ''; cp.innerHTML = ''; } },
@@ -247,7 +253,7 @@ const app = {
     if (r === 'survival') { stats.wave = g.mst.wave; extra.wave = g.mst.wave; extra.kills = m.st.kos; if (m.stage) won = !g.mst.lost; else won = false; }
     this.finishMatch({ won, stats, ...extra });
   },
-  finishMatch(o) { UI.tutorialHide && UI.tutorialHide();
+  finishMatch(o) { this.tut = null; UI.tutorialHide && UI.tutorialHide();
     const m = this.match, g = this.game, s = S(); if (this.resultShown) return; this.resultShown = true; const won = !!o.won; const st = { ...(o.stats || {}), won, deaths: m.st.deaths, passes: m.st.passes, time: g.playTime };
     let coins = won ? 30 : 8, xp = 18 + (won ? 40 : 0); coins += m.st.kos * 5; xp += m.st.kos * 8; let stars = 0, prevStars = 0, firstClear = false; const rows = [];
     const mode = m.mode; if (mode !== 'tutorial') { if (won) { s.wins++; track('win'); } }
@@ -297,27 +303,48 @@ const app = {
   netFailed(err, wasJoin) { // async failure or the room ended: back to the menu with a plain-language reason
     this.tut = null; this.paused = false; this.mode = 'menu'; this.match = null; UI.clear(); UI.hudStart(null); this.startAttract(); this.applyTouch(); UI.show(wasJoin && ['no-room', 'bad-code', 'reject:full', 'reject:locked', 'reject:version'].includes(err.code) ? 'netJoin' : 'netMsg', { err, wasJoin });
   },
-  // ---- tutorial
+  // ---- LOCAL-dev-tut417 first-play practice: move, throw, catch, shield, melee, special, bush, ready.
+  // No fail states. Returning players are never forced (tutorialDone stays set until they choose Practice).
   skipTutorial() { const s = S(); s.tutorialDone = true; save(); this.tut = null; UI.tutorialHide && UI.tutorialHide(); this.quickPlay(); },
-  // v4.2 hands-on tutorial: move -> throw -> catch -> dodge a trap -> done. Each step advances only when the player really does it.
-  tutEvent(n, d) { const t = this.tut; if (!t || !d || !d.f || d.f.isBot) return; if ((t.step === 1 && n === 'throw') || (t.step === 2 && n === 'catch')) this.tutAdv(); },
-  tutAdv() {
-    const t = this.tut; if (!t || t.step >= 4) return; t.step++; t.t = 0; t.moved = 0; sfx('pickup'); UI.tutorialShow(t);
-    if (t.step === 3) this.tutSpawnPit();
-    if (t.step === 4) { const g = this.game; const f = this.humanF(); if (f) { fx.confetti(f.x, f.z, 50, 1.2); } setTimeout(() => { if (this.tut === t && this.match && this.match.tutorial && this.mode === 'play') { UI.tutorialHide(); this.finishMatch({ won: true, winnerName: '' }); } }, 1500); }
+  tutCelebrate() {
+    const f = this.humanF(), g = this.game;
+    if (f) { feel('catch', { f, game: g, force: true }); if (fx && fx.star) fx.star(f.x, 0.9, f.z, 0xfff6c8, 2.2, 0.28); }
+    sfx('pickup');
   },
-  tutSpawnPit() { // a real spike trap, warned by the red hazard pulse, right under the player's feet
-    const g = this.game, f = this.humanF(); if (!g || !f) return; const t = this.tut; const x = Math.max(-HXc() + 3, Math.min(HXc() - 3, Math.round(f.x))), z = Math.max(-HZc() + 2.5, Math.min(HZc() - 2.5, Math.round(f.z)));
-    g.traps.on = true; const made = g.traps.mk_pit('c', { at: [x, z], tut: true }); t.pit = made && made[0]; t.fired = false;
+  tutPlaceDummy() {
+    const g = this.game, f = this.humanF(), d = g && g.fighters[1]; if (!g || !f || !d) return;
+    const ang = f.face || 0; d.x = f.x + Math.sin(ang) * 1.85; d.z = f.z + Math.cos(ang) * 1.85;
+    d.stunT = 9999; d.inv = 1e9; d.vx = d.vz = 0; d.alive = true; d.hp = d.maxHp;
+    if (g.resolve) { g.resolve(d, 0.4); g.resolve(f, 0.4); }
+  },
+  tutEvent(n, d) {
+    const t = this.tut; if (!t || !d || !d.f || d.f.isBot) return;
+    if ((t.step === 1 && n === 'throw') || (t.step === 2 && n === 'catch') || (t.step === 4 && n === 'slash') || (t.step === 5 && n === 'ult')) this.tutAdv();
+  },
+  tutAdv() {
+    const t = this.tut; if (!t || t.step >= 7 || t.busy) return;
+    t.step++; t.t = 0; t.moved = 0; this.tutCelebrate();
+    const f = this.humanF();
+    if (t.step === 4) { if (f) { f.deflectT = 0; f.deflectCd = 0; f.slT = -1; f.slCd = 0; } this.tutPlaceDummy(); }
+    if (t.step === 5 && f) { f.ult = 100; f.deflectT = 0; }
+    UI.tutorialShow(t);
+    if (t.step === 7) {
+      if (f) { fx.confetti(f.x, f.z, 50, 1.2); sfx('missionDone'); }
+      t.busy = true;
+      setTimeout(() => { if (this.tut === t && this.match && this.match.tutorial && this.mode === 'play') { this.tut = null; UI.tutorialHide(); this.finishMatch({ won: true, winnerName: '' }); } }, 1600);
+    }
   },
   tutTick(dt) {
-    const t = this.tut, m = this.match; if (!t || !m || !m.tutorial || this.mode !== 'play' || this.paused || !this.game || this.game.state !== 'play') return; const f = this.humanF(); if (!f) return;
+    const t = this.tut, m = this.match; if (!t || !m || !m.tutorial || this.mode !== 'play' || this.paused || !this.game || this.game.state !== 'play') return;
+    const f = this.humanF(), d = this.game.fighters[1]; if (!f) return;
     t.t += dt;
-    if (t.step === 0) { if (Math.hypot(f.vx, f.vz) > 1.5) t.moved += dt; if (t.moved > 0.8) this.tutAdv(); }
-    else if (t.step === 2 && f.ammo > 0 && t.t > 0.4) this.tutAdv();
-    else if (t.step === 3 && t.pit) { if (t.pit.st === 2) { t.fired = true; if (!f.alive) t.fired = false; } else if (t.fired && f.alive) this.tutAdv(); else if (t.pit.st === 0 && t.pit.cd <= 0 && t.t > 0.7 && t.t - (t.armT || -9) > 2.2) { t.armT = t.t; t.pit.arm(null); } if (!f.alive) t.fired = false; } // v4.3: the dummy 'steps on the plate' for you
-    if (t.step >= 1 && t.step <= 3 && f.ammo <= 0 && this.game.booms.length === 0) f.ammo = 1;
-    if (t.step === 3 && !t.pit && t.t > 1) this.tutSpawnPit();
+    f.inv = 1e9; if (d) { d.stunT = Math.max(d.stunT, 999); d.inv = 1e9; d.vx = 0; d.vz = 0; }
+    if (t.step === 0) { if (Math.hypot(f.vx, f.vz) > 1.2) t.moved += dt; if (t.moved > 0.55) this.tutAdv(); }
+    else if (t.step === 3 && f.deflectT > 0) this.tutAdv();
+    else if (t.step === 6) { if (f.bushIn || f.hid) this.tutAdv(); else if (t.t > (t.bushWait || 8)) this.tutAdv(); } // optional: auto-advance if they skip the bush
+    if ((t.step === 1 || t.step === 2) && f.ammo <= 0 && this.game.booms.length === 0) f.ammo = 1;
+    if (t.step === 5 && f.ult < 100 && f.ultT <= 0) f.ult = 100;
+    if (t.step === 4 && d && Math.hypot(d.x - f.x, d.z - f.z) > 3.2 && t.t > 0.2) this.tutPlaceDummy();
   },
 };
 
@@ -373,6 +400,6 @@ function boot() {
     adaptRes(dt * 1000);
   };
   requestAnimationFrame(frame);
-  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
+  if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, UI, Bot, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

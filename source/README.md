@@ -14,6 +14,9 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.4 (first-play practice)
+- **A short first-play practice:** the first time you tap Play, a calm empty yard teaches you to move, throw, catch, shield, swing, use Special, and hide in a bush. Each step has one short, big line and a gentle pulse on the button to use. You can skip any time, and you cannot lose. After You're ready! you go into a normal game. Replay it any time from Practice on the menu or in Settings. Returning players are not asked again. Default Game speed is still Chill.
+
 ## What's new in v4.11.3 (each fighter plays differently)
 - **Each fighter plays their own way:** Bao is slow and tough with easy catches, Nori is the fastest but fragile, Bolt's throws zap and stun, Salty's boomerang comes back quick and he can steal a catch, Pico throws farthest but waits longer for it to return, Yuki slides and her hits chill rivals, Gus has short throws and huge close-up shoves, and Wisp turns see-through when she stands still. Character cards show a short How to play line. Default Game speed is still Chill.
 

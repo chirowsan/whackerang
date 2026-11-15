@@ -304,7 +304,16 @@ export class Game {
   constructor(o) {
     this.mode = o.mode || 'vs'; this.onEvent = o.onEvent || (() => {}); this.input = o.input; this.scene = gfx.scene; this._base = new Set(gfx.scene.children); this.arenaId = o.arenaId; this.round = o.round || 1;
     this.rules = { type: 'elim', sudden: true, ...(o.rules || {}) }; this.wind = null;
-    this.dens = o.dens || (typeof window !== "undefined" && window.__bbDens) || 5; /* v4.9 calmer maps: 1 = v4.8 layout/trap density (old hosts), 2 = v4.9 */ this.melee = this.dens >= 5 && o.mode !== 'attract'; /* v4.10: dens 5 = melee swing + Armory weapons (older rooms: boomerang-only, no swing) */ this.layout = genLayout(this.arenaId, o.netSeed, this.dens); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.bush = null; /* v4.9: no bushes in Boomerang Ball (a hidden ball carrier / goalie would be unfair) */ this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); } this.layout.sol0 = this.layout.t.reduce((a, v) => a + (v === T.PILLAR || v === T.CRATE ? 1 : 0), 0); this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
+    this.dens = o.dens || (typeof window !== "undefined" && window.__bbDens) || 5; /* v4.9 calmer maps: 1 = v4.8 layout/trap density (old hosts), 2 = v4.9 */ this.melee = this.dens >= 5 && o.mode !== 'attract'; /* v4.10: dens 5 = melee swing + Armory weapons (older rooms: boomerang-only, no swing) */ this.layout = genLayout(this.arenaId, o.netSeed, this.dens); if (o.mode === 'attract' || (o.rules && o.rules.type === 'ball')) { this.layout.bush = null; /* v4.9: no bushes in Boomerang Ball (a hidden ball carrier / goalie would be unfair) */ this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0); }
+    this.tutorial = !!o.tutorial;
+    if (this.tutorial) { // LOCAL-dev-tut417: calm empty floor + one 2x2 bush, no clutter
+      this.layout.t.fill(0); this.layout.dx.fill(0); this.layout.dz.fill(0);
+      const bush = new Uint8Array(AW * AH);
+      const i0 = Math.max(4, Math.min(AW - 6, Math.floor(AW * 0.55)));
+      const j0 = Math.max(3, Math.min(AH - 5, Math.floor(AH * 0.45)));
+      for (let i = i0; i < i0 + 2; i++) for (let j = j0; j < j0 + 2; j++) bush[idx(i, j)] = 1;
+      this.layout.bush = bush; this.tutBush = [cx(i0) + 0.5, cz(j0) + 0.5];
+    } this.layout.sol0 = this.layout.t.reduce((a, v) => a + (v === T.PILLAR || v === T.CRATE ? 1 : 0), 0); this.view = new ArenaView(this.scene, this.arenaId, this.layout); fx.amb = this.view.th.ambient; fx.clear();
     const nrnd = o.netSeed != null ? mulberry32((o.netSeed ^ 0x5eed) >>> 0) : Math.random; this.netCfg = o.netCfg || null; this.net = o.net || null;
     this.edgeHelp = o.edgeHelp !== undefined ? !!o.edgeHelp : S().settings.edgeHelp !== false; this.edgeSaves = o.edgeSaves || {}; this.edgeGrace = this.edgeHelp ? 0.25 : 0.12; this.edgeNear = 0; this.edgeTickT = 0;
     this.hole = new Float32Array(AW * AH); this.spk = new Float32Array(AW * AH); this.spkWarn = new Uint8Array(AW * AH); this.spkPh = new Float32Array(AW * AH);
@@ -707,7 +716,7 @@ export class Game {
       if (this.melee) this.slashArcVis(f, m, r);
       m.update(dt, { slash: f.slV >= 0 && f.alive ? { t: f.slV, M: W(f.wpn).melee } : null, move: f.alive ? f.move : 0, t: f.tmr, dash: f.dashT > 0 ? f.dashT / 0.17 : 0, charge: f.charging ? Math.min(1, f.chargeT / 0.7) : 0, throwT: f.throwT, dead: !f.alive, deflect: f.deflectT, air: f.alive ? 0 : 0, win: (f.show && f.show.win) || (this.state === 'roundEnd' && f.alive && (this.winTeam >= 0 ? f.team === this.winTeam : this.winner === f)), scared, happy: f.happyT > 0 ? 1 : 0, catchPop: f.catchPop > 0 ? f.catchPop : 0, hurt: Math.min(1, f.hitFlash * 2 + f.hurtT + (f.stunT > 0 ? 0.6 : 0)), emote: f.emoteT > 0 ? 1 : 0 });
       if (f.alive && !f.show) this.styleCues(f, dt, t);
-      if (m.mark) { m.mark.visible = f.alive && !f.show && this.mode !== 'attract'; if (m.mark.visible) { m.mark.position.y = m.mark.userData.y0 + Math.sin(t * 4.5 + f.idx) * 0.07; keepMarkOn(m); } }
+      if (m.mark) { m.mark.visible = f.alive && !f.show && this.mode !== 'attract' && !this.tutorial; if (m.mark.visible) { m.mark.position.y = m.mark.userData.y0 + Math.sin(t * 4.5 + f.idx) * 0.07; keepMarkOn(m); } }
       if (m.tbub) { m.tbub.visible = f.alive && f.pu.slow > 0; if (m.tbub.visible) { m.tbub.rotation.z = t * 0.6; m.tbub.material.opacity = 0.35 + Math.sin(t * 5) * 0.12; } }
       m.bubble.visible = f.shield && f.alive; if (f.shield) m.bubble.scale.setScalar(1 + Math.sin(t * 6) * 0.03);
       m.deflect.visible = f.deflectT > 0 && f.alive; if (f.deflectT > 0) { m.deflect.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); m.deflect.scale.setScalar(1 + (0.3 - f.deflectT) * 2); m.deflect.material.opacity = f.deflectT / 0.3; }
