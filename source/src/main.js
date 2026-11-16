@@ -25,6 +25,7 @@ import { SPEEDS } from './save.js';
 import './netui.js';
 import { Match } from './net/match.js';
 import { STORE } from './flags.js';
+import { ensureTrophy, awardMatchTrophies, currentRank, myRankId, rankBadgeHtml, masteryOf, grantTrophies, setTrophyDay, planAward, RANKS, TROPHY_DAY_CAP, trophyCount } from './trophy.js';
 import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
 const HXc = () => _HX, HZc = () => _HZ;
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, showBrowserBarTip, pwa , fsOnPlay, fsState } from './pwa.js';
@@ -135,6 +136,7 @@ const app = {
   },
   botDef(hero, o = {}) { return { hero, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: hero.name, diff: S().setup.diff, persona: PERSONAS[hero.id], wins: 0, weapon: pick(heroWeapons(hero.id)), ...o }; }, // v4.11 bots only pick their own character's weapons
   // ---- start a mode from the mode-select screen
+  startMatch() { const md = S().setup.mode; this.startMode(MODES[md] && md !== 'campaign' ? md : 'classic'); },
   startMode(modeId) { fsOnPlay(); /* t394u: fullscreen from the Play tap when supported */
     const s = S(), st = s.setup; st.mode = modeId; const nh = this.humans(); const players = [this.humanDef(0)]; if (nh === 2) players.push(this.humanDef(1));
     const used = new Set(players.map((p) => p.hero.id)); const pool = () => shuffle(HEROES.filter((h) => !used.has(h.id)));
@@ -270,11 +272,13 @@ const app = {
     if (mode === 'bomb') rows.push(['Bombs passed', String(m.st.passes)]);
     if (m.stage) { const stg = m.stage; stars = evalStars(stg, st); const cur = s.camp.stars[stg.n - 1] || 0; prevStars = cur; firstClear = won && cur === 0; if (stars > cur) { s.camp.stars[stg.n - 1] = stars; } if (stg.kind === 'boss' && won) { track('boss', 0); s.camp.bosses = s.camp.bosses || {}; if (!s.camp.bosses[stg.n]) { s.camp.bosses[stg.n] = 1; track('boss', 1); } } const tot = s.camp.stars.reduce((a, b) => a + (b || 0), 0); track('stars', tot); if (won) { coins += 15 * stars + (firstClear ? 60 : 0); xp += 12 * stars + (firstClear ? 50 : 0); } rows.push(['Time', fmtT(g.playTime)], ['Times KO\u2019d', String(m.st.deaths)]); }
     if (m.tutorial) { s.tutorialDone = true; coins = 40; xp = 60; rows.length = 0; rows.push(['Tutorial', 'Complete!']); }
+    const hid = (m.players[0] && m.players[0].hero && (m.players[0].hero.id || m.players[0].hero)) || s.hero;
+    const trophy = awardMatchTrophies({ won, tutorial: !!m.tutorial, campaign: !!m.stage, online: !!m.online, couch: this.humans() === 2, diff: s.setup.diff, heroId: hid, mode });
     addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {}
     if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); this.playPose(g.winner, s.eq.pose || 'wave'); }
     const lv = levelInfo();
-    const base = { won, mode, stage: m.stage || null, stars, prevStars, firstClear, rows, coins, xp, lvBefore, lv, ups, winnerName: o.winnerName, champ: o.champ, info: o.info, tutorial: !!m.tutorial };
-    this.lastResult = base; setTimeout(() => { if (this.mode === 'matchEnd') { UI.show('matchEnd', base); this.applyTouch(); } }, 400);
+    const base = { won, mode, stage: m.stage || null, stars, prevStars, firstClear, rows, coins, xp, lvBefore, lv, ups, winnerName: o.winnerName, champ: o.champ, info: o.info, tutorial: !!m.tutorial, trophy };
+    this.lastResult = base; setTimeout(() => { if (this.mode === 'matchEnd') { UI.show((trophy && trophy.rankUps && trophy.rankUps.length) ? 'rankup' : 'matchEnd', trophy && trophy.rankUps && trophy.rankUps.length ? { award: trophy, next: base } : base); this.applyTouch(); } }, 400);
   },
   rematch() { const m = this.match; if (!m) return; if (m.stage) this.startStage(m.stage.n); else if (m.mode === 'tutorial') this.startTutorial(); else this.startMode(m.mode); },
   pause() { if (this.net && this.mode === 'play' && this.game) { if (UI.cur === 'netPause') UI.clear(); else { UI.show('netPause'); sfx('click'); } this.applyTouch(); return; } if (this.mode !== 'play' || this.paused || !this.game || this.game.state === 'matchEnd') return; this.paused = true; this.applyTouch(); UI.show('pause'); sfx('click'); },
@@ -297,7 +301,7 @@ const app = {
   },
   net_matchEnd(res) {
     this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {} const won = Net.reward ? Net.reward.won : false; music('win'); sfx(won ? 'win' : 'lose'); const g = this.game; if (won && g) { const f = g.fighters.find((x) => !x.isBot && x.def.slot === 0); if (f) { fx.confetti(f.x, f.z, 80, 1.6); this.playPose(f, S().eq.pose || 'wave'); } } this.applyTouch();
-    setTimeout(() => { if (this.mode === 'matchEnd' && this.net) { UI.show('netResults'); this.applyTouch(); } }, 900);
+    setTimeout(() => { if (this.mode === 'matchEnd' && this.net) { const tw = Net.reward && Net.reward.trophy; UI.show((tw && tw.rankUps && tw.rankUps.length) ? 'rankup' : 'netResults', tw && tw.rankUps && tw.rankUps.length ? { award: tw, nextNet: true } : {}); this.applyTouch(); } }, 900);
   },
   netToLobby() { this.match = null; this.mode = 'menu'; this.paused = false; UI.clear(); UI.hudStart(null); this.startAttract(); UI.show('netLobby'); this.applyTouch(); },
   netClosed() {},
@@ -358,7 +362,7 @@ const app = {
 
 // ---------- boot ----------
 function boot() {
-  loadSave(); const canvas = $('#c');
+  loadSave(); ensureTrophy(); const canvas = $('#c');
   if (!initGfx(canvas)) { $('#loading').innerHTML = '<div class="errbox">WebGL is not available on this device/browser.</div>'; return; }
   fx.init(gfx.scene); applyVolumes();
   initInput(canvas); initTouch($('#touch'));
@@ -437,5 +441,6 @@ function boot() {
   startLoop();
   if (!STORE) window.__bg = { fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, applyPerf: () => setQuality(S().settings.quality), saverActive, isPhoneLike, suspendAudio, kickPerf, wantKind, UI, Bot, BOT_DIFFS, BOT_STYLES, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; prof.raf = prof.drawn = prof.skipped = prof.static = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
   if (!STORE) Object.assign(window.__bg, { track, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf, POSES, SPARKLES });
+  if (!STORE) window.__bg.Trophy = { ensureTrophy, awardMatchTrophies, currentRank, myRankId, rankBadgeHtml, masteryOf, grantTrophies, setTrophyDay, planAward, RANKS, TROPHY_DAY_CAP, trophyCount };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }

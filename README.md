@@ -14,6 +14,11 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.11.8 (trophy road)
+- **A kid-safe Trophy Road:** you earn trophies by playing (wins give more, a loss never takes any away, and your rank never goes down). Ranks go Bronze I–III, Silver I–III, Gold I–III, then Star, and each step unlocks stars, looks, emotes, or a title. Easy bots give fewer trophies after a while, and there is a daily cap so it stays fair.
+- **A mastery badge for each fighter** you play, plus a short celebration when you rank up. Friends in your online room can see your rank badge, but there is no worldwide leaderboard and no chat with strangers.
+- Game speed is still Chill by default. Battery saver is still Auto. New players still start on Easy bots.
+
 ## What's new in v4.11.7 (smarter bots)
 - **Smarter bots that play like their fighter:** Nori dashes in and out, Gus brawls up close, Wisp hides then pops out, Yuki chills a rival and chases, and the others play their own way too. Bot skill is Easy (the default, kinder for new players), Normal, or Hard. Hard is sharp, but not an aimbot, and bots still cannot see through bushes. Default Game speed is still Chill. Battery saver is still Auto.
 

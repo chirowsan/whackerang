@@ -8,6 +8,7 @@ import { BinWriter, BinReader, enc, dec } from './bin.js';
 import { PK, STEP, FxRecorder, GuestWorld, encodeFast, encodeCrates, encodeHoles, encodeItems, encodeTraps, slowSig } from './world.js';
 import { HEROES, HATS, ARENAS, MODES, TRAILS, SKINS, EMOTES, PERSONAS, PLAYER_COLORS } from '../data.js';
 import { S, getWpn, save, SPEEDS } from '../save.js';
+import { awardMatchTrophies, myRankId, rankById } from '../trophy.js';
 import { Input } from '../input.js';
 import { Bot } from '../ai.js';
 import { fx } from '../fx.js';
@@ -37,7 +38,7 @@ export const Net = {
   emit() { this.onUpdate && this.onUpdate(); },
   setStatus(s) { this.status = s; this.onStatus && this.onStatus(s); },
   me() { return this.lobby.players.find((p) => p.slot === this.mySlot) || null; },
-  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail, weapon: getWpn(0, hero) }; },
+  profile() { const s = S(); const hero = HEROES.some((h) => h.id === s.hero) ? s.hero : 'bao'; return { name: this.forceName || s.settings.onlineName || null, hero, hat: s.hats[hero] || 'none', skin: s.eq.skin, trail: s.eq.trail, weapon: getWpn(0, hero), rank: myRankId() }; },
   defaultSettings() { return { mode: 'classic', arena: 'random', size: 'large', traps: 'some', events: 'some', speed: 'chill', rounds: 3, bots: true, diff: 0, mutator: 'off' }; },
   normCode, // net415: tests and join-box helpers use the same parser as the UI
   reconnecting: false,
@@ -208,7 +209,7 @@ export const Net = {
     const free = ['bao', 'nori', 'tako', 'kuma'].find((id) => !taken.has(id)); if (free) { p.autoFrom = p.hero; p.autoTo = free; p.hero = free; p.hat = 'none'; }
   },
   applyProfile(p, m) {
-    p.name = safeName(m.name); p.hero = HEROES.some((h) => h.id === m.hero) ? m.hero : 'bao'; p.hat = hexOk(m.hat, HATS.map((h) => h.id)) ? m.hat : 'none'; p.skin = SKINS[m.skin] ? m.skin : 'default'; p.weapon = wpnFor(p.hero, m.weapon); /* v4.11: host keeps only a weapon of the player's own character; anything else -> that character's first */ p.trail = TRAILS[m.trail] ? m.trail : 'none';
+    p.name = safeName(m.name); p.hero = HEROES.some((h) => h.id === m.hero) ? m.hero : 'bao'; p.hat = hexOk(m.hat, HATS.map((h) => h.id)) ? m.hat : 'none'; p.skin = SKINS[m.skin] ? m.skin : 'default'; p.weapon = wpnFor(p.hero, m.weapon); /* v4.11: host keeps only a weapon of the player's own character; anything else -> that character's first */ p.trail = TRAILS[m.trail] ? m.trail : 'none'; p.rank = rankById(m.rank).id;
   },
   note(t) { this.notes.push({ t, at: now() }); if (this.notes.length > 4) this.notes.shift(); this.onNote && this.onNote(t); },
   balanceTeams() { const H = this.H; if (!H) return; const hs = H.slots.filter((p) => p && p.conn); for (const t of [0, 1]) { let mem = hs.filter((p) => p.team === t); while (mem.length > 2) { const x = mem.pop(); x.team = 1 - t; } } },
@@ -297,7 +298,7 @@ export const Net = {
   resendSlow(all) { const g = this.app.game; if (!g || !this.H) return; for (const k of ['crates', 'holes', 'items', 'traps']) this.sendSlow(k, g); },
   // ---- host: lobby state
   syncLobby() {
-    const H = this.H; if (!H) return; const players = H.slots.filter((p) => p).map((p) => ({ slot: p.slot, name: p.name, hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: p.weapon || 'boom', ready: !!p.ready, team: p.team | 0, host: !!p.isHost, conn: !!p.conn, ping: Math.round(p.ping || 0), rematch: H.rematch.has(p.slot) }));
+    const H = this.H; if (!H) return; const players = H.slots.filter((p) => p).map((p) => ({ slot: p.slot, name: p.name, hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: p.weapon || 'boom', rank: p.rank || 'new', ready: !!p.ready, team: p.team | 0, host: !!p.isHost, conn: !!p.conn, ping: Math.round(p.ping || 0), rematch: H.rematch.has(p.slot) }));
     this.lobby = { players, settings: H.settings, phase: this.phase, code: this.code };
     this.sendAll({ t: 'lobby', ...this.lobby }); this.emit();
   },
@@ -318,7 +319,7 @@ export const Net = {
   buildDefs() {
     const H = this.H, s = H.settings; const hum = H.slots.filter((p) => p && p.conn).sort((a, b) => a.slot - b.slot); const teamy = TEAM_MODES.includes(s.mode);
     const defs = []; const HERO = (id) => HEROES.find((h) => h.id === id) || HEROES[0];
-    const base = (p) => ({ hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: wpnFor(p.hero, p.weapon), type: 'classic', ctrl: 'human', slot: p.slot, name: p.name, wins: 0, diff: 1, cid: p.cid });
+    const base = (p) => ({ hero: p.hero, hat: p.hat, skin: p.skin, trail: p.trail, weapon: wpnFor(p.hero, p.weapon), type: 'classic', ctrl: 'human', slot: p.slot, name: p.name, wins: 0, diff: 1, cid: p.cid, rank: p.rank || 'new' });
     let list = hum.map((p) => ({ ...base(p), team: teamy ? p.team : undefined }));
     const used = new Set(list.map((d) => d.hero)); const pool = shuffle(HEROES.filter((h) => !used.has(h.id)).map((h) => h.id));
     const bot = (extra = {}) => { const hid = pool.shift() || pick(HEROES).id; return { hero: hid, hat: Math.random() < 0.5 ? pick(HATS).id : 'none', ctrl: 'bot', slot: -1, name: HERO(hid).name, diff: s.diff, persona: PERSONAS[hid], wins: 0, type: 'classic', weapon: pick(WEAPON_IDS), ...extra }; };
@@ -352,7 +353,7 @@ export const Net = {
     const pre = Math.min(1.2, Math.max(0.45, 0.45 + worst / 1000)); return { ...o, intro: CD_LEN + pre, input: this.input, netSeed: ((Math.random() * 0x7fffffff) | 1), dens: this.roomDens(), netCfg: SPEEDS[s.speed] || SPEEDS.chill, net: this }; },
   roundMsg() {
     const m = this.app.match, g = this.app.game, o = this.curOpts;
-    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, dens: g.dens, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, weapon: g.melee ? wpnOf(d.weapon) : undefined, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid })) };
+    return { t: 'round', mode: m.mode, round: m.round, need: m.need, arena: g.arenaId, size: m.size, traps: m.traps, trapSet: m.trapSet, mutator: m.mutator, rules: m.curRules, seed: o.netSeed, dens: g.dens, speed: this.H.settings.speed, goIn: Math.max(0, g.introT), players: m.players.map((d) => ({ hero: d.hero.id, hat: d.hat, skin: d.skin, trail: d.trail, weapon: g.melee ? wpnOf(d.weapon) : undefined, type: d.type, ctrl: d.ctrl, slot: d.slot, name: d.name, team: d.team, color: d.color, lives: d.lives, diff: d.diff, persona: d.persona, wins: d.wins || 0, cid: d.cid, rank: d.rank || 'new' })) };
   },
   onGameCreated(g, opts) {
     this.curOpts = opts;
@@ -407,8 +408,10 @@ export const Net = {
     coins = Math.min(coins, ONLINE_COIN_CAP); xp = Math.min(xp, ONLINE_XP_CAP);
     const o = s.online = s.online || { day: '', gold: 0 }; const day = new Date().toDateString(); if (o.day !== day) { o.day = day; o.gold = 0; } const room = Math.max(0, ONLINE_DAY_CAP - o.gold); const capped = coins > room; coins = Math.min(coins, room); o.gold += coins;
     s.played++; track('play'); { const hid = (me && me.hero && (me.hero.id || me.hero)) || S().hero; if (hid) track('as:' + hid); } if (won) { s.wins++; track('win'); if (mode === 'team') track('teamwin'); if (mode === 'koth') track('kothwin'); if (mode === 'bomb') track('bombwin'); if (['ctf', 'coins', 'ball', 'crumble'].includes(mode)) track(mode + 'win'); }
-    if (coins > 0) addCoins(coins, 'online'); const ups = addXp(xp); save();
-    this.reward = { won, coins, xp, kos, capped, time, ups }; return this.reward;
+    if (coins > 0) addCoins(coins, 'online'); const ups = addXp(xp);
+    const hid = (me && me.hero && (me.hero.id || me.hero)) || S().hero;
+    const trophy = awardMatchTrophies({ online: true, won, heroId: hid, mode }); save();
+    this.reward = { won, coins, xp, kos, capped, time, ups, trophy }; return this.reward;
   },
   sendAll(o) { const H = this.H; if (!H) return; this.fanout('rel', JSON.stringify(o)); },
   sendTo(p, o) { if (p && p.link) p.link.send('rel', JSON.stringify(o)); },

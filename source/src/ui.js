@@ -10,6 +10,7 @@ import { adultGate } from './kids.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS, isStandalone, showBrowserBarTip } from './pwa.js';
 import { poisonHud } from './poison.js';
 import { heroWeapons, WEAPONS, wpnSvg } from './weapons.js';
+import { rankBadgeHtml, masteryOf, myRankId } from './trophy.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export function h(tag, cls, kids, attrs) {
@@ -106,6 +107,7 @@ export const UI = {
       HEROES.forEach((hh) => {
         const c = h('div', 'hero-card' + (sel === hh.id ? ' sel' : ''), `<img src="${this.pic(hh)}"><div class="nm">${hh.name}</div><div class="ti">${hh.title}</div><div class="htag">${(SIGS[hh.id]&&SIGS[hh.id].tag)||hh.perk}</div><div class="how">${hh.how||hh.perk||''}</div><div class="ti hp">${'\u2665'.repeat(heroHp(hh.id))}</div>`, { 'data-nav': 1, style: `--hc:${hex(hh.color)}` });
         if (!owned(hh)) c.appendChild(h('div', 'lock', `🔒<span style="display:flex;align-items:center;gap:.3em"><span class="coin"></span>${hh.cost}</span>`));
+        { const mv = masteryOf(hh.id); if (mv.lv > 1) c.appendChild(h('div', 'ms-badge', 'M' + mv.lv, { title: hh.name + ' mastery ' + mv.lv })); }
         c.addEventListener('click', () => { sel = hh.id; sfx('click'); render(); }); c.addEventListener('pointerenter', () => this.setFocus(c)); list.appendChild(c);
       });
       const hh = this.heroById(sel); det.innerHTML = '';
@@ -214,7 +216,7 @@ export const UI = {
   hudSet(id, html) { const c = this.hudCache; if (!c) return; if (c[id] !== html) { c[id] = html; const e = document.getElementById(id); if (e) e.innerHTML = html; } },
   hudUpdate(game) {
     if (!game || game.mode === 'attract' || !this.hudCache) return;
-    this.hudSet('h-pl', game.fighters.map((q) => `<div class="pchip ${q.alive ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><span>${q.name}</span><span class="w">${crown().repeat(q.wins || 0)}</span><span class="am">${'<i class="ap on"></i>'.repeat(Math.max(0, q.ammo))}${'<i class="ap"></i>'.repeat(Math.max(0, q.maxAmmo - q.ammo))}</span></div>`).join(''));
+    this.hudSet('h-pl', game.fighters.map((q) => { const rk = (!q.isBot && (q.def.rank || (q.def.slot === 0 ? myRankId() : ''))) || ''; const b = rk ? rankBadgeHtml(rk, 16) : ''; return `<div class="pchip ${q.alive ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}">${b}<span>${q.name}</span><span class="w">${crown().repeat(q.wins || 0)}</span><span class="am">${'<i class="ap on"></i>'.repeat(Math.max(0, q.ammo))}${'<i class="ap"></i>'.repeat(Math.max(0, q.maxAmmo - q.ammo))}</span></div>`; }).join(''));
     this.hudSet('h-name', game.sudden ? '<span style="color:#ff5a5a">SUDDEN DEATH</span>' : `Round ${game.round}`);
     this.hudSet('h-time', poisonHud(game) || (game.sudden ? '☠' : fmtTime(Math.max(0, 48 - game.playTime))));
   },

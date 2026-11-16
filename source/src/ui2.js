@@ -6,6 +6,7 @@ import { HEROES, HATS, ARENAS, POWERUPS, PLAYER_COLORS, BOOM_TYPES, TRAILS, SKIN
 import { EARN, earnToday, streakInfo, claimStreak, bonusLeft, claimBonus, gatePassed, gateQuestion, gatePass } from './economy.js';
 import { STORE } from './flags.js';
 import { PACKS, STARTER, FIRST_BUY_BONUS, isFirstPurchase, packTotal, fmtPrice, getProvider, TEST_MODE } from './purchase.js';
+import { ensureTrophy, currentRank, trophyCount, rankBadgeHtml, nextRank, RANKS, masteryOf, MASTERY_NEED, MASTERY_MAX, TROPHY_DAY_CAP, myTitle, myRankId } from './trophy.js';
 import { todayMutator, MUTATORS } from './mutators.js';
 import { TRAP_INFO, legendImages } from './traps.js';
 import { STAGES, MAX_STARS, starHint, stageBlurb } from './modes.js';
@@ -89,12 +90,17 @@ Object.assign(UI, {
     g.appendChild(this.btn('⚔ Armory', '', () => this.show('armory', { ret: 'menu' }), { id: 'btn-armory' }));
     g.appendChild(this.btn('Collection', '', () => this.show('collection', { tab: 'Hats' }), { id: 'btn-collection' }));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
+    g.appendChild(this.btn('Trophy Road', '', () => this.show('trophyroad', { ret: 'menu' }), { id: 'btn-trophy' }));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
     g.appendChild(this.btn('Settings', '', () => this.show('settings', { ret: 'menu' })));
     g.appendChild(this.btn('How to play' + (newSeen ? '' : ' <i class="dot"></i>'), '', () => { s.settings.seenVer = '4.5'; save(); this.show('howto', { new: 1 }); }));
     g.appendChild(this.btn('Practice', '', () => a.startTutorial(), { id: 'btn-practice' }));
     left.appendChild(g); el.appendChild(left);
-    const tr = h('div', 'corner tr'); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.starChip());
+    const tr = h('div', 'corner tr');
+    const rk = currentRank();
+    const rchip = h('button', 'chip rchip', rankBadgeHtml(rk, 26) + `<span><b>${rk.short}</b><em>${trophyCount()} trophies</em></span>`, { id: 'btn-rankchip', 'data-nav': 1, title: rk.name });
+    rchip.addEventListener('click', () => { sfx('click'); this.show('trophyroad', { ret: 'menu' }); });
+    tr.appendChild(rchip); tr.appendChild(h('div', 'chip', lvlChip())); tr.appendChild(this.starChip());
     const mu = h('button', 'btn small sq', S().settings.mute ? '🔇' : '🔊', { 'data-nav': 1 }); mu.addEventListener('click', () => { S().settings.mute = !S().settings.mute; applyVolumes(); save(); mu.textContent = S().settings.mute ? '🔇' : '🔊'; sfx('click'); }); tr.appendChild(mu); el.appendChild(tr);
     if (canInstall()) { const br = h('div', 'corner tl'); br.appendChild(this.btn(IS_IOS ? '\u2B07 Add to Home Screen' : '\u2B07 Install app', 'gold small', () => promptInstall(this))); el.appendChild(br); }
     // small Quests badge (uncluttered; full list lives on the Quests screen)
@@ -288,6 +294,10 @@ Object.assign(UI, {
     const body = h('div', 'body'); const left = h('div', 'panel prof-left scroll'); const right = h('div', 'panel prof-right scroll');
     const hero = this.heroById(s.hero);
     left.appendChild(h('div', 'lvbig', `<img src="${this.pic(hero)}"><div><b>Level ${l.level}</b><div class="xpbar big"><i style="width:${Math.round(l.cur / l.need * 100)}%"></i></div><small>${l.cur} / ${l.need} XP</small></div>`));
+    { const rk = currentRank(); const nxt = nextRank(rk.id); const n = trophyCount(); const title = myTitle();
+      left.appendChild(h('div', 'tr-prof', rankBadgeHtml(rk, 42) + `<div><b>${rk.name}</b>${title ? `<small class="tr-title">${title}</small>` : ''}<div class="xpbar big"><i style="width:${nxt ? Math.round(Math.max(0, n - rk.need) / Math.max(1, nxt.need - rk.need) * 100) : 100}%"></i></div><small>${n} trophies${nxt ? ' · ' + (nxt.need - n) + ' to ' + nxt.short : ' · max rank'}</small></div>`));
+      left.appendChild(this.btn('Trophy Road', 'small', () => this.show('trophyroad', { ret: 'profile' }), { id: 'btn-trophy-prof' }));
+    }
     const nx = Object.keys(LEVEL_REWARDS).map(Number).find((x) => x > l.level); if (nx) { const k = Object.keys(LEVEL_REWARDS[nx])[0]; left.appendChild(h('div', 'note-line', `Next reward at level ${nx}: ${LEVEL_REWARDS[nx][k]} (${k.slice(0, -1)})`)); }
     left.appendChild(h('h4', '', 'Daily missions')); const d = ensureDaily();
     d.list.forEach((c, i) => { const pr = dailyProgress(c); const done = pr >= c.n, claimed = d.claimed[c.id]; const row = h('div', 'daily' + (done ? ' done' : ''), `<div><b>${c.text}</b><span class="xpbar"><i style="width:${Math.round(pr / c.n * 100)}%"></i></span><small>${pr}/${c.n} · +${c.coins} gold · +${c.xp} XP</small></div>`); row.appendChild(claimed ? h('span', 'owned', '✓') : this.btn('Claim', 'small ' + (done ? 'gold' : 'locked'), () => { if (claimDaily(i)) { sfx('buy'); this.show('profile'); } else sfx('deny'); })); left.appendChild(row); });
@@ -317,6 +327,11 @@ Object.assign(UI, {
     const l0 = p.lvBefore, l1 = p.lv; const lv0 = l0.level; const pct0 = Math.round(l0.cur / l0.need * 100), pct1 = l1.level > lv0 ? 100 : Math.round(l1.cur / l1.need * 100);
     const xr = h('div', 'xprow rv', `<b>LV ${lv0}</b><span class="xpbar big"><i style="width:${pct0}%"></i></span><span class="gain">+${p.xp} XP</span>`); left.appendChild(xr);
     const gr = h('div', 'goldrow rv', `<span class="coin big"></span><b class="cnt">0</b><span class="gl">gold earned</span>`); left.appendChild(gr);
+    if (p.trophy && !p.tutorial) {
+      const tg = p.trophy;
+      const line = tg.gained > 0 ? ('+' + tg.gained + ' trophies') : (tg.capHit ? 'Daily trophy cap reached — come back tomorrow!' : 'No trophies this match');
+      left.appendChild(h('div', 'trophrow rv', rankBadgeHtml(tg.rank, 22) + `<b id="trophy-gain">${line}</b><small>${tg.n} total · ${tg.rank.name}</small>`, { id: 'trophy-line' }));
+    }
     const lvlBox = h('div', 'lvbox'); left.appendChild(lvlBox);
     // missions panel
     const dly = ensureDaily(); const before = this.app.dailyBefore || {}; right.appendChild(h('h4', '', 'Daily missions'));
@@ -384,7 +399,7 @@ Object.assign(UI, {
   hudUpdate(game) {
     if (!game || game.mode === 'attract' || !this.hudCache) return; const m = this.app.match; const ms = game.mstate(); const touch = Input.touch.enabled;
     const shown = game.fighters.slice(0, game.nPlayers);
-    this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const mh = q.boss ? 1 : (q.maxHp || 1); const hearts = mh > 1 ? `<span class="hearts">${Array.from({ length: mh }, (_, i) => heart(i < (q.alive ? q.hp : 0))).join('')}${lives > 1 && lives < 90 ? `<b class="lvx" style="font-size:.8em;margin-left:3px;opacity:.85">\u00d7${Math.max(0, q.lives)}</b>` : ''}</span>` : lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; /* v4.7: hearts = hit points of the current life (x N = lives left) */ const rdy = q.ult >= 100; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}"><div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
+    this.hudSet('h-pl', shown.map((q) => { const lives = q.def.lives || 1; const mh = q.boss ? 1 : (q.maxHp || 1); const hearts = mh > 1 ? `<span class="hearts">${Array.from({ length: mh }, (_, i) => heart(i < (q.alive ? q.hp : 0))).join('')}${lives > 1 && lives < 90 ? `<b class="lvx" style="font-size:.8em;margin-left:3px;opacity:.85">\u00d7${Math.max(0, q.lives)}</b>` : ''}</span>` : lives > 1 && lives < 90 ? `<span class="hearts">${Array.from({ length: Math.max(lives, q.lives) }, (_, i) => heart(i < q.lives)).join('')}</span>` : ''; /* v4.7: hearts = hit points of the current life (x N = lives left) */ const rdy = q.ult >= 100; const rk = (!q.isBot && (q.def.rank || (q.def.slot === 0 ? myRankId() : ''))) || ''; const b = rk ? rankBadgeHtml(rk, 16) : ''; return `<div class="pchip ${q.alive || q.respawnT > 0 ? '' : 'dead'}" style="--pc:${hex(q.color)}"><img src="${this.pic(q.hero, q.def.hat)}">${b}<div class="pc-in"><span class="nm">${q.name}</span>${hearts}<span class="w">${crown().repeat(q.wins || 0)}</span><span class="ultbar ${rdy ? 'rdy' : ''}"><i style="width:${Math.round(q.ult)}%"></i></span></div>${!q.isBot && rdy && !touch ? '<span class="ultk">ULT [R]</span>' : ''}</div>`; }).join(''));
     this.mapUpdate(game); let mid = ''; const rt = ms.type;
     if (m && m.tutorial) mid = ''; else if (m && m.stage) mid = `<b>${m.stage.n}</b> ${m.stage.name.replace('Boss: ', '')}`; else if (game.sudden) mid = '<span style="color:#ff5a5a">SUDDEN DEATH</span>'; else mid = (rt === 'elim' ? `Round ${game.round}` : '');
     if (rt === 'koth') { const teams = [...new Set(game.fighters.slice(0, game.nPlayers).map((f) => f.team))]; mid = `<div class="koth">${teams.map((t) => `<div class="kb ${ms.owner === t ? 'own' : ''}" style="--pc:${hex(game.teamColor(t))}"><i style="width:${Math.min(100, (ms.scores[t] || 0) / ms.target * 100)}%"></i><b>${Math.floor(ms.scores[t] || 0)}</b></div>`).join('')}</div><div class="kz ${ms.contested ? 'c' : ''}">${ms.contested ? 'CONTESTED' : 'Hill moves in ' + Math.ceil(ms.zoneIn) + 's'}</div>`; }
@@ -507,4 +522,70 @@ UI.howto = function (p) {
     <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). ${STORE ? 'There is nothing to buy with real money in this version.' : 'The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged.'} Gold buys looks and conveniences, never power.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
 };
+UI.trophyroad = function (p) {
+  const ret = (p && p.ret) || 'menu';
+  const t = ensureTrophy();
+  const rk = currentRank();
+  const n = t.n;
+  const nxt = nextRank(rk.id);
+  const el = h('div', 'screen page', null, { id: 'trophyroad' });
+  const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(ret))); hd.appendChild(h('h2', '', 'Trophy Road')); hd.appendChild(this.starChip()); el.appendChild(hd);
+  const body = h('div', 'tr-body scroll', null, { id: 'tr-body' });
+  const head = h('div', 'tr-now panel');
+  const pct = nxt ? Math.round(Math.max(0, n - rk.need) / Math.max(1, nxt.need - rk.need) * 100) : 100;
+  head.innerHTML = rankBadgeHtml(rk, 72) + `<div class="tr-now-txt"><b>${rk.name}</b>${t.title ? `<div class="tr-title">${t.title}</div>` : ''}<div class="xpbar big"><i style="width:${pct}%"></i></div><small>${n} trophies${nxt ? ' · ' + (nxt.need - n) + ' to ' + nxt.name : ' · You reached Star!'}</small><small class="dimc tr-day">${t.dayN}/${TROPHY_DAY_CAP} trophies today. Losses never take trophies away.</small></div>`;
+  body.appendChild(head);
+  body.appendChild(h('p', 'kg-small', 'Win more, and you still get a few trophies for playing. Easy bots give fewer after a while, and there is a daily cap. Your rank never goes down.'));
+  const list = h('div', 'tr-list', null, { id: 'tr-list' });
+  for (const r of RANKS) {
+    const got = n >= r.need;
+    const cur = r.id === rk.id;
+    const need = r.reward ? Object.keys(r.reward).map((k) => k === 'stars' ? ('+' + r.reward.stars + ' stars') : (k === 'title' || r.title && k === 'title') ? null : k).filter(Boolean) : [];
+    const bits = [];
+    if (r.reward && r.reward.stars) bits.push('+' + r.reward.stars + ' stars');
+    if (r.reward && r.reward.emotes) bits.push('Hi! emote');
+    if (r.reward && r.reward.sparkles) bits.push('Twinkle sparkle');
+    if (r.reward && r.reward.trails === 'frost') bits.push('Frostbite trail');
+    if (r.reward && r.reward.trails === 'heart') bits.push('Hearts trail');
+    if (r.reward && r.reward.hats) bits.push({ flower: 'Flower hat', halo: 'Halo', crown: 'Crown' }[r.reward.hats] || r.reward.hats);
+    if (r.reward && r.reward.poses) bits.push('Victory hop');
+    if (r.reward && r.reward.skins) bits.push('Gilded color');
+    if (r.title) bits.push('Title: ' + r.title);
+    const row = h('div', 'tr-row' + (got ? ' got' : '') + (cur ? ' cur' : ''), null, { 'data-rank': r.id });
+    row.innerHTML = rankBadgeHtml(r, 36) + `<div class="tr-meta"><b>${r.name}</b><small>${r.need} trophies${bits.length ? ' · ' + bits.join(', ') : ' · starting rank'}</small></div>` + (got ? '<span class="owned">✓</span>' : `<span class="tr-need">${Math.max(0, r.need - n)} to go</span>`);
+    list.appendChild(row);
+  }
+  body.appendChild(list);
+  body.appendChild(h('h4', '', 'Fighter mastery'));
+  const mg = h('div', 'tr-mastery', null, { id: 'tr-mastery' });
+  for (const hh of HEROES) {
+    const mv = masteryOf(hh.id);
+    const cell = h('div', 'tr-mcell' + (mv.lv >= 10 ? ' max' : ''), `<img src="${this.pic(hh)}"><b>${hh.name}</b><span class="ms-badge">M${mv.lv}</span><small>${mv.lv >= 10 ? 'Master' : mv.plays + ' / ' + mv.next + ' matches'}</small>`);
+    mg.appendChild(cell);
+  }
+  body.appendChild(mg);
+  el.appendChild(body); return el;
+};
+
+UI.rankup = function (p) {
+  const award = (p && p.award) || { rankUps: [], rank: currentRank(), gained: 0, n: trophyCount() };
+  const top = award.rankUps && award.rankUps.length ? award.rankUps[award.rankUps.length - 1].rank : award.rank;
+  const el = h('div', 'screen center', null, { id: 'rankup' });
+  const d = h('div', 'panel dialog tr-up', null, { id: 'rankup-box' });
+  d.appendChild(h('div', 'tr-pop', rankBadgeHtml(top, 96), { id: 'rankup-badge' }));
+  d.appendChild(h('h2', '', 'New rank!'));
+  d.appendChild(h('div', 'tr-up-name', top.name, { id: 'rankup-name' }));
+  if (top.title) d.appendChild(h('div', 'tr-title', top.title));
+  const all = (award.rankUps || []).flatMap((u) => u.rewards || []);
+  if (all.length) d.appendChild(h('ul', 'tr-up-rewards', all.map((x) => '<li>' + x + '</li>').join(''), { id: 'rankup-rewards' }));
+  d.appendChild(h('p', 'kg-small', 'Your trophies never go down. Keep playing!'));
+  const go = () => {
+    if (p && p.next) this.show('matchEnd', p.next);
+    else if (p && p.nextNet) this.show('netResults');
+    else this.show('trophyroad', { ret: 'menu' });
+  };
+  d.appendChild(this.btn('Nice!', 'primary', go, { id: 'btn-rankup-ok' }));
+  el.appendChild(d); return el;
+};
+
 UI.pause = ((orig) => function () { const el = orig.call(this); return el; })(UI.pause);

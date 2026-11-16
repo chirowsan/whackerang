@@ -22,7 +22,7 @@ export function addXp(n) {
   s.stats.level = Math.max(s.stats.level || 1, after); checkAch(); checkMiles(); save(); return ups;
 }
 
-function grantItem(k, id) {
+export function grantItem(k, id) {
   const s = S();
   if (k === 'hats') { if (!s.unlockedHats.includes(id)) { s.unlockedHats.push(id); return true; } return false; }
   if (!s.own[k]) s.own[k] = [];

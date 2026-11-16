@@ -12,6 +12,7 @@ import { todayMutator } from './mutators.js';
 import { portrait } from './portraits.js';
 import { Match } from './net/match.js';
 import { KIDS } from './flags.js';
+import { rankBadgeHtml, myRankId } from './trophy.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -158,7 +159,7 @@ Object.assign(UI, {
   // ---- lobby (v4.1: code + share + start; everything else under Options)
   netLobby() {
     const a = this.app, s = S(); const isHost = Net.isHost; const L = Net.lobby; const me = Net.me(); const set = L.settings || Net.defaultSettings();
-    const key = [s.hero, s.hats[s.hero], s.eq.skin, s.eq.trail, s.settings.onlineName].join('|'); if (Net._pk !== key) { const first = Net._pk === undefined || Net._pk === null; Net._pk = key; if (me && !first) setTimeout(() => Net.active && Net.setMine(), 0); }
+    const key = [s.hero, s.hats[s.hero], s.eq.skin, s.eq.trail, s.settings.onlineName, myRankId()].join('|'); if (Net._pk !== key) { const first = Net._pk === undefined || Net._pk === null; Net._pk = key; if (me && !first) setTimeout(() => Net.active && Net.setMine(), 0); }
     if (!s.settings.onlineName) { s.settings.onlineName = randomPreset(); save(); }
     const el = h('div', 'screen page netscr netlobby nl2' + (optsOpen ? ' opts' : '')); const hd = h('header'); const bk = this.backBtn(() => this.show('netLeave')); bk.id = 'net-leave'; hd.appendChild(bk); hd.appendChild(h('h2', '', isHost ? 'Your room' : 'Room')); hd.appendChild(this.btn('⚙ Options', 'small', () => { optsOpen = true; this.show('netLobby'); }, { id: 'net-options' })); el.appendChild(hd);
     const main = h('div', 'nl2-main');
@@ -171,7 +172,7 @@ Object.assign(UI, {
       const p = L.players.find((q) => q.slot === sl && q.conn !== false); const row = h('div', 'prow' + (p ? '' : ' empty') + (p && p.slot === Net.mySlot ? ' me' : ''), null, { 'data-slot': sl });
       if (p) {
         const hero = HEROES.find((x) => x.id === p.hero) || HEROES[0]; row.appendChild(h('img', 'pimg', null, { src: portrait(hero, p.hat || 'none'), alt: hero.name }));
-        row.appendChild(h('div', 'pinfo', `<b>${esc(p.name)}</b><small>${p.host ? 'HOST' : (p.slot === Net.mySlot ? 'YOU' : 'READY')}${teamy ? ' · ' + (p.team === 0 ? 'CYAN' : 'PINK') : ''}</small>`));
+        const rb = rankBadgeHtml(p.rank || 'new', 22); row.appendChild(h('div', 'pinfo', `<b>${rb} ${esc(p.name)}</b><small>${p.host ? 'HOST' : (p.slot === Net.mySlot ? 'YOU' : 'READY')}${teamy ? ' · ' + (p.team === 0 ? 'CYAN' : 'PINK') : ''}</small>`));
         const st = h('div', 'pst', ''); st.innerHTML = `<span class="pg" data-ping="${p.slot}">${bars(p.host ? 0 : p.ping)}</span>`; row.appendChild(st);
         if (isHost && !p.host) { const kb = h('button', 'kick', '✕', { title: 'Remove player', 'data-nav': 1 }); kb.addEventListener('click', () => { sfx('click'); const pe = Net.H.slots[p.slot]; Net.kick(pe, 'kicked'); }); row.appendChild(kb); }
         row.appendChild(h('div', 'ebub', '', { id: 'eb' + sl }));
@@ -249,9 +250,10 @@ Object.assign(UI, {
     const el = h('div', 'screen center'); const d = h('div', 'panel dialog results r2 netres' + (won ? ' won' : ' lose'));
     d.appendChild(h('h2', 'rtitle', draw ? 'Draw!' : won ? 'Victory!' : 'Defeat'));
     const tbl = h('div', 'score'); const pl = Net.lobby.players;
-    R.players.forEach((q) => { const lp = pl.find((x) => x.slot === q.slot && !q.bot); const hero = HEROES.find((x) => x.id === (lp ? lp.hero : null)); const wt = R.winTeam >= 0 && q.team === R.winTeam; tbl.appendChild(h('div', 'srow' + (wt ? ' win' : ''), `<b>${esc(q.name)}${q.bot ? ' <small>(bot)</small>' : ''}</b><span class="pips">KOs ${q.kos}${R.mode === 'classic' || R.mode === 'team' || R.mode === 'crumble' ? ' · wins ' + q.wins : ''}${R.mode === 'coins' ? ' · coins ' + q.score : ''}</span>`)); });
+    R.players.forEach((q) => { const lp = pl.find((x) => x.slot === q.slot && !q.bot); const hero = HEROES.find((x) => x.id === (lp ? lp.hero : null)); const wt = R.winTeam >= 0 && q.team === R.winTeam; const rb = (!q.bot && (lp && lp.rank || q.rank)) ? rankBadgeHtml(lp && lp.rank || q.rank, 18) : ''; tbl.appendChild(h('div', 'srow' + (wt ? ' win' : ''), `<b>${rb}${esc(q.name)}${q.bot ? ' <small>(bot)</small>' : ''}</b><span class="pips">KOs ${q.kos}${R.mode === 'classic' || R.mode === 'team' || R.mode === 'crumble' ? ' · wins ' + q.wins : ''}${R.mode === 'coins' ? ' · coins ' + q.score : ''}</span>`)); });
     d.appendChild(tbl);
     const gr = h('div', 'netrew', `<span class="coin big"></span><b>+${rw.coins}</b> gold <i>·</i> <b>+${rw.xp}</b> XP${rw.capped ? ' <small>(daily online cap reached)</small>' : ''}`); d.appendChild(gr);
+    if (rw.trophy) { const tg = rw.trophy; d.appendChild(h('div', 'trophrow rv', rankBadgeHtml(tg.rank, 22) + `<b>+${tg.gained} trophies</b><small>${tg.n} total · ${tg.rank.name}</small>`, { id: 'trophy-line' })); }
     d.appendChild(h('small', 'dimc', `Online gold is capped (${ONLINE_COIN_CAP} per match, ${ONLINE_DAY_CAP} per day) so friends can\u2019t farm it.`));
     const votes = Net.lobby.players.filter((x) => x.rematch).length, tot = Net.lobby.players.filter((x) => x.conn !== false).length; const b = h('div', 'btns rb');
     const iVoted = Net.lobby.players.some((x) => x.slot === Net.mySlot && x.rematch);
