@@ -17,7 +17,7 @@ import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
 import { Input } from './input.js';
 import { Traps } from './traps.js';
-export const STEAL_R = 0.70, STEAL_CD = 6.5; // Salty steal: must be closer, and only every 6.5 s
+export const STEAL_R = 0.70, STEAL_CD = 6.5; export const REARM_STEAL = 12, REARM_LOST = 2.0; // disarm423 // Salty steal: must be closer, and only every 6.5 s. Victim of a steal is disarmed for 12 s, then gets a replacement (not until KO). Lost/faded booms re-arm after 2 s.
 import { keepMarkOn, STEALTH, stealthOn, stealthTick, stealthVis, canSee, reveal, bushClean } from './stealth.js';
 
 export const FR = 0.4, SPEED = 5.75, CURVE = 0.62, SUDDEN_AT = 48;
@@ -46,11 +46,12 @@ class Fighter {
     // v4.10 Armory + melee: weapon is fixed for the whole match (chosen pre-match); rooms without the capability are boomerang-only
     this.wpn = g.melee && !def.boss && !def.minion ? wpnFor(def.hero && def.hero.id || def.hero, def.weapon) : 'boom'; /* v4.11: only this character's own weapons */ this.slT = -1; this.slV = -1; this.slAng = 0; this.slCd = 0; this.slHit = new Set(); this.fireLock = false;
     if (g.melee && this.model.armR) { const hm = buildWeapon(this.wpn, this.color, this.hero, this.skin, 'classic', true); hm.scale.setScalar(this.wpn === 'boom' ? 0.8 : 0.82); hm.position.set(0.05, -0.24, 0.1); this.model.armR.add(hm); this.model.held = hm; }
-    const hum = !this.isBot; const nh = g.nHumans || 1; if (this.model.setMarker) this.model.setMarker(this.color, hum ? (nh > 1 ? 'P' + (this.def.slot + 1) : 'YOU') : null, hum);
+    const hum = !this.isBot; const nh = g.nHumans || 1; if (this.model.setMarker) this.model.setMarker(this.color, hum ? (nh > 1 ? null : 'YOU') : null, hum); /* hud422: couch P1/P2 lives on the overhead bar only; the 3D marker keeps the ring, not a second label */
   }
   get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.92 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 ? 0.5 : 1) * (this.chillT > 0 ? (this.chillK || 0.5) : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1); }
   update(dt) {
     const g = this.g; this.tmr += dt; if (this.show) return;
+    if (this.alive) this.rearmTick(g, dt);
     if (!this.alive) { this.deadT += dt; this.koAnim(dt); if (this.respawnT > 0) { this.respawnT -= dt; if (this.respawnT <= 0) g.respawn(this); } return; }
     this.spawnT = Math.min(1, this.spawnT + dt * 3);
     for (const k in this.pu) if (this.pu[k] > 0) this.pu[k] = Math.max(0, this.pu[k] - dt);
@@ -190,6 +191,16 @@ class Fighter {
     g.onKO(this, killer, kind); return true;
   }
   freezeFor(t) { reveal(this, STEALTH.hurt); this.frozenT = t; this.charging = false; this.chargeT = 0; this.vx = this.vz = 0; sfx('freeze'); fx.burst(this.x, 0.6, this.z, 10, [0xcff4ff, 0x8fdcff], { speed: 3, up: 3, size: 0.1 }); fx.ring(this.x, 0.2, this.z, 0x9ff0ff, 2.4, 0.35); }
+  // disarm423 failsafe: never stay disarmed. Steal victims re-arm after REARM_STEAL s; any other case (boomerang lost in a wall,
+  // faded, popped, desync) re-arms after REARM_LOST s with no boomerang of your own in flight. Host-side only; ammo is synced to guests.
+  rearmTick(g, dt) {
+    if (g.net && g.net.isGuest) return;
+    if (this.rearmT > 0) { this.rearmT -= dt; if (this.rearmT <= 0) { this.rearmT = 0; this.lostT = 0; if (this.ammo <= 0) this.giveAmmo(); } return; }
+    if (this.ammo > 0) { this.lostT = 0; return; }
+    let mine = false; for (const b of g.booms) if (b.alive && b.owner === this && b.carry && !(b.fade > 0)) { mine = true; break; }
+    if (mine) { this.lostT = 0; return; }
+    this.lostT = (this.lostT || 0) + dt; if (this.lostT >= REARM_LOST) { this.lostT = 0; this.giveAmmo(); }
+  }
   giveAmmo() { this.ammo = Math.min(this.maxAmmo, this.ammo + 1); }
 }
 
@@ -280,7 +291,7 @@ class Boom {
   caughtBy(f) { this._landCatch(f, false, true); }
   _landCatch(o, quiet, stolen) {
     const prev = this.owner;
-    if (o && o.alive) { if (this.carry || stolen) o.giveAmmo(); if (stolen && prev && prev !== o && prev.alive && prev.ammo > 0) { /* the stolen boom is no longer the owner's */ } }
+    if (o && o.alive) { if (this.carry || stolen) o.giveAmmo(); if (stolen && prev && prev !== o && prev.alive) prev.rearmT = Math.max(prev.rearmT || 0, REARM_STEAL); }
     this.kill();
     if (!quiet && o && o.alive) {
       const g = this.g; o.catchChain = g.time - o.lastCatchT < 3.2 ? o.catchChain + 1 : 1; o.lastCatchT = g.time;

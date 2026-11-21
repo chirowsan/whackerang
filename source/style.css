@@ -757,3 +757,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tr-now-txt .xpbar { display: block; width: 100%; margin: .45em 0 .3em; }
 .tr-now-txt small { display: block; line-height: 1.3; }
 .tr-now-txt .tr-day { opacity: .85; margin-top: .15em; }
+
+/* hud422: overhead indicators canvas + slim top chips */
+#ohud { position: fixed; left: 0; top: 0; pointer-events: none; z-index: 1; }
+#hud .pchip.slim { padding: calc(var(--u)*.15); gap: calc(var(--u)*.3); }
+#hud .pchip.slim img { width: calc(var(--u)*2.1); height: calc(var(--u)*2.1); }
+#hud .pchip.slim .pc-in { padding-right: calc(var(--u)*.3); }
