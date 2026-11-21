@@ -197,6 +197,32 @@ const BUILD = {
     view.anim.push((t) => { can.forEach(([g, p]) => { g.position.y += Math.sin(t * 1.3 + p) * 0.002; g.material.opacity = 0.7 + 0.3 * Math.sin(t * 7 + p); }); gh.forEach((m, i) => { const a = t * (0.25 + i * 0.07) + i * 2.1; m.position.set(Math.cos(a) * (HX + 7 + i * 2), 1.6 + Math.sin(t * 1.4 + i) * 0.3, Math.sin(a) * (HZ + 6 + i)); }); });
     this.clouds(view, 0xb8a8ff, [-1.4, -3.4], 0.2); view.rim = 0xb49aff;
   },
+  pond(view, rd) {
+    const R = view.root;
+    groundFrame(view, cv(256, 256, (x, w, h) => {
+      x.fillStyle = '#8fbf72'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 500; i++) { x.fillStyle = `hsla(${95 + rd() * 28},40%,${40 + rd() * 22}%,.45)`; x.fillRect(rd() * w, rd() * h, 2, 3 + rd() * 5); }
+    }, true), 14, -0.32);
+    const reeds = gfx.quality === 'low' ? 6 : 10;
+    for (let i = 0; i < reeds; i++) {
+      const a = i / reeds * Math.PI * 2 + rd() * 0.2, rad = Math.max(HX, HZ) + 2.6 + rd();
+      const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+      cyl(R, 0x4a7a38, [x, 0.45, z], 0.05, 0.9, { ol: 0.015, cast: false });
+      box(R, 0x3f8a48, [x + 0.08, 0.85, z], [0.28, 0.05, 0.1], { rot: [0, a, -0.4], cast: false });
+    }
+    const L = view.L; const cells = []; if (L && L.t) for (let k = 0; k < L.t.length; k++) if (L.t[k] === 6 /* T.WATER */) cells.push(k);
+    if (cells.length) {
+      const geo = new THREE.CylinderGeometry(0.38, 0.38, 0.04, 10); const mat = toon(0x4f9a52);
+      const n = Math.min(cells.length, gfx.quality === 'low' ? 16 : 40);
+      const im = new THREE.InstancedMesh(geo, mat, n); im.castShadow = false; im.receiveShadow = true;
+      const o = new THREE.Object3D(), col = new THREE.Color(), c0 = new THREE.Color(0x4f9a52), c1 = new THREE.Color(0x6ab85a);
+      for (let q = 0; q < n; q++) { const k = cells[q], x = cx(k % AW) + (rd() - 0.5) * 0.25, z = cz((k / AW) | 0) + (rd() - 0.5) * 0.25; o.position.set(x, 0.02, z); o.rotation.set(0, rd() * 6, 0); o.scale.setScalar(0.7 + rd() * 0.45); o.updateMatrix(); im.setMatrixAt(q, o.matrix); if (im.instanceColor || true) { if (!im.instanceColor) im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3); col.copy(c0).lerp(c1, rd()); im.setColorAt(q, col); } }
+      R.add(im);
+      const blooms = Math.min(4, n);
+      for (let i = 0; i < blooms; i++) { const k = cells[(i * 7) % cells.length]; sph(R, 0xff9ab8, [cx(k % AW), 0.14, cz((k / AW) | 0)], 0.1, { ol: 0.01, cast: false }); }
+    }
+    view.rim = 0x9ec8b0;
+  },
   clouds(view, color, ys, op) {
     const tex = cv(256, 256, (x, w, h) => { const rd = mulberry32(5); for (let i = 0; i < 26; i++) { const px = rd() * w, py = rd() * h, r = 18 + rd() * 34; const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); } }, true); tex.repeat.set(3, 2);
     if (gfx.quality === 'low') ys = ys.slice(0, 1);
@@ -222,6 +248,7 @@ export function floorPattern(view, id, layout, rd) {
     else if (id === 'pirate') { ring(E * 2.7, '#5a3a1a', 8, 0.6); ring(E * 2.2, '#f4e3b0', 4, 0.6); x.fillStyle = '#5a3a1a'; x.globalAlpha = 0.65; for (let i = 0; i < 4; i++) { x.save(); x.rotate(i * Math.PI / 2); x.beginPath(); x.moveTo(0, -E * 2.6); x.lineTo(E * 0.4, 0); x.lineTo(-E * 0.4, 0); x.closePath(); x.fill(); x.restore(); } x.globalAlpha = 1; }
     else if (id === 'space') { ring(E * 2.8, '#36e0ff', 6, 0.6); ring(E * 2.3, '#ff4fd8', 3, 0.5); ring(E * 1.4, '#36e0ff', 3, 0.5); x.strokeStyle = '#36e0ff'; x.globalAlpha = 0.5; x.lineWidth = 4; for (let i = 0; i < 12; i++) { x.save(); x.rotate(i * Math.PI / 6); x.beginPath(); x.moveTo(E * 2.3, 0); x.lineTo(E * 2.8, 0); x.stroke(); x.restore(); } x.globalAlpha = 1; }
     else if (id === 'haunted') { ring(E * 2.7, '#b49aff', 6, 0.55); ring(E * 1.9, '#b49aff', 3, 0.45); x.strokeStyle = '#b49aff'; x.globalAlpha = 0.5; x.lineWidth = 4; x.beginPath(); for (let i = 0; i < 6; i++) { const a2 = i * Math.PI * 4 / 5 - Math.PI / 2; const X2 = Math.cos(a2) * E * 1.9, Y2 = Math.sin(a2) * E * 1.9; i ? x.lineTo(X2, Y2) : x.moveTo(X2, Y2); } x.stroke(); x.globalAlpha = 1; }
+    else if (id === 'pond') { ring(E * 2.7, '#7ec8c0', 7, 0.55); ring(E * 1.9, '#ffb0c4', 3, 0.5); x.fillStyle = '#7ec8c0'; x.globalAlpha = 0.45; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; x.beginPath(); x.ellipse(Math.cos(a) * E * 1.15, Math.sin(a) * E * 1.15, E * 0.35, E * 0.18, a, 0, 7); x.fill(); } x.globalAlpha = 1; }
     else { ring(E * 2.7, '#ffffff', 8, 0.85); ring(E * 2.2, '#9fdcff', 4, 0.6); x.strokeStyle = '#ffffff'; x.globalAlpha = 0.8; x.lineWidth = 6; x.lineCap = 'round'; for (let i = 0; i < 6; i++) { x.save(); x.rotate(i * Math.PI / 3); x.beginPath(); x.moveTo(E * 0.4, 0); x.lineTo(E * 2.0, 0); x.moveTo(E * 1.4, 0); x.lineTo(E * 1.8, E * 0.35); x.moveTo(E * 1.4, 0); x.lineTo(E * 1.8, -E * 0.35); x.stroke(); x.restore(); } x.globalAlpha = 1; }
     x.restore();
     // corner marks + spawn pads
@@ -258,7 +285,7 @@ export function updateScenery(view, t, dt) { for (const f of view.anim) f(t, dt)
 
 // ---------- v4.9 themed floor materials: grey-centred detail (128 = no change), seamless, 256 px = 2x2 cells. Low contrast on purpose: fighters and hazards stay the loudest thing.
 export function tileTex(id) {
-  const rd = mulberry32(({ dojo: 11, rooftop: 12, jungle: 13, ice: 14, volcano: 15, pirate: 16, space: 17, haunted: 18 })[id] || 19); const S = 256;
+  const rd = mulberry32(({ dojo: 11, rooftop: 12, jungle: 13, ice: 14, volcano: 15, pirate: 16, space: 17, haunted: 18, pond: 19 })[id] || 20); const S = 256;
   const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, S, S);
   const wrap = (fn) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { x.save(); x.translate(ox, oy); fn(); x.restore(); } };
   const g = (v, a = 1) => `rgba(${v},${v},${v},${a})`;
@@ -271,6 +298,7 @@ export function tileTex(id) {
       const j = ((r * 97) % 4) * 64 + 20; x.fillStyle = g(seamV, 0.8); x.fillRect(j, y0, 2, ph); x.fillRect((j + 128) % S, y0, 2, ph); }
     x.restore(); };
   if (id === 'dojo') { planks(false, 32, 84); blobs(10, 30, 60, 116, 140, 0.25); }
+  else if (id === 'pond') { planks(false, 28, 88); blobs(8, 20, 50, 110, 138, 0.22); }
   else if (id === 'pirate') { planks(true, 42, 80); x.fillStyle = g(70, 0.8); for (let cx0 = 0; cx0 < S; cx0 += 42) for (const y of [10, 138]) { x.beginPath(); x.arc(cx0 + 10, y, 2.2, 0, 7); x.arc(cx0 + 32, y, 2.2, 0, 7); x.fill(); } blobs(10, 30, 70, 112, 138, 0.3); }
   else if (id === 'jungle') { blobs(46, 14, 46, 104, 150, 0.5); x.strokeStyle = g(156, 0.55); x.lineWidth = 1.5; for (let i = 0; i < 160; i++) { const X = rd() * S, Y = rd() * S; x.beginPath(); x.moveTo(X, Y); x.lineTo(X + (rd() - 0.5) * 4, Y - 4 - rd() * 4); x.stroke(); } x.fillStyle = g(100, 0.45); for (let i = 0; i < 24; i++) { x.beginPath(); x.ellipse(rd() * S, rd() * S, 2 + rd() * 4, 1.5 + rd() * 3, rd() * 3, 0, 7); x.fill(); } }
   else if (id === 'space' || id === 'rooftop') { const sp = id === 'space'; blobs(18, 30, 60, 120, 136, 0.35);
@@ -286,4 +314,4 @@ export function tileTex(id) {
     blobs(12, 20, 50, 110, 140, 0.3); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; return t;
 }
-export const TILE_K = { dojo: 0.7, pirate: 0.7, jungle: 0.6, space: 0.75, rooftop: 0.6, ice: 0.5, volcano: 0.7, haunted: 0.65 };
+export const TILE_K = { dojo: 0.7, pirate: 0.7, jungle: 0.6, space: 0.75, rooftop: 0.6, ice: 0.5, volcano: 0.7, haunted: 0.65, pond: 0.65 };

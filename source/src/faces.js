@@ -117,6 +117,8 @@ const STY = {
     base(x, n, cx) { x.fillStyle = '#f5a6c8'; x.beginPath(); x.ellipse(cx, 92, 62, 30, 0, 0, 7); x.fill(); x.fillStyle = '#e07aa6'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(cx + s * 17, 78, 7.5, 5.5, s * 0.3, 0, 7); x.fill(); } } },
   ghost: { eye: 'round', ex: 27, ey: 62, er: 15, lid: 0xeaf8ff, brow: null, mouth: 'smile', my: 98, mw: 8, cheek: '255,140,190', sclera: 0x241a48, iris: 0x6ff0ff,
     base(x, n, cx) {} },
+  seed: { eye: 'round', ex: 28, ey: 58, er: 13, lid: 0xfff6e0, brow: 0xc9a43a, alwaysBrow: false, mouth: 'smile', my: 98, mw: 12, cheek: '255,150,160', sclera: 0xffffff,
+    base(x, n, cx) { x.fillStyle = '#ffe566'; x.beginPath(); x.ellipse(cx, 108, 38, 16, 0, 0, 7); x.fill(); } },
 };
 
 export function faceTexture(id) {

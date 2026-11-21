@@ -14,6 +14,11 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.12.0 (a new fighter and a calm map)
+- **Puff the Dandelion Kid** joins the roster, free for everyone. She throws a seed that comes back slowly, and her Gust shoves nearby rivals and knocks their boomerangs off course.
+- **Lotus Pond** is a new calm map. Shallow water slows you down, so stay on the lily pads. No lava, spikes, or moving floors.
+- Game speed is still Chill by default. Battery saver is still Auto. New players still start on Easy bots. Everything is still free to play.
+
 ## What's new in v4.11.9 (overhead bars and a boomerang fix)
 - **Health and skill bars above each fighter:** heart counts at the top of the screen are gone, so the map has more room. A small bar over each fighter shows health, gold dots for a boomerang in hand (they dim while it is thrown), and a purple ring that fills when the Special move is ready. Your own bar has a white outline, and also shows your shield and dash. In couch play the two local bars are labeled P1 and P2, once each.
 - **You cannot stay unarmed after a steal:** if Salty (or anyone) steals your returning boomerang, you get a fresh one after 12 seconds. If a boomerang is lost any other way, it comes back in 2 seconds. You no longer have to wait until you are knocked out to attack again.

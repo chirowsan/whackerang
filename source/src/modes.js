@@ -25,7 +25,7 @@ export const KIND_MODE = { elim: 'classic', team: 'team', survival: 'survival', 
 
 const pickEvents = (arena, level) => {
   if (level === 'off') return [];
-  const base = { dojo: ['bumper', 'wind', 'meteor'], rooftop: ['bumper', 'meteor', 'wind'], jungle: ['meteor', 'wind', 'bumper'], ice: ['wind', 'meteor', 'bumper'], volcano: ['meteor', 'wind', 'bumper'], pirate: ['wind', 'bumper', 'meteor'], space: ['meteor', 'bumper', 'wind'], haunted: ['wind', 'meteor', 'bumper'] }[arena] || ['bumper', 'wind', 'meteor'];
+  const base = { dojo: ['bumper', 'wind', 'meteor'], rooftop: ['bumper', 'meteor', 'wind'], jungle: ['meteor', 'wind', 'bumper'], ice: ['wind', 'meteor', 'bumper'], volcano: ['meteor', 'wind', 'bumper'], pirate: ['wind', 'bumper', 'meteor'], space: ['meteor', 'bumper', 'wind'], haunted: ['wind', 'meteor', 'bumper'], pond: ['wind', 'bumper', 'meteor'] }[arena] || ['bumper', 'wind', 'meteor'];
   const n = level === 'wild' ? 2 : 1; const a = base.slice().sort(() => Math.random() - 0.5); return a.slice(0, n);
 };
 

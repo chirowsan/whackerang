@@ -41,6 +41,7 @@ export const BOT_STYLES = {
   yuki: { pref: 6.4, catch: 1.05, retreat: 0.9, bush: 0.14, melee: 0.75, charge: 0.7, dashIn: 0.4, dashOut: 0.1, ambush: 0, steal: 0, chillChase: 1 },
   gus:  { pref: 5.8, catch: 1.05, retreat: 0.95, bush: 0.1, melee: 0.82, charge: 0.5, dashIn: 0.18, dashOut: 0.22, ambush: 0, steal: 0, chillChase: 0 },
   wisp: { pref: 5.0, catch: 1.2, retreat: 1.0, bush: 0.8, ambush: 1, melee: 0.6, charge: 0.4, dashIn: 0.85, dashOut: 0.3, steal: 0, chillChase: 0 },
+  puff: { pref: 6.5, catch: 1.36, retreat: 0.9, bush: 0.16, melee: 0.55, charge: 0.38, dashIn: 0.35, dashOut: 0.7, ambush: 0, steal: 0, chillChase: 0 },
 };
 
 export class Bot {
@@ -91,7 +92,7 @@ export class Bot {
     if (g.sudden) { const ring = Math.min(i, j, AW - 1 - i, AH - 1 - j); if (ring <= g.suddenRing + 1) return 5; }
     { const pr = poisonRect(g); if (pr) { const dp = Math.max(Math.abs(x) - pr.sx, Math.abs(z) - pr.sz) + POISON.botMargin; if (dp > 0) return Math.min(7.5, 5 + dp * 0.4); } } // v4.8 poison: danger grows with depth, so bots flee toward the middle
     const td = g.traps ? g.traps.danger(x, z) : 0;
-    return Math.max(td, t === T.CONV ? 0.8 : 0);
+    return Math.max(td, t === T.CONV ? 0.8 : t === T.WATER ? 1.4 : 0);
   }
   nearestBush(maxD) {
     const g = this.g, f = this.f, B = g.layout && g.layout.bush; if (!B) return null;
@@ -119,6 +120,10 @@ export class Bot {
     if (id === 'yuki') return dist > 1.6 && dist < 6.5 && Math.random() < eager;
     if (id === 'gus') return dist < 2.4 && Math.random() < eager * 0.4;
     if (id === 'wisp') return dist < 4.0 && (f.fadeOn || 0) < 0.45 && Math.random() < Math.min(1, eager * 1.1);
+    if (id === 'puff') {
+      const nearIncoming = (this.g.booms || []).some((b) => b.alive && b.owner !== f && !(b.owner && b.owner.team === f.team) && Math.hypot(b.x - f.x, b.z - f.z) < 4.6);
+      return !!(nearIncoming && Math.random() < eager) || (dist < 3.8 && Math.random() < eager * 0.55);
+    }
     return dist < 8 && Math.random() < 0.7 * eager;
   }
   update(dt) {

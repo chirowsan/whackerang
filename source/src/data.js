@@ -9,6 +9,7 @@ export const TRAITS = {
   yuki: { how: 'She slides as she runs. Hits chill rivals.', mods: { speed: 1.07, slide: 1, chillT: 2.5, chillK: 0.32, range: 1, ret: 1.18, throwCd: 0.68, catchR: 1.10 } },
   gus:  { how: 'Short throws, huge shoves. Get close!', mods: { speed: 0.96, range: 0.97, catchR: 1.10, meleeKb: 1.75, meleeR: 1.20, ret: 1 } },
   wisp: { how: 'Goes see-through when she stands still.', mods: { speed: 1.08, dashCd: 0.75, fade: 1, range: 1, ret: 1.12, catchR: 1.15, v: 1.16, throwCd: 0.88 } },
+  puff: { how: 'A gust shoves rivals and flying boomerangs.', mods: { speed: 1.08, range: 1.06, ret: 1.28, v: 1.08, throwCd: 0.62, catchR: 1.32 } },
 };
 export const traitOf = (id) => TRAITS[id] || TRAITS.bao;
 
@@ -21,6 +22,7 @@ export const HEROES = [
   { id: 'yuki', name: 'Yuki', title: 'Penguin Samurai', color: 0x2b3a67, accent: 0xb5342a, trail: 0x9ad8ff, shape: 'peng', blurb: 'A waddling ice-slider with a very sharp helmet.', quip: '"Honor first. Snacks second."', perk: TRAITS.yuki.how, how: TRAITS.yuki.how, mods: { ...TRAITS.yuki.mods }, cost: 450, cam: [0.74, 3.8] },
   { id: 'gus', name: 'Gus', title: 'Hippo Wrestler', color: 0xb9a4ea, accent: 0xffc23a, trail: 0xffd870, shape: 'hippo', blurb: 'A lovable heavyweight champ with a golden belt and a very big belly flop.', quip: '"Time to make some noise... and a crater."', perk: TRAITS.gus.how, how: TRAITS.gus.how, mods: { ...TRAITS.gus.mods }, cost: 500, cam: [0.8, 4.1] },
   { id: 'wisp', name: 'Wisp', title: 'Ghost Apprentice', color: 0xdff7ff, accent: 0x6ff0ff, trail: 0x8ffcff, shape: 'ghost', blurb: 'A shy little ghost who floats through the party. Light, quick and a bit spooky.', quip: '"Boo! ...sorry, was that too loud?"', perk: TRAITS.wisp.how, how: TRAITS.wisp.how, mods: { ...TRAITS.wisp.mods }, cost: 650, cam: [0.7, 4.0] },
+  { id: 'puff', name: 'Puff', title: 'Dandelion Kid', color: 0xffe566, accent: 0x7eb3ff, trail: 0xfff4a8, shape: 'seed', blurb: 'A cheerful puff of fluff who blows a friendly breeze.', quip: '"Ready, set... puff!"', perk: TRAITS.puff.how, how: TRAITS.puff.how, mods: { ...TRAITS.puff.mods }, cost: 0, cam: [0.68, 3.6] },
 ];
 export const HATS = [
   { id: 'none', name: 'No hat', cost: 0 },
@@ -48,6 +50,7 @@ export const ARENAS = [
   { id: 'pirate', name: 'Pirate Cove', blurb: 'Trapdoors, swinging mallets & teleport barrels', hazard: 'trapdoor' },
   { id: 'space', name: 'Space Station', blurb: 'Lasers, jump pads & conveyor loops', hazard: 'laser' },
   { id: 'haunted', name: 'Haunted Manor', blurb: 'Electric fences, goo & falling spikes', hazard: 'electric' },
+  { id: 'pond', name: 'Lotus Pond', blurb: 'Shallow water slows you. Stay on the pads!', hazard: 'water' },
 ];
 export const POWERUPS = {
   extra: { name: 'Extra Boomerang', color: 0x4fd1ff, short: '+1' },
@@ -133,6 +136,7 @@ export const ABILITIES = {
   yuki: { hp: 3, name: 'Ice Skates', desc: 'She slides with momentum. Her hits chill rivals: slower movement for 2 s.' },
   gus: { hp: 5, name: 'Heavyweight', desc: 'Tankiest hero: slightly shorter throws, huge melee shoves, half knockback taken, walks a bit slower.' },
   wisp: { hp: 3, name: 'Fade', desc: 'Goes see-through when she stands still or hides in bushes. Still floats over holes for 1 s.' },
+  puff: { hp: 3, name: 'Light as Air', desc: 'Walks a little light. A gust of wind shoves nearby rivals and knocks flying boomerangs off course.' },
 };
 export const heroHp = (id) => (ABILITIES[id] ? ABILITIES[id].hp : 3);
 /* t417u: a short-cooldown Signature (fired with the existing SPECIAL button). Ready at round start, then 10–14 s. Kid-readable tag + a simple move. Old long-charge ultimates were almost never seen on Chill. */
@@ -145,10 +149,11 @@ export const SIGS = {
   yuki: { tag: 'Icy',     name: 'Ice Slide',   desc: 'A short slide forward. Rivals she passes get chilly.', cd: 10, kind: 'slide' },
   gus:  { tag: 'Heavy',   name: 'Belly Bump',  desc: 'A short bump that shoves and stuns nearby rivals.', cd: 12, kind: 'bump' },
   wisp: { tag: 'Spooky',  name: 'Boo!',        desc: 'Nearby rivals flinch and slow down for a moment.', cd: 11, kind: 'boo' },
+  puff: { tag: 'Windy',   name: 'Gust',        desc: 'A puff of wind shoves nearby rivals and knocks flying boomerangs off course.', cd: 12, kind: 'gust' },
 };
 export const sigOf = (id) => SIGS[id] || SIGS.bao;
 export const ULTS = Object.fromEntries(Object.entries(SIGS).map(([k, v]) => [k, { name: v.name, desc: v.desc }]));
-export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'duelist', kuma: 'collector', pico: 'sniper', yuki: 'duelist', gus: 'aggressor', wisp: 'trickster' };
+export const PERSONAS = { bao: 'defender', nori: 'trickster', tako: 'duelist', kuma: 'collector', pico: 'sniper', yuki: 'duelist', gus: 'aggressor', wisp: 'trickster', puff: 'trickster' };
 export const PERSONA_INFO = { defender: 'Patient, deflects a lot', trickster: 'Dashes and weaves', sniper: 'Long range, fully charged', aggressor: 'Rushes you down', collector: 'Hunts power-ups', duelist: 'Precise one-on-one fighter', boss: 'Boss' };
 export const MODES = {
   classic: { name: 'Classic', icon: '🏆', color: '#ffd23c', blurb: 'Free-for-all rounds. Last fighter standing wins.' },

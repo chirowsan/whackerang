@@ -215,7 +215,7 @@ export class GuestWorld {
     P.dashCd -= dt;
     const ice = g.arenaId === 'ice';
     if (P.dashT > 0) { P.dashT -= dt; P.vx = P.dashDir[0] * 17; P.vz = P.dashDir[1] * 17; if (P.dashT <= 0) { P.vx *= 0.35; P.vz *= 0.35; } }
-    else { const sp = this.speedOf(hf); const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * (g.mut && g.mut.grav ? 0.45 : 1) * dt; const stop = inp.mx === 0 && inp.mz === 0; const a2 = stop ? (ice ? 1.6 : 34) * dt : acc; P.vx += clamp(tx - P.vx, -a2, a2); P.vz += clamp(tz - P.vz, -a2, a2); }
+    else { const sp = this.speedOf(hf) * (g.cellType(P.x, P.z) === T.WATER ? 0.68 : 1); const tx = inp.mx * sp, tz = inp.mz * sp; const acc = (ice ? 4.5 : 38) * (g.mut && g.mut.grav ? 0.45 : 1) * dt; const stop = inp.mx === 0 && inp.mz === 0; const a2 = stop ? (ice ? 1.6 : 34) * dt : acc; P.vx += clamp(tx - P.vx, -a2, a2); P.vz += clamp(tz - P.vz, -a2, a2); }
     let ex = 0, ez = 0; if (g.cellType(P.x, P.z) === T.CONV) { const k = idx(ci(P.x), cj(P.z)); ex = g.layout.dx[k] * 2.6; ez = g.layout.dz[k] * 2.6; }
     { const mx = (P.vx + ex) * dt, mz = (P.vz + ez) * dt, n = Math.min(12, Math.max(1, Math.ceil(Math.max(Math.abs(mx), Math.abs(mz)) / 0.2))); for (let q = 0; q < n; q++) { P.x += mx / n; P.z += mz / n; this.resolve(P, 0.4); } } // v4.7: same sub-steps as the host
     if (P.dashT <= 0 && Math.hypot(inp.mx, inp.mz) > 0.2) P.face = Math.atan2(inp.mx, inp.mz); else if (inp.aimX || inp.aimZ) P.face = Math.atan2(inp.aimX, inp.aimZ);

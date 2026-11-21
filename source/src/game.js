@@ -48,7 +48,7 @@ class Fighter {
     if (g.melee && this.model.armR) { const hm = buildWeapon(this.wpn, this.color, this.hero, this.skin, 'classic', true); hm.scale.setScalar(this.wpn === 'boom' ? 0.8 : 0.82); hm.position.set(0.05, -0.24, 0.1); this.model.armR.add(hm); this.model.held = hm; }
     const hum = !this.isBot; const nh = g.nHumans || 1; if (this.model.setMarker) this.model.setMarker(this.color, hum ? (nh > 1 ? null : 'YOU') : null, hum); /* hud422: couch P1/P2 lives on the overhead bar only; the 3D marker keeps the ring, not a second label */
   }
-  get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.92 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 ? 0.5 : 1) * (this.chillT > 0 ? (this.chillK || 0.5) : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1); }
+  get speed() { return SPEED * this.mods.speed * (this.pu.speed > 0 ? 1.4 : 1) * (this.charging ? 0.92 : 1) * (this.ultKind === 'nori' && this.ultT > 0 ? 1.7 : 1) * (this.boss ? 0.82 : 1) * (this.hasBomb ? 1.12 : 1) * (this.gooT > 0 ? 0.5 : 1) * (this.chillT > 0 ? (this.chillK || 0.5) : 1) * (this.carry ? 0.88 : 1) * (this.slowK || 1) * (this.waterK || 1); }
   update(dt) {
     const g = this.g; this.tmr += dt; if (this.show) return;
     if (this.alive) this.rearmTick(g, dt);
@@ -77,7 +77,7 @@ class Fighter {
     if (inp.deflect && this.deflectCd <= 0 && this.dashT <= 0 && this.slT < 0) { this.deflectT = 0.3; this.deflectCd = 0.85; this.charging = false; this.chargeT = 0; sfx('deflectfail'); }
     if (this.frozenT > 0) { this.vx *= 0.8; this.vz *= 0.8; }
     // --- movement
-    const hz = g.cellType(this.x, this.z); const ice = g.arenaId === 'ice' || this.iceT > 0;
+    const hz = g.cellType(this.x, this.z); this.waterK = hz === T.WATER ? 0.68 : 1; const ice = g.arenaId === 'ice' || this.iceT > 0;
     if (this.dashT > 0) {
       this.dashT -= dt; const sp = this.sigSlide ? 14 : (this.abil === 'nori' ? 20 : 17); this.vx = this.dashDir[0] * sp; this.vz = this.dashDir[1] * sp;
       if (this.sigSlide) { for (const o of g.fighters) { if (!o.alive || o === this || o.team === this.team) continue; if (Math.hypot(o.x - this.x, o.z - this.z) < 1.35) { o.chillT = Math.max(o.chillT || 0, (this.mods && this.mods.chillT) || 2); o.chillK = Math.min(o.chillK == null ? 1 : o.chillK, (this.mods && this.mods.chillK) || 0.4); o.chillNoThrow = Math.max(o.chillNoThrow || 0, 0.9); } } }

@@ -13,7 +13,7 @@ const ro = await page.evaluate(() => { const { WEAPONS, HERO_WPN } = __bg.weapon
   return { n: Object.keys(HERO_WPN).length, sizes: Object.values(HERO_WPN).map((l) => l.length), uniq: new Set(all).size === all.length, total: all.length, boomShared: all.includes('boom'), dom,
     sigDistinct: Object.values(HERO_WPN).every((L) => new Set(L.map(sig)).size === 3), forms: Object.fromEntries(Object.entries(HERO_WPN).map(([h, L]) => [h, L.map((id) => WEAPONS[id].form)])), map }; });
 console.log('MAP ' + JSON.stringify(ro.map));
-ok('8 characters x 3 own weapons, 24 total, no weapon shared between characters, base boomerang not in any list', ro.n === 8 && ro.sizes.every((x) => x === 3) && ro.uniq && ro.total === 24 && !ro.boomShared, ro);
+ok('9 characters x 3 own weapons, 27 total, no weapon shared between characters, base boomerang not in any list', ro.n === 9 && ro.sizes.every((x) => x === 3) && ro.uniq && ro.total === 27 && !ro.boomShared, ro);
 ok('within each character the 3 weapons differ in pattern/effect/shape signature', ro.sigDistinct, ro.forms);
 ok('no weapon is a straight upgrade of a sibling (every pair trades something)', ro.dom.length === 0, ro.dom);
 // --- harness: deterministic game with chosen heroes/weapons

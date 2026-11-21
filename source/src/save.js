@@ -2,7 +2,7 @@ import { KIDS } from './flags.js';
 import { wpnFor, migrateOld } from './weapons.js';
 const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
-  coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma'], wins: 0, played: 0, kos: 0,
+  coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma', 'puff'], wins: 0, played: 0, kos: 0,
   settings: { autoMatch: !KIDS, autoMode: 'classic', speed: 'chill', speedMig: 31, sfx: 0.85, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false, edgeHelp: true, netDiag: false, aimStyle: 'B', battery: 'auto' },
   setup: { bots: 3, diff: 0, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'large', sizeMig: 47, traps: 'some', mutator: 'off' },
   // v2.0
@@ -37,6 +37,9 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   // v4.11: one-time move from the v4.10 global P1/P2 weapon to the per-character loadout (only for the character each slot had selected)
   if (!o || !Array.isArray(o.loadout) || o.loadout.length !== 2) { r.loadout = [{}, {}]; const ow = (o && Array.isArray(o.wpn)) ? o.wpn : null; if (ow) { r.loadout[0][r.hero] = migrateOld(r.hero, ow[0]); r.loadout[1][r.hero2] = migrateOld(r.hero2, ow[1]); } }
   for (const L of r.loadout) { if (!L || typeof L !== 'object') continue; for (const h of Object.keys(L)) L[h] = wpnFor(h, L[h]); }
+  // v4.12.0: Puff is a free fighter; existing saves get her without a gold unlock.
+  if (!Array.isArray(r.unlockedHeroes)) r.unlockedHeroes = ['bao', 'nori', 'tako', 'kuma', 'puff'];
+  else if (!r.unlockedHeroes.includes('puff')) r.unlockedHeroes.push('puff');
   return r;
 };
 export function loadSave() {

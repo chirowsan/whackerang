@@ -83,6 +83,7 @@ const cases = [
   { id: 'yuki', after: (me) => ({ sliding: me.dashT > 0 || me.sigSlide || true }) }, // dash may already have finished in one step burst; check used
   { id: 'gus', after: (me, g) => ({ bumped: g.fighters.some((f) => f !== me && f.alive && (f.stunT > 0.15 || Math.hypot(f.vx, f.vz) > 1)) }) },
   { id: 'wisp', after: (me, g) => ({ boo: g.fighters.some((f) => f !== me && f.alive && (f.stunT > 0.1 || (f.chillT || 0) > 0.3)) }) },
+  { id: 'puff', after: (me, g) => ({ gust: g.fighters.some((f) => f !== me && f.alive && Math.hypot(f.vx, f.vz) > 1) }) },
 ];
 
 for (const c of cases) {
@@ -125,6 +126,7 @@ for (const c of cases) {
   else if (c.id === 'yuki') good = fxv.dashT > 0 || fxv.sigSlide || fxv.rivalChill > 0;
   else if (c.id === 'gus') good = fxv.rivalStun > 0.15 || fxv.rivalV > 1;
   else if (c.id === 'wisp') good = fxv.rivalStun > 0.1 || fxv.rivalChill > 0.3;
+  else if (c.id === 'puff') good = fxv.rivalV > 1;
   ok(`${c.id}: signature effect lands (${used.name})`, good, { before, fxv });
 
   // refill over signature cd (freeze combat so a low-HP fighter is not KO'd mid-wait)

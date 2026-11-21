@@ -45,10 +45,14 @@ export const WEAPONS = {
   wisp_lantern: D('Lantern', 'orb', 0x6ff0ff, 'Slow ghost light that homes in.', T(0.85, 1, 1.2, 0.8), M(90, 1.1, 0.12, 0.08, 0.22, 0.44), { home: 2.0 }),
   wisp_sickle: D('Spirit Sickle', 'hook', 0xc8b8ff, 'Strongest curve. Quick wide reap.', T(1.05, 0.85, 1.1, 1.8), M(130, 1.2, 0.1, 0.08, 0.2, 0.4)),
   wisp_will: D('Will-o-Ring', 'ring', 0x8ffcff, 'Fast straight ring. Spin swing.', T(1.25, 0.8, 0.9, 0.4), M(360, 1.0, 0.1, 0.1, 0.24, 0.5, 'spin')),
+  // Puff, Dandelion Kid (gust): light, floaty tools
+  puff_seed: D('Seed Disc', 'disc', 0xfff0a0, 'Floaty throw that hangs, then drifts toward rivals.', T(1.18, 1.42, 1.00, 0.70), M(90, 1.15, 0.12, 0.08, 0.22, 0.44), { home: 2.4 }),
+  puff_fan: D('Pinwheel', 'star', 0x7eb3ff, 'Spinning breeze with a curving flight.', T(1.00, 1.05, 1.1, 1.25), M(360, 1.0, 0.1, 0.1, 0.24, 0.52, 'spin')),
+  puff_stem: D('Stem Wand', 'staff', 0x6aaa4a, 'Straight, light poke.', T(1.12, 0.95, 0.92, 0.45), M(45, 1.4, 0.1, 0.07, 0.2, 0.4, 'poke')),
 };
 export const WEAPON_IDS = Object.keys(WEAPONS);
 export const HERO_WPN = { bao: ['bao_wok', 'bao_cleaver', 'bao_pin'], nori: ['nori_shuriken', 'nori_kama', 'nori_tanto'], tako: ['tako_wrench', 'tako_magnet', 'tako_drone'], kuma: ['kuma_anchor', 'kuma_hook', 'kuma_cutlass'],
-  pico: ['pico_staff', 'pico_chakram', 'pico_jade'], yuki: ['yuki_katana', 'yuki_icicle', 'yuki_snow'], gus: ['gus_dumbbell', 'gus_belt', 'gus_kettle'], wisp: ['wisp_lantern', 'wisp_sickle', 'wisp_will'] };
+  pico: ['pico_staff', 'pico_chakram', 'pico_jade'], yuki: ['yuki_katana', 'yuki_icicle', 'yuki_snow'], gus: ['gus_dumbbell', 'gus_belt', 'gus_kettle'], wisp: ['wisp_lantern', 'wisp_sickle', 'wisp_will'], puff: ['puff_seed', 'puff_fan', 'puff_stem'] };
 export const heroWeapons = (hero) => HERO_WPN[hero] || ['boom'];
 export const wpnOf = (id) => (WEAPONS[id] ? id : 'boom'); // unknown / missing ids fall back to the base boomerang
 // character-legal weapon: anything not in this hero's own list (other hero's weapon, v4.10 global id, junk) -> the hero's first weapon

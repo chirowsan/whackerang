@@ -79,6 +79,12 @@ export function installRules(Game, { Boom, Fighter }) {
       fx.ring(f.x, 0.3, f.z, 0x6ff0ff, 4.4, 0.4); fx.sparks(f.x, 0.8, f.z, 16, [0x6ff0ff, 0xffffff], { speed: 4 });
       for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; if (Math.hypot(o.x - f.x, o.z - f.z) < 4.0) { o.stunT = Math.max(o.stunT, 0.4); o.chillT = Math.max(o.chillT || 0, 1.2); o.happyT = 0; } }
       f.ultT = 0.01;
+    } else if (id === 'puff') { // Gust: shove rivals and knock flying boomerangs aside (no stun, no shield); a short lift keeps Puff safe in the breeze
+      fx.ring(f.x, 0.3, f.z, 0xffe566, 4.4, 0.4); fx.sparks(f.x, 0.5, f.z, 18, [0xffe566, 0xffffff, 0x7eb3ff], { speed: 5, up: 3 });
+      f.inv = Math.max(f.inv, 0.55);
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const ox = o.x - f.x, oz = o.z - f.z, d = Math.hypot(ox, oz); if (d < 4.2 && d > 1e-4) { o.vx += ox / d * 7.5; o.vz += oz / d * 7.5; } }
+      for (const b of this.booms) { if (!b.alive || b.owner === f || (b.owner && b.owner.team === f.team)) continue; const ox = b.x - f.x, oz = b.z - f.z, d = Math.hypot(ox, oz); if (d < 4.6 && d > 1e-4) { b.x += ox / d * 1.15; b.z += oz / d * 1.15; } }
+      f.ultT = 0.01;
     } else { f.ultT = 0.01; }
     this.onEvent('ult', { f });
   };

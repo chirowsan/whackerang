@@ -39,7 +39,7 @@ const meta = await page.evaluate(() => {
     chill: (S0.settings.speed === 'chill'),
   };
 });
-ok('eight fighters still in the roster', meta.heroCount === 8, meta.heroCount);
+ok('nine fighters still in the roster', meta.heroCount === 9, meta.heroCount);
 ok('saved default game speed is Chill', meta.speed === 'chill' || meta.chill, meta.speed);
 ok('new-player default bot skill is Easy (0)', meta.diff === 0, meta.diff);
 ok('difficulty names are Easy, Normal, Hard', meta.diffs.map((d) => d.name).join(',') === 'Easy,Normal,Hard', meta.diffs);

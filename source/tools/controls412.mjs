@@ -2,7 +2,8 @@
 // fullscreen gesture helper behaviour. usage: node tools/controls412.mjs <w> <h>
 import { launch, sleep } from './lib.mjs';
 const [W, H] = [+process.argv[2] || 1024, +process.argv[3] || 473];
-const { browser, page, errors } = await launch({ w: W, h: H, dpr: 1, mobile: true }); await page.goto('file:///workspace/boomerang-brawl/Whackerang.html'); await sleep(2500);
+const HTML = process.env.BB_HTML || '/workspace/boomerang-brawl/Whackerang.html';
+const { browser, page, errors } = await launch({ w: W, h: H, dpr: 1, mobile: true }); await page.goto((HTML.startsWith('file:') || HTML.startsWith('http') ? HTML : 'file://' + HTML)); await sleep(2500);
 const R = []; const ok = (n, v, i) => { R.push(!!v); console.log((v ? 'PASS ' : 'FAIL ') + `${W}x${H} ` + n + (i !== undefined ? ' ' + JSON.stringify(i) : '')); };
 const start = () => page.evaluate(() => { const S = __bg.S(); S.tutorialDone = true; S.settings.touch = 'on'; S.settings.events = 'off'; S.setup.arena = 'dojo'; S.setup.size = 'large'; S.setup.bots = 1; S.hero = 'bao'; __bg.app.applyTouch(); __bg.app.startMode('classic'); const g = __bg.app.game; __bg.app.paused = true; let k = 0; while (g.state !== 'play' && k++ < 3000) __bg.step(1); __bg.app.paused = false; });
 await start(); await sleep(600);

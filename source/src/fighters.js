@@ -151,9 +151,26 @@ const SPECS = {
       arm: { x: 0.4, y: 0.62, z: 0.1, r: 0.11, col: W2 }, hem, flame,
       update(m, t, st, q) { hem.forEach((g, i) => { g.position.y = 0.27 + Math.sin(t * 5 + i * 1.3) * 0.06 + st.move * Math.sin(t * 14 + i * 2) * 0.04; }); m.body.position.y += 0.17 + Math.sin(t * 2.2) * 0.05; m.body.rotation.x += 0.12 * st.move; flame.rotation.z = Math.sin(t * 7) * 0.3; flame.scale.setScalar(1 + Math.sin(t * 9) * 0.12 + (st.charge || 0) * 0.5); if (q > 0) { m.body.rotation.y += Math.sin(q * Math.PI * 2) * 0.6; m.armL.rotation.set(-1.1, 0, -0.6); m.armR.rotation.set(-1.1, 0, 0.6); } } };
   },
+  seed(c) {
+    const { S, mk, grp } = c; const Y = 0xffe566, C = 0xfff6e0, B = 0x7eb3ff, G = 0x6aaa4a;
+    mk(S, SPH(0.28, 18, 14), Y, { pos: [0, 0.48, 0], scale: [1.08, 1.14, 0.98] });
+    mk(S, TOR(0.235, 0.045, 6, 18), B, { pos: [0, 0.7, 0.02], rot: [Math.PI / 2 + 0.18, 0, 0], outline: 0.015 });
+    mk(S, BOX(0.16, 0.04, 0.08), G, { pos: [0.2, 0.62, 0.14], rot: [0.2, 0.4, 0.35], outline: 0.01 });
+    mk(S, SPH(0.36, 22, 16), C, { pos: [0, 0.98, 0], scale: [1.12, 1.05, 1.08] });
+    const tufts = [];
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * Math.PI * 2; const e = grp(Math.cos(a) * 0.22, 1.26, Math.sin(a) * 0.18);
+      mk(e, SPH(0.075, 8, 6), 0xffffff, { pos: [0, 0.1, 0], scale: [0.75, 1.55, 0.75], outline: 0 });
+      tufts.push(e);
+    }
+    const top = grp(0, 1.36, 0); mk(top, SPH(0.1, 10, 8), 0xffffff, { pos: [0, 0.05, 0], outline: 0 });
+    return { head: { y: 0.98, rx: 0.40, ry: 0.38, rz: 0.39, fw: 1.85, fh: 1.3, tc: 1.55 }, hatY: 1.50, hs: 0.85, shades: { y: 0.98, z: 0.38, x: 0.14 },
+      arm: { x: 0.36, y: 0.52, z: 0.06, r: 0.1, col: C }, foot: { col: B, r: 0.09, x: 0.14 }, tufts, top,
+      update(m, t, st, q) { tufts.forEach((g, i) => { g.rotation.z = Math.sin(t * 3.2 + i) * 0.14 + st.move * Math.sin(t * 10 + i) * 0.1; g.rotation.x = Math.sin(t * 2.6 + i * 0.7) * 0.08; }); top.rotation.y = t * 0.6; m.body.position.y += Math.abs(Math.sin(t * 8)) * 0.045 * (0.4 + st.move); if (q > 0) { m.armL.rotation.set(-0.9, 0, 0.85); m.armR.rotation.set(-0.9, 0, -0.85); top.scale.setScalar(1.18); } } };
+  },
 };
 
-const SK = { bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng', gus: 'hippo', wisp: 'ghost' };
+const SK = { bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng', gus: 'hippo', wisp: 'ghost', puff: 'seed' };
 export const faceKey = (h) => SK[h.id] || 'panda';
 
 export function buildFighterBody(h, teamColor) {
@@ -199,6 +216,7 @@ const WINS = {
   peng(m, t) { const f = Math.sin(t * 22); m.armL.rotation.set(0, 0, 1.2 + f * 0.6); m.armR.rotation.set(0, 0, -1.2 - f * 0.6); m.body.rotation.z = Math.sin(t * 9) * 0.22; m.body.rotation.y = 0; m.body.position.y = Math.abs(Math.sin(t * 9)) * 0.1; },
   hippo(m, t) { const s = Math.sin(t * 5); m.armL.rotation.set(-0.2, 0, 1.45 + s * 0.15); m.armR.rotation.set(-0.2, 0, -1.45 - s * 0.15); const hop = Math.max(0, Math.sin(t * 5)); m.body.position.y = hop * 0.14; m.body.scale.set(1 + (1 - hop) * 0.07, 1 - (1 - hop) * 0.07, 1 + (1 - hop) * 0.07); m.body.rotation.y = Math.sin(t * 2.5) * 0.3; },
   ghost(m, t) { m.body.position.y = 0.45 + Math.sin(t * 3) * 0.14; m.body.rotation.y = t * 4; m.body.rotation.z = Math.sin(t * 3) * 0.2; m.armL.rotation.set(-2.5, 0, 0.7); m.armR.rotation.set(-2.5, 0, -0.7); },
+  seed(m, t) { m.body.position.y += Math.abs(Math.sin(t * 6)) * 0.16; m.body.rotation.y = Math.sin(t * 3) * 0.4; m.armL.rotation.set(-2.4, 0, 0.7 + Math.sin(t * 10) * 0.2); m.armR.rotation.set(-2.4, 0, -0.7 - Math.sin(t * 10) * 0.2); },
 };
 
 export function animateFighter(m, dt, st) {

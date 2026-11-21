@@ -135,7 +135,7 @@ export class Traps {
   free(x, z, rad) {
     const g = this.g; const n = 1; const orad = rad; rad = Math.min(rad, 2.2);
     for (let j = cj(z) - n; j <= cj(z) + n; j++) for (let i = ci(x) - n; i <= ci(x) + n; i++) {
-      if (!inb(i, j)) return false; if (AW <= 20 && i !== ci(x) && j !== cj(z)) continue; const k = idx(i, j); const t = g.layout.t[k]; if (g.layout.bush && g.layout.bush[k]) return false; if ((g.sol[k] && !g.crateHp[k]) || t === T.LAVA || t === T.SPIKE || t === T.CONV || g.hole[k] !== 0) return false;
+      if (!inb(i, j)) return false; if (AW <= 20 && i !== ci(x) && j !== cj(z)) continue; const k = idx(i, j); const t = g.layout.t[k]; if (g.layout.bush && g.layout.bush[k]) return false; if ((g.sol[k] && !g.crateHp[k]) || t === T.LAVA || t === T.SPIKE || t === T.CONV || t === T.WATER || g.hole[k] !== 0) return false;
     }
     for (const sp of spawns()) if (Math.hypot(cx(sp[0]) - x, cz(sp[1]) - z) < (AW <= 20 ? 2.7 : 3.6) + (this.spawnPad || 0) + rad * (AW <= 20 ? 0.25 : 0.5)) return false;
     for (const o of this.occ) if (Math.hypot(o[0] - x, o[1] - z) < (o[2] + rad) * (AW <= 20 ? 0.6 : 0.75) * (this.spaceK || 1)) return false;

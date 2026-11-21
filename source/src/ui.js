@@ -22,7 +22,7 @@ export function h(tag, cls, kids, attrs) {
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path d="M3 18 2 7l5 4 5-7 5 7 5-4-1 11z" fill="#ffd23c" stroke="#8a5200" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
+const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 
 const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster", "rune": "Gives a random special boomerang (Razor, Frost, Chain, Blast or Phantom) for 16 s", "magnet": "Pulls power-ups to you, bigger catch circle, boomerang curves back faster", "slow": "Rivals and their boomerangs within a few steps of you move slower"};
 export const UI = {
@@ -87,7 +87,7 @@ export const UI = {
     segr('Bot skill', 'diff', [[0, 'Easy'], [1, 'Normal'], [2, 'Hard']]);
     segr('First to', 'rounds', [[1, '1 win'], [2, '2 wins'], [3, '3 wins'], [5, '5 wins']]);
     const ar = h('div', 'row', '<span>Arena</span>'); const ao = h('div', 'arena-opt');
-    [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', v.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id]}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1 }); b.addEventListener('click', () => { v.arena = A.id; save(); sfx('click'); [...ao.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); }); ao.appendChild(b); });
+    [{ id: 'random', name: 'Random' }, ...ARENAS].forEach((A) => { const b = h('button', v.arena === A.id ? 'on' : '', `<i style="background:${ARENA_SW[A.id]}"></i>${A.name.replace(' ', '<br>')}`, { 'data-nav': 1, 'data-arena': A.id }); b.addEventListener('click', () => { v.arena = A.id; save(); sfx('click'); [...ao.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); }); ao.appendChild(b); });
     ar.appendChild(ao); ar.style.gridColumn = '1 / -1'; grid.appendChild(ar);
     const hero = this.heroById(s.hero), hero2 = this.heroById(s.hero2);
     const hr = h('div', 'row', `<span>P1: <b>${hero.name}</b></span>`); hr.appendChild(this.btn('Change', 'small', () => this.show('heroes', { mode: 'pick', ret: 'setup' }))); grid.appendChild(hr);
