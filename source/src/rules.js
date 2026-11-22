@@ -46,7 +46,7 @@ export function installRules(Game, { Boom, Fighter }) {
     if (!f || !f.alive || f.ult < 100 || f.boss) return;
     reveal(f, STEALTH.reveal);
     const id = f.hero.id; const sig = SIGS[id] || SIGS.bao;
-    f.ult = 0; f.ultKind = id; sfx('ult'); feel('special', { f, game: this }); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
+    f.ult = 0; f.ultKind = id; sfx(id === 'puff' ? 'gust' : ('ult_' + id)); feel('special', { f, game: this }); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
     const r = 0.4 * (f.bs || 1);
     if (id === 'bao') { // Snack Time
       if (f.hp < f.maxHp) { f.hp = Math.min(f.maxHp, f.hp + 1); fx.popup('+1 ♥', f.x, f.z, 'pop-gold', 1.4); }

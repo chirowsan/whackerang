@@ -134,15 +134,16 @@ export const UI = {
     const s = S().settings; const el = h('div', 'screen page'); const hd = h('header');
     hd.appendChild(this.backBtn(() => { save(); if (p.ret === 'pause') this.show('pause'); else this.show(p.ret || 'menu'); })); hd.appendChild(h('h2', '', 'Settings')); el.appendChild(hd);
     const grid = h('div', 'panel set-grid scroll');
-    const slider = (label, key, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const i = h('input', '', null, { type: 'range', min: 0, max: 1, step: 0.05, value: s[key] }); i.addEventListener('input', () => { s[key] = +i.value; apply && apply(); }); i.addEventListener('change', () => { save(); sfx('click'); }); r.appendChild(i); grid.appendChild(r); return i; };
-    const toggle = (label, key, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1 }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', s[key]); save(); sfx('click'); apply && apply(); }); r.appendChild(t); grid.appendChild(r); };
+    const slider = (label, key, apply) => { const r = h('div', 'row', `<span>${label}</span>`, { 'data-set': key }); const i = h('input', '', null, { type: 'range', min: 0, max: 1, step: 0.05, value: s[key], id: 'set-' + key }); i.addEventListener('input', () => { s[key] = +i.value; apply && apply(); }); i.addEventListener('change', () => { save(); sfx('click'); }); r.appendChild(i); grid.appendChild(r); return i; };
+    const toggle = (label, key, apply) => { const r = h('div', 'row', `<span>${label}</span>`, { 'data-set': key }); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1, id: 'set-' + key }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', s[key]); save(); sfx('click'); apply && apply(); }); r.appendChild(t); grid.appendChild(r); };
     const segr = (label, key, opts, apply) => { const r = h('div', 'row', `<span>${label}</span>`); const sg = h('div', 'seg'); opts.forEach(([v, t]) => { const b = h('button', s[key] === v ? 'on' : '', t, { 'data-nav': 1 }); b.addEventListener('click', () => { s[key] = v; [...sg.children].forEach((c) => c.classList.remove('on')); b.classList.add('on'); save(); sfx('click'); apply && apply(); }); sg.appendChild(b); }); r.appendChild(sg); grid.appendChild(r); };
     segr('Game speed', 'speed', [['chill', 'Chill'], ['normal', 'Normal'], ['fast', 'Fast']]);
     if (KIDS) { const r = h('div', 'row', '<span>Auto match (online with other players)</span>'); const t = h('button', 'tog' + (s.autoMatch ? ' on' : ''), null, { 'data-nav': 1, id: 'set-automatch' }); const setAM = (v) => { s.autoMatch = v; t.classList.toggle('on', v); save(); }; t.addEventListener('click', () => { sfx('click'); if (s.autoMatch) setAM(false); else adultGate(() => setAM(true)); }); r.appendChild(t); grid.appendChild(r); }
     else toggle('Auto match (online with other players)', 'autoMatch');
     toggle('Online: show connection details', 'netDiag');
     grid.appendChild(h('div', 'note-line', (KIDS ? 'Off unless a grown-up turns it on. ' : '') + 'Auto match pairs you with other players who are searching at the same time. They only see a friendly preset name; no chat, emotes only. Turn it off to keep online play to friends\u2019 room codes.'));
-    slider('Music', 'music', applyVolumes); slider('Sound FX', 'sfx', applyVolumes);
+    toggle('Music', 'musicOn', applyVolumes); slider('Music volume', 'music', applyVolumes);
+    toggle('Sounds', 'sfxOn', applyVolumes); slider('Sounds volume', 'sfx', applyVolumes);
     toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Edge help (warn near drops, 1 free save)', 'edgeHelp'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');
     segr('Graphics', 'quality', [['sharp', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']], () => setQuality(s.quality));
     segr('Battery saver', 'battery', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']], () => setQuality(s.quality));
@@ -163,6 +164,9 @@ export const UI = {
     const hr = h('div', 'row', '<span>Install</span>'); hr.appendChild(h('span', '', 'Chrome ⋮ → <b>Add to Home screen</b> for a full-screen app', { style: 'font-size:calc(var(--u)*.9);opacity:.8;text-align:right' })); grid.appendChild(hr);
     { const pr = h('div', 'row', '<span>Privacy</span>'); pr.appendChild(h('a', 'set-link', 'Privacy policy', { href: PRIVACY_URL, target: '_blank', rel: 'noopener', id: 'set-privacy', 'data-nav': 1 })); grid.appendChild(pr); }
     const br = h('div', 'row', '<span>Build</span>'); br.appendChild(h('span', '', this.app.BUILD + ' · ' + gfx.tier + ' ' + gfx.dpr + 'x', { style: 'font-size:calc(var(--u)*.9);opacity:.8' })); grid.appendChild(br);
+    const cr = h('div', 'row', '<span>Music credits</span>', { id: 'set-credits' });
+    cr.appendChild(h('span', '', 'Menu: “Happy Clappy Loop” by OwlishMedia. Battle: “Children’s Game Music 2 — Adventure” by heartade. Both CC0 (public domain). Credit is optional.', { style: 'font-size:calc(var(--u)*.85);opacity:.8;text-align:right;max-width:70%' }));
+    grid.appendChild(cr);
     el.appendChild(grid); return el;
   },
   howto() {

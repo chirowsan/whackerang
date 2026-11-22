@@ -168,6 +168,7 @@ export function setQuality(q0) {
   gfx.scene.traverse((o) => { if (o.isMesh && o.userData && o.userData.ol !== undefined) o.visible = gfx.outlinesAll || o.userData.ol === 'hero'; });
   if (prevShadow === low) gfx.scene.traverse((o) => { const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => (x.needsUpdate = true)); });
   resize();
+  if (gfx.onQuality) gfx.onQuality();
 }
 export const maxAniso = () => Math.min(8, gfx.renderer ? gfx.renderer.capabilities.getMaxAnisotropy() : 4);
 // Adaptive resolution = last resort only: needs ~2.5 s of sustained slow frames twice in a row, never below floor x native cap.

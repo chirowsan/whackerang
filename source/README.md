@@ -14,6 +14,12 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.12.1 (music and punchier sounds)
+- **New music:** Happy Clappy Loop (OwlishMedia) plays on the menu, and Children's Game Music 2 — Adventure (heartade) plays in battles. Both are free CC0 tracks. Credits are in Settings and How to play.
+- **Punchier sounds:** throws, hits, catches, and each fighter's Special have clearer, punchier effects, including Puff's Gust.
+- Separate on/off switches and volume sliders for music and sounds. Music is cached so it still plays offline after your first visit.
+- Game speed is still Chill by default. Battery saver is still Auto. New players still start on Easy bots. Everything is still free to play.
+
 ## What's new in v4.12.0 (a new fighter and a calm map)
 - **Puff the Dandelion Kid** joins the roster, free for everyone. She throws a seed that comes back slowly, and her Gust shoves nearby rivals and knocks their boomerangs off course.
 - **Lotus Pond** is a new calm map. Shallow water slows you down, so stay on the lily pads. No lava, spikes, or moving floors.

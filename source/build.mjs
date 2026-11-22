@@ -22,3 +22,16 @@ if (process.argv.includes('--dist')) {
 if (process.argv.includes('--app')) {
   fs.mkdirSync('mobile/www', { recursive: true }); fs.copyFileSync('Whackerang.html', 'mobile/www/index.html'); fs.copyFileSync('pwa/icon-192.png', 'mobile/www/icon-192.png'); console.log('mobile/www ready', BUILDTAG);
 }
+
+// music426: copy the CC0 menu/battle loops next to the game HTML (loaded after the first tap).
+function copyMusic(destDir) {
+  fs.mkdirSync(destDir + '/music', { recursive: true });
+  for (const f of ['menu.ogg', 'battle.ogg']) {
+    const src = 'assets/music/' + f;
+    if (!fs.existsSync(src)) throw new Error('missing ' + src);
+    fs.copyFileSync(src, destDir + '/music/' + f);
+  }
+}
+copyMusic('.');
+if (process.argv.includes('--dist')) copyMusic('dist');
+if (process.argv.includes('--app')) copyMusic('mobile/www');

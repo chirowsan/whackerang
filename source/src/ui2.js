@@ -36,7 +36,7 @@ const campStars = () => (S().camp.stars || []).reduce((a, b) => a + (b || 0), 0)
 
 Object.assign(UI, {
   notify(msg, kind) { this._nq = this._nq || []; this._nq.push({ msg, kind }); if (!this._nr) this._nextNote(); },
-  _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
+  _nextNote() { const n = (this._nq || []).shift(); if (!n) { this._nr = false; return; } this._nr = true; let r = $('#notes'); if (!r) { r = h('div', '', null, { id: 'notes' }); document.body.appendChild(r); } const e = h('div', 'note ' + (n.kind || ''), n.msg); r.appendChild(e); sfx(n.kind === 'level' ? 'levelup' : (n.kind === 'trophy' || n.kind === 'rank') ? 'trophy' : 'ach'); setTimeout(() => e.classList.add('out'), 2600); setTimeout(() => { e.remove(); this._nextNote(); }, 3000); },
   heroLine(hh) { return `<div class="perk hpline">\u2665 <b>${heroHp(hh.id)} hearts</b>${ABILITIES[hh.id] ? ` · <b>${ABILITIES[hh.id].name}</b> — ${ABILITIES[hh.id].desc}` : ''}</div><div class="perk howto">★ How to play: ${hh.how||hh.perk}</div><div class="perk ult">⚡ <b>${ULTS[hh.id].name}</b> — ${ULTS[hh.id].desc}</div>`; },
   coinChip() { const c = h('button', 'chip goldchip', `<span class="coin"></span><span id="coinval">${S().coins}</span><span class="plus">+</span>`, { 'data-nav': 1, title: 'Gold Store' }); c.addEventListener('click', () => { sfx('click'); this.show('goldstore', { tab: 'earn' }); }); return c; },
   starChip() { const c = h('button', 'chip starchip', `<span class="starcoin">★</span><span class="starval">${S().coins}</span>`, { 'data-nav': 1, title: 'Stars' }); c.addEventListener('click', () => { sfx('click'); this.show('quests'); }); return c; },
@@ -484,8 +484,7 @@ UI.settings = function (p) {
   const el = _settings.call(this, p); const grid = el.querySelector('.set-grid'); const s = S().settings;
   const tog = (label, key, fn) => { const r = h('div', 'row', `<span>${label}</span>`); const t = h('button', 'tog' + (s[key] ? ' on' : ''), null, { 'data-nav': 1 }); t.addEventListener('click', () => { s[key] = !s[key]; t.classList.toggle('on', !!s[key]); save(); fn && fn(); sfx('click'); }); r.appendChild(t); return r; };
   const first = grid.firstChild; grid.insertBefore(tog('Mute all audio', 'mute', applyVolumes), first);
-  { const mr = h('div', 'row', '<span>Master volume</span>'); const mi = h('input', '', null, { type: 'range', min: 0, max: 1, step: 0.05, value: s.master }); mi.addEventListener('input', () => { s.master = +mi.value; applyVolumes(); }); mi.addEventListener('change', () => { save(); sfx('click'); }); mr.appendChild(mi); grid.insertBefore(mr, first); }
-  grid.insertBefore(tog('Background music', 'musicOn', applyVolumes), first);
+  { const mr = h('div', 'row', '<span>Master volume</span>'); const mi = h('input', '', null, { type: 'range', min: 0, max: 1, step: 0.05, value: s.master, id: 'set-master' }); mi.addEventListener('input', () => { s.master = +mi.value; applyVolumes(); }); mi.addEventListener('change', () => { save(); sfx('click'); }); mr.appendChild(mi); grid.insertBefore(mr, first); }
   grid.insertBefore(this.seg('Camera', s, 'camera', [['close', 'Close'], ['wide', 'Wide']], () => { save(); fitCamera(); }), first); grid.insertBefore(tog('Screen flashes', 'flash', () => { gfx.flashOn = !!s.flash; }), first);
   grid.insertBefore(this.seg('Arena events', s, 'events', [['off', 'Off'], ['some', 'Some'], ['wild', 'Wild']]), first);
   { const row = [...grid.children].find((r) => r.firstChild && r.firstChild.textContent === 'Screen shake'); const sg = this.seg('Screen shake', s, 'shakeLvl', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']], () => { s.shake = s.shakeLvl !== 'off'; save(); }); if (row) row.replaceWith(sg); else grid.appendChild(sg); }
@@ -521,7 +520,8 @@ UI.howto = function (p) {
     <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>
     <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device. Phones connect directly when they can; on strict networks the game automatically passes the same data through a small free relay server that only forwards it and stores nothing. A DIRECT or RELAY tag shows which one you are using.</p>
     <p><b>Can\u2019t connect?</b> Switch Wi-Fi and mobile data, use a phone hotspot, or let another friend host. As a last resort use <b>Connect without server</b> to swap two codes by hand.</p>
-    <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). ${STORE ? 'There is nothing to buy with real money in this version.' : 'The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged.'} Gold buys looks and conveniences, never power.</p></div>`);
+    <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). ${STORE ? 'There is nothing to buy with real money in this version.' : 'The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged.'} Gold buys looks and conveniences, never power.</p>
+    <h4 style="margin-top:1em">Music credits</h4><p id="howto-credits">Menu: “Happy Clappy Loop” by OwlishMedia. Battle: “Children’s Game Music 2 — Adventure” by heartade. Both released as <b>CC0</b> (public domain) on OpenGameArt.org. Credit is optional.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
 };
 UI.trophyroad = function (p) {
@@ -570,6 +570,7 @@ UI.trophyroad = function (p) {
 };
 
 UI.rankup = function (p) {
+  sfx('trophy');
   const award = (p && p.award) || { rankUps: [], rank: currentRank(), gained: 0, n: trophyCount() };
   const top = award.rankUps && award.rankUps.length ? award.rankUps[award.rankUps.length - 1].rank : award.rank;
   const el = h('div', 'screen center', null, { id: 'rankup' });
