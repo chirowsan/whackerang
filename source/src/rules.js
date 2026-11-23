@@ -46,7 +46,7 @@ export function installRules(Game, { Boom, Fighter }) {
     if (!f || !f.alive || f.ult < 100 || f.boss) return;
     reveal(f, STEALTH.reveal);
     const id = f.hero.id; const sig = SIGS[id] || SIGS.bao;
-    f.ult = 0; f.ultKind = id; sfx(id === 'puff' ? 'gust' : ('ult_' + id)); feel('special', { f, game: this }); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
+    f.ult = 0; f.ultKind = id; sfx(id === 'puff' ? 'gust' : id === 'bram' ? 'bristle' : ('ult_' + id)); feel('special', { f, game: this }); fx.popup(sig.name.toUpperCase() + '!', f.x, f.z, 'pop-ult', 1.6);
     const r = 0.4 * (f.bs || 1);
     if (id === 'bao') { // Snack Time
       if (f.hp < f.maxHp) { f.hp = Math.min(f.maxHp, f.hp + 1); fx.popup('+1 ♥', f.x, f.z, 'pop-gold', 1.4); }
@@ -84,6 +84,11 @@ export function installRules(Game, { Boom, Fighter }) {
       f.inv = Math.max(f.inv, 0.55);
       for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const ox = o.x - f.x, oz = o.z - f.z, d = Math.hypot(ox, oz); if (d < 4.2 && d > 1e-4) { o.vx += ox / d * 7.5; o.vz += oz / d * 7.5; } }
       for (const b of this.booms) { if (!b.alive || b.owner === f || (b.owner && b.owner.team === f.team)) continue; const ox = b.x - f.x, oz = b.z - f.z, d = Math.hypot(ox, oz); if (d < 4.6 && d > 1e-4) { b.x += ox / d * 1.15; b.z += oz / d * 1.15; } }
+      f.ultT = 0.01;
+    } else if (id === 'bram') { // Bristle: short quill puff shoves nearby rivals only (does not knock discs). Own flying discs stay spiky a little longer.
+      fx.ring(f.x, 0.3, f.z, 0x5a8a48, 3.0, 0.35); fx.sparks(f.x, 0.5, f.z, 14, [0xc47848, 0x5a8a48, 0xffffff], { speed: 4, up: 2 });
+      f.inv = Math.max(f.inv, 0.5); f.bristleT = Math.max(f.bristleT || 0, 2.4);
+      for (const o of this.fighters) { if (!o.alive || o.team === f.team) continue; const ox = o.x - f.x, oz = o.z - f.z, d = Math.hypot(ox, oz); if (d < 3.4 && d > 1e-4) { o.vx += ox / d * 6.8; o.vz += oz / d * 6.8; } }
       f.ultT = 0.01;
     } else { f.ultT = 0.01; }
     this.onEvent('ult', { f });

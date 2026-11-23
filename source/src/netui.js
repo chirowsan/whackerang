@@ -16,8 +16,8 @@ import { rankBadgeHtml, myRankId } from './trophy.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
-const PRIVACY = 'Rooms are friends only: you share a short room code. Auto match pairs you with other players who are searching at the same time: they only see a friendly preset name, there is no chat and no voice, just emotes (you can turn Auto match off in Settings). Online play sends only game inputs and game state to the players in your room (the host\u2019s device runs the match). The matchmaking queue keeps only a random anonymous id while you search and nothing is stored afterwards.';
+const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', creek: 'linear-gradient(135deg,#c4b086,#4a8a68)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
+const PRIVACY = 'Rooms are friends only: you share a short room code. Friend rooms have emoji-only sticker chat (no typed messages; you can mute incoming stickers in Settings). Auto match pairs you with other players who are searching at the same time: they only see a friendly preset name, Auto match has no chat log, and there is no voice (you can turn Auto match off in Settings). Online play sends only game inputs and game state to the players in your room (the host\u2019s device runs the match). The matchmaking queue keeps only a random anonymous id while you search and nothing is stored afterwards.';
 
 export const ERR = {
   'no-signal': ['Can\u2019t reach the room service', 'The free room-code service could not be reached from this network (it may be blocked or offline). You can still play by swapping codes by hand: use \u201CConnect without server\u201D. Or try another network.'],
@@ -91,7 +91,7 @@ Object.assign(UI, {
     } else if (KIDS) pn.appendChild(h('div', 'note-line', 'Auto match is off. Play with friends using a room code. A grown-up can turn Auto match on in Settings.', { id: 'net-kids-note' }));
     row.appendChild(this.btn('<i class="nm2-ic">➕</i><b>Create room</b>', 'primary nm2-btn', () => startHost(), { id: 'net-create' }));
     row.appendChild(this.btn('<i class="nm2-ic">🔑</i><b>Join room</b>', 'nm2-btn nm2-join', () => this.show('netJoin'), { id: 'net-joinroom' }));
-    pn.appendChild(row); pn.appendChild(h('div', 'nm2-priv', autoOn ? '🔒 Auto match: random players, anonymous, no chat. Rooms: friends only.' : '🔒 Friends only. No chat, no strangers.')); el.appendChild(pn);
+    pn.appendChild(row); pn.appendChild(h('div', 'nm2-priv', autoOn ? '🔒 Auto match: random players, anonymous, emotes only (no chat log). Rooms: friends only, emoji stickers (no typed chat).' : '🔒 Friends only. Emoji stickers only — no typed chat, no strangers.')); el.appendChild(pn);
     if (p && p.auto) { const c = normCode(p.auto); setTimeout(() => { if (UI.cur === 'netMenu') startJoin(c); }, 120); }
     return el;
   },
@@ -179,7 +179,18 @@ Object.assign(UI, {
       } else row.appendChild(h('div', 'pinfo', '<b>' + (set.bots ? 'Bot' : 'Empty') + '</b><small>' + (set.bots ? 'fills this seat' : 'waiting') + '</small>'));
       list.appendChild(row);
     }
-    main.appendChild(list); main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); if (s.settings.netDiag) main.appendChild(diagBox()); el.appendChild(main);
+    main.appendChild(list);
+    if (Net.isFriendRoom && Net.isFriendRoom()) {
+      const chat = h('div', 'panel friend-chat-lobby', null, { id: 'friend-chat-lobby' });
+      const ch = h('div', 'fchd'); ch.appendChild(h('h4', '', 'Emoji chat'));
+      ch.appendChild(this.btn(s.settings.chatMute ? '🔇 Muted' : 'Mute', 'small', () => { s.settings.chatMute = !s.settings.chatMute; save(); sfx('click'); this.show('netLobby'); }, { id: 'chat-mute' }));
+      chat.appendChild(ch);
+      chat.appendChild(h('p', 'note-line', 'Stickers only — no typed chat.'));
+      chat.appendChild(h('div', 'fclog', '', { id: 'lobby-fclog' }));
+      const em = h('div', 'emorow'); LOBBY_EMOJI.forEach((e, i) => { const b = h('button', 'emo', e, { 'data-nav': 1, 'aria-label': 'sticker ' + (i + 1) }); b.addEventListener('click', () => { Net.lobbyEmoji(i); sfx('click'); }); em.appendChild(b); }); chat.appendChild(em);
+      main.appendChild(chat);
+    }
+    main.appendChild(h('div', 'net-notes', '', { id: 'net-notes' })); if (s.settings.netDiag) main.appendChild(diagBox()); el.appendChild(main);
     { const cc = main.querySelector('.nl2-code'); if (cc) longPress(cc, () => { s.settings.netDiag = !s.settings.netDiag; save(); UI.toast(s.settings.netDiag ? 'Connection details on' : 'Connection details off', 1200); this.show('netLobby'); }); }
     const ft = h('div', 'netfoot nl2-foot');
     if (isHost) { const can = Net.canStart(); ft.appendChild(this.btn('▶ START', 'primary big nl2-start' + (can ? '' : ' locked'), () => { fsOnPlay(); if (!Net.canStart()) { sfx('deny'); return UI.toast('Need at least 2 players, or turn bots on in Options', 1800); } Net.startMatch(); }, { id: 'net-start' })); }
@@ -209,7 +220,7 @@ Object.assign(UI, {
     } else body.appendChild(h('div', 'note-line', 'The host picks the mode and settings.'));
     body.appendChild(this.btn(`🔧 Connection details: ${s.settings.netDiag ? 'ON' : 'OFF'}`, 'small', () => { s.settings.netDiag = !s.settings.netDiag; save(); this.show('netLobby'); }, { id: 'net-diag-toggle' }));
     body.appendChild(h('div', 'net-priv', '🔒 ' + esc(PRIVACY))); box.appendChild(body); ov.appendChild(box); el.appendChild(ov);
-    setTimeout(() => { for (const k in emoRecent) if (performance.now() - emoRecent[k].t < 1500) flash(+k, emoRecent[k].e); }, 0);
+    setTimeout(() => { for (const k in emoRecent) if (performance.now() - emoRecent[k].t < 1500) flash(+k, emoRecent[k].e); renderFriendChat(); }, 0);
     return el;
   },
   netLeave() {
@@ -298,7 +309,25 @@ window.addEventListener('popstate', () => {
 // -------- live updates
 const emoRecent = {};
 const flash = (slot, e) => { emoRecent[slot] = { e, t: performance.now() }; const b = document.getElementById('eb' + slot); if (!b) return; b.textContent = LOBBY_EMOJI[e] || ''; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); };
+function chatName(slot) {
+  const p = (Net.lobby && Net.lobby.players || []).find((q) => q.slot === slot);
+  return p && p.name ? p.name : ('P' + (slot + 1));
+}
+function renderFriendChat() {
+  const mute = !!(S().settings && S().settings.chatMute);
+  const mine = Net.mySlot;
+  const rows = (Net.chatLog || []).filter((r) => !mute || r.s === mine).slice(-8);
+  const html = rows.length ? rows.map((r) => '<div class="fcline"><b>' + esc(chatName(r.s)) + '</b> ' + (LOBBY_EMOJI[r.e] || '') + '</div>').join('') : '<small class="dimc">Tap a sticker to say hi.</small>';
+  const lobby = document.getElementById('lobby-fclog'); if (lobby) lobby.innerHTML = html;
+  if (!Net.active || !Net.isFriendRoom || !Net.isFriendRoom()) { const old = document.getElementById('friend-chat'); if (old) old.remove(); return; }
+  if (UI.cur === 'netLobby') { const old = document.getElementById('friend-chat'); if (old) old.remove(); return; }
+  let box = document.getElementById('friend-chat');
+  if (!box) { box = document.createElement('div'); box.id = 'friend-chat'; box.className = 'friend-chat'; document.body.appendChild(box); }
+  box.innerHTML = html;
+  box.style.display = rows.length || !mute ? 'block' : 'none';
+}
 Net.onEmote = (slot, e) => { if (UI.cur === 'netLobby') flash(slot, e); };
+Net.onChat = (slot, e) => { renderFriendChat(); };
 Net.onStatus = (t) => { const e = document.getElementById('net-status') || document.getElementById('net-notes'); if (e) e.textContent = t || ''; const m = document.getElementById('man-status'); if (m && t) m.textContent = t; };
 Net.onNote = (t) => { const e = document.getElementById('net-notes'); if (e) e.textContent = t; };
 Net.onUpdate = () => {

@@ -1,5 +1,5 @@
-/* Whackerang service worker - build v4.12.1-20261121. HTML shell plus the two CC0 music loops, so offline play still has music. */
-const VERSION = 'v4.12.1-20261121';
+/* Whackerang service worker - build v4.13.0-20261122. HTML shell plus the two CC0 music loops, so offline play still has music. */
+const VERSION = 'v4.13.0-20261122';
 const CACHE = 'whk-' + VERSION;
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png', './screenshots/play.png', './screenshots/menu.png', './music/menu.ogg', './music/battle.ogg'];
 self.addEventListener('install', (e) => {

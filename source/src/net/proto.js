@@ -48,7 +48,7 @@ export function cleanName(raw) {
 export const randomPreset = () => PRESET_NAMES[rndInt(PRESET_NAMES.length)];
 // host-side: anything that arrives from the network is re-validated; invalid names are replaced by a safe preset
 export const safeName = (raw) => (PRESET_NAMES.includes(raw) ? raw : cleanName(raw) || randomPreset());
-export const LOBBY_EMOJI = ['👍', '😂', '😮', '🔥', '🪃', '👋'];
+export const LOBBY_EMOJI = ['👍', '😂', '😮', '🔥', '🪃', '👋', '❤️', '⭐', '😎', '🎉', '😅', '💪'];
 // modes offered online and what each one needs
 export const ONLINE_MODES = ['classic', 'team', 'ctf', 'coins', 'ball', 'koth', 'bomb', 'crumble'];
 export const TEAM_MODES = ['team', 'ctf', 'ball'];

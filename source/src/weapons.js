@@ -49,10 +49,14 @@ export const WEAPONS = {
   puff_seed: D('Seed Disc', 'disc', 0xfff0a0, 'Floaty throw that hangs, then drifts toward rivals.', T(1.18, 1.42, 1.00, 0.70), M(90, 1.15, 0.12, 0.08, 0.22, 0.44), { home: 2.4 }),
   puff_fan: D('Pinwheel', 'star', 0x7eb3ff, 'Spinning breeze with a curving flight.', T(1.00, 1.05, 1.1, 1.25), M(360, 1.0, 0.1, 0.1, 0.24, 0.52, 'spin')),
   puff_stem: D('Stem Wand', 'staff', 0x6aaa4a, 'Straight, light poke.', T(1.12, 0.95, 0.92, 0.45), M(45, 1.4, 0.1, 0.07, 0.2, 0.4, 'poke')),
+  // Bramble, Hedgehog Kid (spiky returns): short, bristly tools
+  bram_burr: D('Burr Disc', 'disc', 0xc47848, 'A sticky short throw that snaps back before a snatcher can settle.', T(1.16, 1.40, 1.04, 0.80), M(90, 1.1, 0.12, 0.08, 0.22, 0.44), { home: 1.6 }),
+  bram_quill: D('Quill Dart', 'icicle', 0xe8d0a0, 'Straight, short poke that can fly through a rival.', T(1.28, 1.00, 0.98, 0.35), M(45, 1.35, 0.09, 0.07, 0.2, 0.38, 'poke'), { pierce: 1 }),
+  bram_ring: D('Bramble Ring', 'ring', 0x5a8a48, 'A curving thorny ring. Spinning sweep.', T(1.10, 1.22, 1.10, 1.15), M(360, 1.0, 0.1, 0.1, 0.24, 0.52, 'spin')),
 };
 export const WEAPON_IDS = Object.keys(WEAPONS);
 export const HERO_WPN = { bao: ['bao_wok', 'bao_cleaver', 'bao_pin'], nori: ['nori_shuriken', 'nori_kama', 'nori_tanto'], tako: ['tako_wrench', 'tako_magnet', 'tako_drone'], kuma: ['kuma_anchor', 'kuma_hook', 'kuma_cutlass'],
-  pico: ['pico_staff', 'pico_chakram', 'pico_jade'], yuki: ['yuki_katana', 'yuki_icicle', 'yuki_snow'], gus: ['gus_dumbbell', 'gus_belt', 'gus_kettle'], wisp: ['wisp_lantern', 'wisp_sickle', 'wisp_will'], puff: ['puff_seed', 'puff_fan', 'puff_stem'] };
+  pico: ['pico_staff', 'pico_chakram', 'pico_jade'], yuki: ['yuki_katana', 'yuki_icicle', 'yuki_snow'], gus: ['gus_dumbbell', 'gus_belt', 'gus_kettle'], wisp: ['wisp_lantern', 'wisp_sickle', 'wisp_will'], puff: ['puff_seed', 'puff_fan', 'puff_stem'], bram: ['bram_burr', 'bram_quill', 'bram_ring'] };
 export const heroWeapons = (hero) => HERO_WPN[hero] || ['boom'];
 export const wpnOf = (id) => (WEAPONS[id] ? id : 'boom'); // unknown / missing ids fall back to the base boomerang
 // character-legal weapon: anything not in this hero's own list (other hero's weapon, v4.10 global id, junk) -> the hero's first weapon

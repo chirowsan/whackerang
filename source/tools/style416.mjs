@@ -68,7 +68,7 @@ const meta = await page.evaluate(() => {
   }
   return { speed, traits, chillDefault: speed === 'chill' || speed === undefined, heroCount: __bg.HEROES.length };
 });
-ok('nine fighters still in the roster', meta.heroCount === 9, meta.heroCount);
+ok('ten fighters still in the roster', meta.heroCount === 10, meta.heroCount);
 ok('each fighter keeps tag, signature, 3 weapons, and a how-to line', Object.values(meta.traits).every((t) => t.tag && t.sig && t.weapons === 3 && t.how && t.how.length > 8), meta.traits);
 ok('saved default game speed is Chill (or was already Chill)', meta.speed === 'chill' || meta.chillDefault, meta.speed);
 ok('Bao stays 4 hearts, Nori 2, Gus 5, Wisp 3', meta.traits.bao.hp === 4 && meta.traits.nori.hp === 2 && meta.traits.gus.hp === 5 && meta.traits.wisp.hp === 3, Object.fromEntries(Object.entries(meta.traits).map(([k, v]) => [k, v.hp])));
@@ -97,7 +97,7 @@ const selectUi = await page.evaluate(() => {
   const howToBox = howEl ? howEl.getBoundingClientRect() : { top: 0, bottom: 0 };
   return { cards, howTo, howToPx, howToVisible: howToBox.bottom <= innerHeight && howToBox.top >= 0, n: cards.length };
 });
-ok('character select shows a how-to line on every card', selectUi.n === 9 && selectUi.cards.every((c) => c.how && c.how.length > 8), selectUi);
+ok('character select shows a how-to line on every card', selectUi.n >= 9 && selectUi.cards.every((c) => c.how && c.how.length > 8), selectUi);
 ok('how-to lines are at least 13 px on a 915×412 phone', selectUi.cards.every((c) => c.fontPx >= 13 && c.howH >= 13) && selectUi.howToPx >= 13 && selectUi.howToVisible, { fonts: selectUi.cards.map((c) => [c.name, c.fontPx, c.howH]), howToPx: selectUi.howToPx, vis: selectUi.howToVisible });
 ok('detail pane starts with How to play', /how to play/i.test(selectUi.howTo), selectUi.howTo);
 

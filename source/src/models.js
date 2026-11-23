@@ -1,5 +1,6 @@
 import { THREE, gfx, toon, glowMat, basic, mesh, glowSprite, mergeToon, softTex } from './gfx.js';
 import { POWERUPS, SKINS as SHOP_SKINS, BOOM_TYPES } from './data.js';
+import { skinOf, equippedSkinId } from './looks.js';
 import { buildFighterBody, animateFighter } from './fighters.js';
 import { WEAPONS } from './weapons.js';
 
@@ -59,6 +60,7 @@ export function buildFighter(h, hat = 'none', teamColor = 0xffffff) {
   // hat
   const hatG = new THREE.Group(); hatG.position.set(0, sp.hatY, 0); hatG.scale.setScalar(sp.hs); body.add(hatG); m.hatNode = hatG; m.headY = sp.hatY;
   m.finish();
+  applyHeroSkin(root, h);
   addHat(m, hat, sp.shades);
   { let first = true; root.traverse((o) => { if (o.userData && o.userData.ol === 'hero') { if (first) first = false; else { o.userData.ol = 'hero2'; o.visible = gfx.outlinesAll; } } }); }
   m.setHat = (id) => { while (hatG.children.length) hatG.remove(hatG.children[0]); if (m.shades) { body.remove(m.shades); m.shades = null; } if (m.band) { body.remove(m.band); m.band = null; } addHat(m, id, sp.shades); };
@@ -90,6 +92,25 @@ function makeMarker(m, color, label, big) {
   if (big) { const yr = new THREE.Mesh(geo('youring', () => new THREE.RingGeometry(0.74, 0.86, 36)), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false })); yr.rotation.x = -Math.PI / 2; yr.position.y = 0.027; m.root.add(yr); m.youRing = yr; } // v4.9: unmistakable own-player ring
 }
 
+function applyHeroSkin(root, h) {
+  if (!h || !h.id) return;
+  const sk = skinOf(h.id, equippedSkinId(h.id));
+  if (!sk || sk.id === 'classic') return;
+  const fromC = new THREE.Color(h.color), toC = new THREE.Color(sk.color);
+  const fromA = new THREE.Color(h.accent), toA = new THREE.Color(sk.accent);
+  const hslF = { h: 0, s: 0, l: 0 }, hslT = { h: 0, s: 0, l: 0 }, hsl = { h: 0, s: 0, l: 0 };
+  const hueNear = (a, b, tol = 0.09) => { const d = Math.abs(a - b); return Math.min(d, 1 - d) < tol; };
+  const shift = (col, from, to) => { from.getHSL(hslF); to.getHSL(hslT); col.getHSL(hsl); if (!(hueNear(hsl.h, hslF.h) && hsl.s > 0.12)) return false; hsl.h = (hsl.h + (hslT.h - hslF.h) + 1) % 1; hsl.s = Math.min(1, Math.max(0, hsl.s + (hslT.s - hslF.s) * 0.85)); hsl.l = Math.min(1, Math.max(0.08, hsl.l + (hslT.l - hslF.l) * 0.7)); col.setHSL(hsl.h, hsl.s, hsl.l); return true; };
+  root.traverse((o) => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (let i = 0; i < mats.length; i++) {
+      const m = mats[i]; if (!m || !m.color || m.map) continue;
+      const n = m.clone(); let changed = shift(n.color, fromC, toC) || shift(n.color, fromA, toA);
+      if (!changed) { /* keep shared */ continue; }
+      if (Array.isArray(o.material)) o.material[i] = n; else o.material = n;
+    }
+  });
+}
 function addHat(m, id, sh0) {
   const eyeY = sh0.y, eyeZ = sh0.z, eyeX = sh0.x;
   const hg = m.hatNode; const body = m.body; const hd = m.spec.head;

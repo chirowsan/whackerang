@@ -119,6 +119,8 @@ const STY = {
     base(x, n, cx) {} },
   seed: { eye: 'round', ex: 28, ey: 58, er: 13, lid: 0xfff6e0, brow: 0xc9a43a, alwaysBrow: false, mouth: 'smile', my: 98, mw: 12, cheek: '255,150,160', sclera: 0xffffff,
     base(x, n, cx) { x.fillStyle = '#ffe566'; x.beginPath(); x.ellipse(cx, 108, 38, 16, 0, 0, 7); x.fill(); } },
+  quill: { eye: 'round', ex: 30, ey: 56, er: 12, lid: 0xf4d4b0, brow: 0x6a3a20, alwaysBrow: false, mouth: 'smile', my: 100, mw: 14, cheek: '220,120,100', sclera: 0xffffff,
+    base(x, n, cx) { x.fillStyle = '#c47848'; x.beginPath(); x.ellipse(cx, 112, 42, 18, 0, 0, 7); x.fill(); x.fillStyle = '#e8c080'; x.beginPath(); x.ellipse(cx, 118, 18, 8, 0, 0, 7); x.fill(); } },
 };
 
 export function faceTexture(id) {

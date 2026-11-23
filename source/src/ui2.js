@@ -17,6 +17,9 @@ import { ohudClear } from './ohud.js';
 import { AW, AH, HX, HZ } from './util.js';
 import { portrait } from './portraits.js';
 import { canInstall, promptInstall, IS_APP, IS_IOS, isStandalone } from './pwa.js';
+import { HERO_SKINS, EARN_POSES, ownsHeroSkin, ownsPose, equippedSkinId, equipHeroSkin, equipPose, earnLabel, earnProgress, allPoseIds, poseInfo } from './looks.js';
+import { Net } from './net/net.js';
+import { LOBBY_EMOJI } from './net/proto.js';
 import { Input } from './input.js';
 import { WEAPONS, WEAPON_IDS, wpnOf, weaponBars, wpnSvg, heroWeapons, PAT_LABEL } from './weapons.js';
 import { getWpn, setWpn } from './save.js';
@@ -24,7 +27,7 @@ import { poisonHud, poisonRect, poisonPhase, inPoison } from './poison.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', volcano: 'linear-gradient(135deg,#57444a,#ff7a1a)', pirate: 'linear-gradient(135deg,#c29560,#2fb4e8)', space: 'linear-gradient(135deg,#44507a,#36e0ff)', haunted: 'linear-gradient(135deg,#66567a,#8a6aff)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
+const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', volcano: 'linear-gradient(135deg,#57444a,#ff7a1a)', pirate: 'linear-gradient(135deg,#c29560,#2fb4e8)', space: 'linear-gradient(135deg,#44507a,#36e0ff)', haunted: 'linear-gradient(135deg,#66567a,#8a6aff)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', creek: 'linear-gradient(135deg,#c4b086,#4a8a68)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path d="M3 18 2 7l5 4 5-7 5 7 5-4-1 11z" fill="#ffd23c" stroke="#8a5200" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const heart = (on) => `<svg class="heart ${on ? '' : 'off'}" viewBox="0 0 24 24"><path d="M12 21s-8-5.2-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.800-8 11-8 11z" fill="#ff4a7a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const boomSvg = (c) => `<svg viewBox="0 0 48 48" class="bsv"><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="#1a0a2a" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 33C10 17 17 11 24 11s14 6 16 22" fill="none" stroke="${c}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -90,6 +93,7 @@ Object.assign(UI, {
     g.appendChild(this.btn('🎮 All modes', '', () => this.show('modes')));
     g.appendChild(this.btn('⚔ Armory', '', () => this.show('armory', { ret: 'menu' }), { id: 'btn-armory' }));
     g.appendChild(this.btn('Collection', '', () => this.show('collection', { tab: 'Hats' }), { id: 'btn-collection' }));
+    g.appendChild(this.btn('Looks', '', () => this.show('looks', { ret: 'menu' }), { id: 'btn-looks' }));
     g.appendChild(this.btn('Fighters', '', () => this.show('heroes', { mode: 'pick', ret: 'menu' })));
     g.appendChild(this.btn('Trophy Road', '', () => this.show('trophyroad', { ret: 'menu' }), { id: 'btn-trophy' }));
     g.appendChild(this.btn('Profile' + (dailyReady ? ' <i class="dot"></i>' : ''), '', () => this.show('profile')));
@@ -470,7 +474,13 @@ Object.assign(UI, {
   tutorialHide() { this.tutPulseClear(); const c = $('#tut'); if (c) { c.className = ''; c.innerHTML = ''; } },
   // ================= emotes =================
   emoteToggle() { if ($('#emotes.show')) this.emoteClose(); else this.emoteOpen(); },
-  emoteOpen() { let r = $('#emotes'); if (!r) { r = h('div', '', '', { id: 'emotes' }); document.body.appendChild(r); } r.className = 'show'; r.innerHTML = ''; S().eq.emotes.forEach((id, i) => { const e = EMOTES[id]; const b = h('button', 'emo-btn', e.text, { style: `--ec:${hex(e.color)}` }); b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); this.app.emote(id); }); r.appendChild(b); }); },
+  emoteOpen() { let r = $('#emotes'); if (!r) { r = h('div', '', '', { id: 'emotes' }); document.body.appendChild(r); } r.className = 'show'; r.innerHTML = ''; S().eq.emotes.forEach((id, i) => { const e = EMOTES[id]; const b = h('button', 'emo-btn', e.text, { style: `--ec:${hex(e.color)}` }); b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); this.app.emote(id); }); r.appendChild(b); });
+    if (Net.active && Net.isFriendRoom && Net.isFriendRoom()) {
+      const pack = h('div', 'emorow friend-stickers');
+      LOBBY_EMOJI.forEach((e, i) => { const b = h('button', 'emo', e, { 'data-nav': 1, 'aria-label': 'sticker ' + (i + 1) }); b.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); Net.lobbyEmoji(i); sfx('click'); }); pack.appendChild(b); });
+      r.appendChild(pack);
+    }
+  },
   emoteClose() { const r = $('#emotes'); if (r) { r.className = ''; r.innerHTML = ''; } },
 });
 // extend the existing pause/howto/heroes via small wrappers
@@ -493,6 +503,7 @@ UI.settings = function (p) {
       let has = false; try { has = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics) || (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'); } catch (e) {}
       if (!has) { const hint = document.createElement('div'); hint.className = 'iphone-vibe-hint'; hint.style.cssText = 'font-size:11px;opacity:.7;margin:2px 0 6px;max-width:28ch;line-height:1.3'; hint.textContent = 'On iPhone, hits play a tiny sparkle and a punchy sound instead — Safari cannot vibrate.'; vr.appendChild(hint); }
     } }
+  grid.appendChild(tog('Mute incoming emoji chat', 'chatMute'));
   const tr = h('div', 'row', '<span>Practice</span>'); tr.appendChild(this.btn('Practice', 'small', () => { if (p.ret === 'pause') this.app.quitToMenu(); this.app.startTutorial(); }, { id: 'btn-practice-set' })); grid.appendChild(tr);
   return el;
 };
@@ -516,10 +527,11 @@ UI.howto = function (p) {
     <h4 style="margin-top:1em">Close-range swing &amp; Armory</h4><p>While your weapon is in your hand you can also <b>swing</b> it at a rival right next to you: a short arc in front of you for one heart. On touch, a <b>quick tap</b> on the throw stick swings when a rival you can see is in reach, otherwise it throws; <b>drag and release</b> always throws. Keys: <b>G</b> (P1), <b>B</b> (solo arrows), <b>,</b> (P2); gamepad <b>LT</b>. No swing while your weapon is flying, while dashing or stunned; a parry blocks it and dodges / shields work as usual. Swinging reveals you from a bush. Pick your weapon for free in the <b>Armory</b> before a match: Boomerang (balanced), Zip Disc (fast, narrow), Hook Ring (wide curve, broad sweep) or Bonk Mallet (slow, big, long reach). Online rooms with an older version play boomerang-only.</p><h4 style="margin-top:1em">Bushes</h4><p>Stand fully inside a <b>bush</b> to hide from rivals; you and your teammates see you faded. Throwing, parrying, using your ULT or getting hit shows you for about 1.5 s, and a rival who comes within about 1.8 units spots you. Boomerangs still hit anyone hiding, so a blind throw into a bush can pay off. No bushes in Boomerang Ball. Online rooms with a player on an older version use the older layout with no bushes.</p>
     <h4 style="margin-top:1em">Traps</h4><p><b>Red traps are deadly, but they sleep until a player wakes them:</b> step on a switch plate, hit a switch with your boomerang, or hit the trap itself. You get about half a second of flashing warning. <b>Yellow traps never kill</b>: they slow, shove, stun for half a second or make your aim go dizzy. Set traps to Off, Some or Wild in setup. Dashing and jump pads make you safe for a moment.</p><ul>${tt}</ul><h4 style="margin-top:1em">Countdown</h4><p>Every round starts with a big <b>3-2-1-GO</b> (always 3 seconds, whatever Game Speed you picked). While it counts you can look around the arena, but nobody can move, throw or use traps, the clocks have not started and nobody can be hurt. Online, the host\u2019s start time is shared so everyone\u2019s GO lands together. Training skips the long version.</p><h4 style="margin-top:1em">Drops</h4><p><b>A dark hole with a glowing cyan edge means no floor.</b> Cracking tiles blink dark and cyan just before they fall. When you get close to a drop the screen edge glows, the phone ticks and buzzes, and you wobble if you stand on nothing: step back within a quarter of a second and you are fine. With <b>Edge help</b> on (Settings) your first fall in a match is forgiven once: you are put back on safe floor, stunned for under a second, with a short shield. After that, falling is real.</p>
     <h4 style="margin-top:1em">Daily twist</h4><p>Setup has a <b>Daily twist</b> option: one of these every day.</p><ul>${mu}</ul>
-    <h4 style="margin-top:1em">Fighters</h4><p>Each fighter has a simple tag (Tank, Speedy, Zappy and so on), their own three weapons, and a <b>signature move</b>. On a phone, tap the <b>Special</b> button (the lightning one) when the ring is full. It is ready at the start of a round and comes back every 10–14 seconds. Keyboard: <b>R</b> (P1) or <b>U</b> (solo / P2). The move is different for each fighter — Bao has a snack, Nori a smoke pop, Yuki an ice slide — and bots can use it too.</p>
+    <h4 style="margin-top:1em">Fighters</h4><p>Each fighter has a simple tag (Tank, Speedy, Zappy and so on), their own three weapons, and a <b>signature move</b>. On a phone, tap the <b>Special</b> button (the lightning one) when the ring is full. It is ready at the start of a round and comes back every 10–14 seconds. Keyboard: <b>R</b> (P1) or <b>U</b> (solo / P2). The move is different for each fighter — Bao has a snack, Nori a smoke pop, Yuki an ice slide, Bramble a short Bristle puff — and bots can use it too. <b>Bramble</b> is a free hedgehog kid whose returning disc pokes anyone who tries to snatch it, so she is a good answer to Salty. <b>Cedar Creek</b> is a calm map with a shallow creek: water slows you, and you can ride the slow drifting logs.</p>
     <h4 style="margin-top:1em">Online play</h4><p>Open <b>Play online</b>. <b>Create room</b> gives you a 5-letter code and a share link; friends choose <b>Join</b> and enter it (or open the link). Up to 4 players. Everyone picks a fighter and presses <b>Ready</b>; the host chooses the mode and starts. The match does not pause online. If your connection drops, a bot plays for you and you can rejoin. The ping chip in the corner shows your delay (green is good).</p>
-    <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. There is no chat, no voice and no way for strangers to find your room. The match runs on the host\u2019s device. Phones connect directly when they can; on strict networks the game automatically passes the same data through a small free relay server that only forwards it and stores nothing. A DIRECT or RELAY tag shows which one you are using.</p>
+    <p><b>Privacy:</b> online play shares only your game inputs and the game state with the friends in your room, plus the display name and fighter you choose. Friend rooms have an <b>emoji-only sticker chat</b> (no typed messages, and you can mute incoming stickers in Settings). Auto match has no chat log. There is no voice and no way for strangers to find a friend room. The match runs on the host\u2019s device. Phones connect directly when they can; on strict networks the game automatically passes the same data through a small free relay server that only forwards it and stores nothing. A DIRECT or RELAY tag shows which one you are using.</p>
     <p><b>Can\u2019t connect?</b> Switch Wi-Fi and mobile data, use a phone hotspot, or let another friend host. As a last resort use <b>Connect without server</b> to swap two codes by hand.</p>
+    <h4 style="margin-top:1em">Looks</h4><p>Open <b>Looks</b> on the menu to earn extra colors and win poses by playing (matches, wins, trophies, and daily quests). Looks never change how a fighter plays. No purchases, loot boxes, or ads.</p>
     <h4 style="margin-top:1em">Gold</h4><p>You <b>earn gold by playing</b> (wins, KOs, dailies, login streak, achievements). ${STORE ? 'There is nothing to buy with real money in this version.' : 'The Gold Store also has an optional <b>Buy gold</b> tab. It is in <b>TEST MODE</b>: nothing is charged.'} Gold buys looks and conveniences, never power.</p>
     <h4 style="margin-top:1em">Music credits</h4><p id="howto-credits">Menu: “Happy Clappy Loop” by OwlishMedia. Battle: “Children’s Game Music 2 — Adventure” by heartade. Both released as <b>CC0</b> (public domain) on OpenGameArt.org. Credit is optional.</p></div>`);
   x.style.gridColumn = '1 / -1'; pn.appendChild(x); return el;
@@ -592,3 +604,62 @@ UI.rankup = function (p) {
 };
 
 UI.pause = ((orig) => function () { const el = orig.call(this); return el; })(UI.pause);
+
+UI.looks = function (p) {
+  const ret = (p && p.ret) || 'menu';
+  const tab = (p && p.tab) || 'skins';
+  const s = S();
+  const heroId = (p && p.hero) || s.hero || 'bao';
+  const el = h('div', 'screen page looks', null, { id: 'looks' });
+  const hd = h('header'); hd.appendChild(this.backBtn(() => this.show(ret))); hd.appendChild(h('h2', '', 'Looks')); el.appendChild(hd);
+  const tabs = h('div', 'seg looks-tabs');
+  for (const [id, lab] of [['skins', 'Skins'], ['poses', 'Win poses']]) {
+    const b = h('button', tab === id ? 'on' : '', lab, { 'data-nav': 1 });
+    b.addEventListener('click', () => { sfx('click'); this.show('looks', { ...p, tab: id, hero: heroId }); });
+    tabs.appendChild(b);
+  }
+  el.appendChild(tabs);
+  el.appendChild(h('p', 'note-line', 'Earn looks by playing. They never change how strong a fighter is. No purchases, no loot boxes, no ads.'));
+  const body = h('div', 'looks-body scroll');
+  if (tab === 'skins') {
+    const row = h('div', 'looks-heroes');
+    for (const hh of HEROES) {
+      const b = h('button', 'hchip' + (hh.id === heroId ? ' on' : ''), hh.name, { 'data-nav': 1, 'data-hero': hh.id });
+      b.addEventListener('click', () => { sfx('click'); this.show('looks', { ...p, tab, hero: hh.id }); });
+      row.appendChild(b);
+    }
+    body.appendChild(row);
+    const grid = h('div', 'shop-grid looks-grid');
+    for (const sk of (HERO_SKINS[heroId] || [])) {
+      const own = ownsHeroSkin(heroId, sk.id);
+      const eq = equippedSkinId(heroId) === sk.id;
+      const pr = earnProgress(sk.earn);
+      const c = h('div', 'card' + (eq ? ' on' : '') + (own ? '' : ' locked'), null, { 'data-skin': sk.id });
+      const sw = h('div', 'look-swatch'); sw.style.background = 'linear-gradient(135deg,#' + sk.color.toString(16).padStart(6, '0') + ',#' + sk.accent.toString(16).padStart(6, '0') + ')';
+      c.appendChild(sw); c.appendChild(h('h4', '', sk.name));
+      if (own) c.appendChild(this.btn(eq ? '\u2713 Equipped' : 'Equip', eq ? 'small gold' : 'small', () => { if (equipHeroSkin(heroId, sk.id)) { sfx('click'); this.show('looks', { ...p, tab, hero: heroId }); } else sfx('deny'); }));
+      else c.appendChild(h('small', 'dimc', earnLabel(sk.earn) + ' (' + Math.min(pr.have, pr.need) + '/' + pr.need + ')'));
+      grid.appendChild(c);
+    }
+    body.appendChild(grid);
+  } else {
+    const grid = h('div', 'shop-grid looks-grid');
+    const ids = ['wave', ...Object.keys(EARN_POSES)];
+    for (const id of allPoseIds()) if (!ids.includes(id) && ownsPose(id)) ids.push(id);
+    const eqId = s.eq.pose || 'wave';
+    for (const id of ids) {
+      const info = poseInfo(id);
+      const own = ownsPose(id);
+      const eq = eqId === id;
+      const c = h('div', 'card' + (eq ? ' on' : '') + (own ? '' : ' locked'), null, { 'data-pose': id });
+      c.appendChild(h('h4', '', info.name || id));
+      if (info.desc) c.appendChild(h('small', 'dimc', info.desc));
+      if (own) c.appendChild(this.btn(eq ? '\u2713 Equipped' : 'Equip', eq ? 'small gold' : 'small', () => { if (equipPose(id)) { sfx('click'); this.show('looks', { ...p, tab }); } else sfx('deny'); }));
+      else if (info.earn) { const pr = earnProgress(info.earn); c.appendChild(h('small', 'dimc', earnLabel(info.earn) + ' (' + Math.min(pr.have, pr.need) + '/' + pr.need + ')')); }
+      grid.appendChild(c);
+    }
+    body.appendChild(grid);
+  }
+  el.appendChild(body);
+  return el;
+};

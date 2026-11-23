@@ -87,7 +87,7 @@ export function dailyDoneCount() { const d = ensureDaily(); return d.list.filter
 export function canReroll() { return !ensureDaily().rerolled; }
 export function rewardOf(c) { return (c && (c.stars != null ? c.stars : c.coins)) || 0; }
 
-export function claimDaily(i) { const d = ensureDaily(), c = d.list[i]; if (!c || d.claimed[c.id] || dailyProgress(c) < c.n) return false; d.claimed[c.id] = true; addCoins(rewardOf(c), 'daily'); addXp(c.xp); save(); return true; }
+export function claimDaily(i) { const d = ensureDaily(), c = d.list[i]; if (!c || d.claimed[c.id] || dailyProgress(c) < c.n) return false; d.claimed[c.id] = true; addCoins(rewardOf(c), 'daily'); addXp(c.xp); const st = S(); st.stats = st.stats || {}; st.stats.dailies = (st.stats.dailies || 0) + 1; save(); try { if (typeof globalThis !== 'undefined' && globalThis.__bg && __bg.checkLookUnlocks) __bg.checkLookUnlocks(); } catch (e) {} return true; }
 
 export function rerollDaily(i) {
   const d = ensureDaily(); if (d.rerolled) return false;

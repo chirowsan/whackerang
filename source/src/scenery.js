@@ -223,6 +223,22 @@ const BUILD = {
     }
     view.rim = 0x9ec8b0;
   },
+  creek(view, rd) {
+    const R = view.root;
+    groundFrame(view, cv(256, 256, (x, w, h) => {
+      x.fillStyle = '#8fbf72'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 420; i++) { x.fillStyle = `hsla(${85 + rd() * 25},38%,${38 + rd() * 20}%,.4)`; x.fillRect(rd() * w, rd() * h, 2, 3 + rd() * 5); }
+    }, true), 14, -0.32);
+    const trees = gfx.quality === 'low' ? 5 : 8;
+    for (let i = 0; i < trees; i++) {
+      const a = i / trees * Math.PI * 2 + rd() * 0.2, rad = Math.max(HX, HZ) + 2.8 + rd();
+      const x = Math.cos(a) * rad, z = Math.sin(a) * rad;
+      cyl(R, 0x6a4a28, [x, 0.4, z], 0.12, 0.8, { ol: 0.015, cast: false });
+      cone(R, 0x3f7a48, [x, 1.05, z], 0.55, 0.9, { ol: 0.02, cast: false });
+      cone(R, 0x4f8a52, [x, 1.45, z], 0.36, 0.6, { ol: 0.015, cast: false });
+    }
+    view.rim = 0x9ec8a0;
+  },
   clouds(view, color, ys, op) {
     const tex = cv(256, 256, (x, w, h) => { const rd = mulberry32(5); for (let i = 0; i < 26; i++) { const px = rd() * w, py = rd() * h, r = 18 + rd() * 34; const g = x.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,255,255,.55)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.arc(px, py, r, 0, 7); x.fill(); } }, true); tex.repeat.set(3, 2);
     if (gfx.quality === 'low') ys = ys.slice(0, 1);
@@ -249,6 +265,7 @@ export function floorPattern(view, id, layout, rd) {
     else if (id === 'space') { ring(E * 2.8, '#36e0ff', 6, 0.6); ring(E * 2.3, '#ff4fd8', 3, 0.5); ring(E * 1.4, '#36e0ff', 3, 0.5); x.strokeStyle = '#36e0ff'; x.globalAlpha = 0.5; x.lineWidth = 4; for (let i = 0; i < 12; i++) { x.save(); x.rotate(i * Math.PI / 6); x.beginPath(); x.moveTo(E * 2.3, 0); x.lineTo(E * 2.8, 0); x.stroke(); x.restore(); } x.globalAlpha = 1; }
     else if (id === 'haunted') { ring(E * 2.7, '#b49aff', 6, 0.55); ring(E * 1.9, '#b49aff', 3, 0.45); x.strokeStyle = '#b49aff'; x.globalAlpha = 0.5; x.lineWidth = 4; x.beginPath(); for (let i = 0; i < 6; i++) { const a2 = i * Math.PI * 4 / 5 - Math.PI / 2; const X2 = Math.cos(a2) * E * 1.9, Y2 = Math.sin(a2) * E * 1.9; i ? x.lineTo(X2, Y2) : x.moveTo(X2, Y2); } x.stroke(); x.globalAlpha = 1; }
     else if (id === 'pond') { ring(E * 2.7, '#7ec8c0', 7, 0.55); ring(E * 1.9, '#ffb0c4', 3, 0.5); x.fillStyle = '#7ec8c0'; x.globalAlpha = 0.45; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; x.beginPath(); x.ellipse(Math.cos(a) * E * 1.15, Math.sin(a) * E * 1.15, E * 0.35, E * 0.18, a, 0, 7); x.fill(); } x.globalAlpha = 1; }
+    else if (id === 'creek') { ring(E * 2.7, '#6a8a50', 7, 0.5); ring(E * 1.9, '#8a6a40', 3, 0.45); x.strokeStyle = '#5a8a78'; x.globalAlpha = 0.4; x.lineWidth = 6; x.beginPath(); x.ellipse(0, 0, E * 2.1, E * 0.7, 0, 0, 7); x.stroke(); x.globalAlpha = 1; }
     else { ring(E * 2.7, '#ffffff', 8, 0.85); ring(E * 2.2, '#9fdcff', 4, 0.6); x.strokeStyle = '#ffffff'; x.globalAlpha = 0.8; x.lineWidth = 6; x.lineCap = 'round'; for (let i = 0; i < 6; i++) { x.save(); x.rotate(i * Math.PI / 3); x.beginPath(); x.moveTo(E * 0.4, 0); x.lineTo(E * 2.0, 0); x.moveTo(E * 1.4, 0); x.lineTo(E * 1.8, E * 0.35); x.moveTo(E * 1.4, 0); x.lineTo(E * 1.8, -E * 0.35); x.stroke(); x.restore(); } x.globalAlpha = 1; }
     x.restore();
     // corner marks + spawn pads
@@ -285,7 +302,7 @@ export function updateScenery(view, t, dt) { for (const f of view.anim) f(t, dt)
 
 // ---------- v4.9 themed floor materials: grey-centred detail (128 = no change), seamless, 256 px = 2x2 cells. Low contrast on purpose: fighters and hazards stay the loudest thing.
 export function tileTex(id) {
-  const rd = mulberry32(({ dojo: 11, rooftop: 12, jungle: 13, ice: 14, volcano: 15, pirate: 16, space: 17, haunted: 18, pond: 19 })[id] || 20); const S = 256;
+  const rd = mulberry32(({ dojo: 11, rooftop: 12, jungle: 13, ice: 14, volcano: 15, pirate: 16, space: 17, haunted: 18, pond: 19, creek: 21 })[id] || 20); const S = 256;
   const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d'); x.fillStyle = 'rgb(128,128,128)'; x.fillRect(0, 0, S, S);
   const wrap = (fn) => { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { x.save(); x.translate(ox, oy); fn(); x.restore(); } };
   const g = (v, a = 1) => `rgba(${v},${v},${v},${a})`;
@@ -299,6 +316,7 @@ export function tileTex(id) {
     x.restore(); };
   if (id === 'dojo') { planks(false, 32, 84); blobs(10, 30, 60, 116, 140, 0.25); }
   else if (id === 'pond') { planks(false, 28, 88); blobs(8, 20, 50, 110, 138, 0.22); }
+  else if (id === 'creek') { blobs(28, 16, 42, 108, 146, 0.4); planks(false, 40, 96); }
   else if (id === 'pirate') { planks(true, 42, 80); x.fillStyle = g(70, 0.8); for (let cx0 = 0; cx0 < S; cx0 += 42) for (const y of [10, 138]) { x.beginPath(); x.arc(cx0 + 10, y, 2.2, 0, 7); x.arc(cx0 + 32, y, 2.2, 0, 7); x.fill(); } blobs(10, 30, 70, 112, 138, 0.3); }
   else if (id === 'jungle') { blobs(46, 14, 46, 104, 150, 0.5); x.strokeStyle = g(156, 0.55); x.lineWidth = 1.5; for (let i = 0; i < 160; i++) { const X = rd() * S, Y = rd() * S; x.beginPath(); x.moveTo(X, Y); x.lineTo(X + (rd() - 0.5) * 4, Y - 4 - rd() * 4); x.stroke(); } x.fillStyle = g(100, 0.45); for (let i = 0; i < 24; i++) { x.beginPath(); x.ellipse(rd() * S, rd() * S, 2 + rd() * 4, 1.5 + rd() * 3, rd() * 3, 0, 7); x.fill(); } }
   else if (id === 'space' || id === 'rooftop') { const sp = id === 'space'; blobs(18, 30, 60, 120, 136, 0.35);
@@ -314,4 +332,4 @@ export function tileTex(id) {
     blobs(12, 20, 50, 110, 140, 0.3); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; return t;
 }
-export const TILE_K = { dojo: 0.7, pirate: 0.7, jungle: 0.6, space: 0.75, rooftop: 0.6, ice: 0.5, volcano: 0.7, haunted: 0.65, pond: 0.65 };
+export const TILE_K = { dojo: 0.7, pirate: 0.7, jungle: 0.6, space: 0.75, rooftop: 0.6, ice: 0.5, volcano: 0.7, haunted: 0.65, pond: 0.65, creek: 0.62 };

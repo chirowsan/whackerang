@@ -42,6 +42,7 @@ export const BOT_STYLES = {
   gus:  { pref: 5.8, catch: 1.05, retreat: 0.95, bush: 0.1, melee: 0.82, charge: 0.5, dashIn: 0.18, dashOut: 0.22, ambush: 0, steal: 0, chillChase: 0 },
   wisp: { pref: 5.0, catch: 1.2, retreat: 1.0, bush: 0.8, ambush: 1, melee: 0.6, charge: 0.4, dashIn: 0.85, dashOut: 0.3, steal: 0, chillChase: 0 },
   puff: { pref: 6.5, catch: 1.36, retreat: 0.9, bush: 0.16, melee: 0.55, charge: 0.38, dashIn: 0.35, dashOut: 0.7, ambush: 0, steal: 0, chillChase: 0 },
+  bram: { pref: 6.4, catch: 1.48, retreat: 0.80, bush: 0.18, melee: 0.70, charge: 0.55, dashIn: 0.35, dashOut: 0.75, ambush: 0, steal: 0, chillChase: 0 },
 };
 
 export class Bot {
@@ -308,6 +309,7 @@ export class Bot {
       else if (tg && (tg.chillT || 0) > 0.15) pref = 5.0;
       if (tg && (tg.stunT || 0) > 0.05) pref = Math.min(pref, 4.4);
       if (tg && ((tg.mods && tg.mods.range) || 1) > 1 && f.ammo > 0) pref = Math.max(pref, 6.5); // joust a sniper, don't walk into the first throw
+      if (tg && tg.ammo <= 0 && !g.booms.some((b) => b.alive && b.owner === tg && !(b.fade > 0))) pref = Math.min(pref, 3.4); // press a disarmed rival (after a steal, or a lost boom)
       if (tg && ((tg.mods && tg.mods.meleeKb > 1) || (tg.maxHp >= 5)) && this.hid !== 'gus') pref = Math.max(pref, 6.3); // keep out of the wrestler's shove
       if (hurt) { pref += 2.4 * (sty.retreat || 1); this.st.retreat++; }
       if (this._gusBack > 0 && tg) pref = Math.max(pref, 5.4);

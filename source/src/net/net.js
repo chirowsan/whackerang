@@ -153,7 +153,7 @@ export const Net = {
       case 'ready': p.ready = !!m.r; this.syncLobby(); break;
       case 'prof': if (this.phase === 'lobby') { const from = p.autoFrom, to = p.autoTo; this.applyProfile(p, m); if (from && m.hero === from) { p.hero = to; p.hat = 'none'; } else p.autoFrom = null; this.syncLobby(); } break;
       case 'team': if (this.phase === 'lobby') { p.team = m.v === 1 ? 1 : 0; this.balanceTeams(); this.syncLobby(); } break;
-      case 'emo': { const t = now(); if (t - (p.emoT || 0) < 900) break; p.emoT = t; const e = (m.e | 0); if (e >= 0 && e < LOBBY_EMOJI.length) { this.sendAll({ t: 'emo', s: p.slot, e }); this.onEmote && this.onEmote(p.slot, e); } break; }
+      case 'emo': { const t = now(); if (t - (p.emoT || 0) < 900) break; p.emoT = t; const e = (m.e | 0); if (e >= 0 && e < LOBBY_EMOJI.length) { this.sendAll({ t: 'emo', s: p.slot, e }); this.pushChat(p.slot, e); } break; }
       case 'emote': this.hostEmote(p, String(m.id || '')); break;
       case 'rematch': if (this.phase === 'results') { H.rematch.add(p.slot); this.syncLobby(); this.maybeRematch(); } break;
       case 'bye': this.dropPeer(p, 'left'); break;
@@ -313,7 +313,15 @@ export const Net = {
     else if (this.isGuest) { this.gSend({ t: 'prof', ...pr }); if (upd && upd.team !== undefined) this.gSend({ t: 'team', v: upd.team }); }
   },
   setReady(r) { if (this.isGuest) this.gSend({ t: 'ready', r: !!r }); },
-  lobbyEmoji(e) { if (this.isHost) { this.sendAll({ t: 'emo', s: 0, e }); this.onEmote && this.onEmote(0, e); } else if (this.isGuest) this.gSend({ t: 'emo', e }); },
+  isFriendRoom() { if (!this.active) return false; if (this.isHost) return !(this.H && this.H.auto); if (this.isGuest) return !(this.G && this.G.auto); return false; },
+  pushChat(slot, e) {
+    if (!this.chatLog) this.chatLog = [];
+    const rec = { s: slot | 0, e: e | 0, t: now() };
+    this.chatLog.push(rec); if (this.chatLog.length > 20) this.chatLog.shift();
+    this.onEmote && this.onEmote(rec.s, rec.e);
+    this.onChat && this.onChat(rec.s, rec.e);
+  },
+  lobbyEmoji(e) { e = e | 0; if (e < 0 || e >= LOBBY_EMOJI.length) return; if (this.isHost) { this.sendAll({ t: 'emo', s: 0, e }); this.pushChat(0, e); } else if (this.isGuest) this.gSend({ t: 'emo', e }); },
   canStart() { const H = this.H; if (!this.isHost || this.phase !== 'lobby') return false; const hum = H.slots.filter((p) => p && p.conn); if (hum.some((p) => !p.isHost && !p.ready)) return false; const need = H.settings.mode === 'bomb' ? 3 : 2; return hum.length >= 2 || H.settings.bots; },
   // ---- host: building and running a match
   buildDefs() {
@@ -469,7 +477,7 @@ export const Net = {
       case 'reject': this.fail('reject:' + m.r); break;
       case 'lobby': this.lobby = { players: m.players, settings: m.settings, phase: m.phase, code: m.code }; if (m.phase === 'results' && this.phase === 'match') this.phase = 'results'; this.emit(); break;
       case 'pings': this.pings = m.p || {}; break;
-      case 'emo': this.onEmote && this.onEmote(m.s, m.e); break;
+      case 'emo': this.pushChat(m.s, m.e); break;
       case 'round': this.guestRound(m); break;
       case 'evt': this.guestEvent(m); break;
       case 'rend': app.net_roundEnd && app.net_roundEnd(m); break;
@@ -567,7 +575,7 @@ export const Net = {
     this.H = null; this.G = null; this.world = null; this.input = null;
     if (wasActive && this.app && this.app.netClosed) this.app.netClosed();
   },
-  reset() { this.lobby = { players: [], settings: null }; this.pings = {}; this.rtt = 0; this.rttMax = 0; this.reward = null; this.lastResult = null; this.stat = { snaps: 0, snapBytes: 0, t0: 0, steps: 0 }; this.error = null; this.notes = []; this.status = ''; this.phase = 'idle'; this.friendLeft = false; this.reconnecting = false; },
+  reset() { this.lobby = { players: [], settings: null }; this.pings = {}; this.rtt = 0; this.rttMax = 0; this.reward = null; this.lastResult = null; this.stat = { snaps: 0, snapBytes: 0, t0: 0, steps: 0 }; this.error = null; this.notes = []; this.status = ''; this.phase = 'idle'; this.friendLeft = false; this.reconnecting = false; this.chatLog = []; },
   // net415 test hooks (no-ops in production play unless a test calls them)
   testDropLink() { const G = this.G, H = this.H; if (this.isGuest && G && G.link) { try { G.link.close(); } catch (e) {} G.linkDead = true; if (G.welcomed) this.beginReconnect('test-drop'); } else if (this.isHost && H) { const p = [...H.peers.values()].find((q) => q && !q.isHost && q.conn); if (p) this.dropPeer(p, 'test-drop'); } },
   testSilence(ms) { this._testSilence = ms || 0; },

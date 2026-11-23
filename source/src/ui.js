@@ -22,7 +22,7 @@ export function h(tag, cls, kids, attrs) {
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const crown = (cls = '') => `<svg class="crown ${cls}" viewBox="0 0 24 24"><path d="M3 18 2 7l5 4 5-7 5 7 5-4-1 11z" fill="#ffd23c" stroke="#8a5200" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
 const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
+const ARENA_SW = { dojo: 'linear-gradient(135deg,#d7edb0,#a77d52)', rooftop: 'linear-gradient(135deg,#252a5c,#ff2bd6)', jungle: 'linear-gradient(135deg,#8ea46a,#ff7a1a)', ice: 'linear-gradient(135deg,#d6f3ff,#6aa6d6)', pond: 'linear-gradient(135deg,#d9c48e,#4fb8c8)', creek: 'linear-gradient(135deg,#c4b086,#4a8a68)', random: 'linear-gradient(135deg,#ffd23c,#ff5a8a,#4fd1ff)' };
 
 const PUD = {"extra": "Carry +1 boomerang (up to 3)", "triple": "Next throws fan out in 3", "giant": "Giant boomerang: bigger hit, smashes crates", "fire": "Explodes on hit or bounce", "homing": "Boomerang curves to the nearest rival", "shield": "Absorbs one hit", "speed": "Run 40% faster", "rune": "Gives a random special boomerang (Razor, Frost, Chain, Blast or Phantom) for 16 s", "magnet": "Pulls power-ups to you, bigger catch circle, boomerang curves back faster", "slow": "Rivals and their boomerangs within a few steps of you move slower"};
 export const UI = {
@@ -141,7 +141,7 @@ export const UI = {
     if (KIDS) { const r = h('div', 'row', '<span>Auto match (online with other players)</span>'); const t = h('button', 'tog' + (s.autoMatch ? ' on' : ''), null, { 'data-nav': 1, id: 'set-automatch' }); const setAM = (v) => { s.autoMatch = v; t.classList.toggle('on', v); save(); }; t.addEventListener('click', () => { sfx('click'); if (s.autoMatch) setAM(false); else adultGate(() => setAM(true)); }); r.appendChild(t); grid.appendChild(r); }
     else toggle('Auto match (online with other players)', 'autoMatch');
     toggle('Online: show connection details', 'netDiag');
-    grid.appendChild(h('div', 'note-line', (KIDS ? 'Off unless a grown-up turns it on. ' : '') + 'Auto match pairs you with other players who are searching at the same time. They only see a friendly preset name; no chat, emotes only. Turn it off to keep online play to friends\u2019 room codes.'));
+    grid.appendChild(h('div', 'note-line', (KIDS ? 'Off unless a grown-up turns it on. ' : '') + 'Auto match pairs you with other players who are searching at the same time. They only see a friendly preset name; emotes only, no chat log. Turn it off to keep online play to friends\u2019 room codes.'));
     toggle('Music', 'musicOn', applyVolumes); slider('Music volume', 'music', applyVolumes);
     toggle('Sounds', 'sfxOn', applyVolumes); slider('Sounds volume', 'sfx', applyVolumes);
     toggle('Screen shake', 'shake'); toggle('Hit-stop freeze', 'hitstop'); toggle('Vibration', 'vibrate'); toggle('Edge help (warn near drops, 1 free save)', 'edgeHelp'); toggle('Aim assist (auto-aim)', 'aimAssist'); toggle('Smooth touch stick', 'touchSmooth');

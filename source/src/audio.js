@@ -166,6 +166,7 @@ function sfxInner(name, p, t) {
     case 'ach': [0, 7, 12].forEach((x, i) => tone(mtof(76 + x), t + i * 0.08, 0.2, 'triangle', 0.18, { send: 0.4 })); break;
     case 'announce': tone(mtof(64), t, 0.1, 'square', 0.12); tone(mtof(71), t + 0.08, 0.2, 'square', 0.12); break;
     case 'gust': noise(t, 0.5, 0.42, { type: 'bandpass', f: 380, fTo: 2600, q: 0.7 }); noise(t, 0.32, 0.2, { type: 'highpass', f: 1800, fTo: 5200 }); tone(390, t, 0.42, 'sine', 0.22, { to: 160, lp: 1400 }); tone(860, t + 0.05, 0.3, 'triangle', 0.1, { to: 480, send: 0.2 }); tone(180, t, 0.2, 'sine', 0.12, { to: 70 }); break;
+    case 'bristle': noise(t, 0.22, 0.28, { type: 'bandpass', f: 900, fTo: 2400, q: 1.2 }); tone(520, t, 0.18, 'triangle', 0.14, { to: 280, lp: 1600 }); tone(180, t, 0.12, 'sine', 0.1, { to: 90 }); break;
     case 'trophy': [0, 4, 7, 12, 16, 19, 24].forEach((x, i) => tone(mtof(72 + x), t + i * 0.055, 0.22, 'triangle', 0.13, { lp: 4200, send: 0.35 })); tone(mtof(96), t + 0.34, 0.35, 'sine', 0.1, { send: 0.4 }); break;
     case 'ult_bao': tone(180, t, 0.28, 'sine', 0.45, { to: 70 }); tone(mtof(67), t, 0.2, 'triangle', 0.16, { send: 0.2 }); tone(mtof(74), t + 0.08, 0.22, 'triangle', 0.14); break;
     case 'ult_nori': noise(t, 0.28, 0.28, { type: 'bandpass', f: 900, fTo: 300, q: 1 }); tone(980, t, 0.12, 'sine', 0.12, { to: 220 }); break;
@@ -315,7 +316,7 @@ function musicStep(tr) {
 }
 
 // ---------------- Loudness measurement (used by tools/v33audio.mjs; offline, nothing is audible) ----------------
-export const SFX_NAMES = ["throw", "charge", "whoosh", "catch", "bounce", "hit", "hurt", "koStinger", "slowmo", "fanfare", "coin", "missionDone", "magnet", "bubble", "combo", "tickup", "whoosh2", "ko", "dash", "deflect", "deflectfail", "pickup", "spawn", "crate", "push", "explode", "fall", "sizzle", "spike", "warn", "rumble", "shieldpop", "click", "back", "deny", "buy", "win", "round", "lose", "beep", "go", "freeze", "shatter", "chain", "bumper", "meteorwarn", "wind", "tag", "tick", "zone", "zonepoint", "ult", "ultready", "emote", "levelup", "ach", "announce", "gust", "trophy", "ult_bao", "ult_nori", "ult_tako", "ult_kuma", "ult_pico", "ult_yuki", "ult_gus", "ult_wisp"];
+export const SFX_NAMES = ["throw", "charge", "whoosh", "catch", "bounce", "hit", "hurt", "koStinger", "slowmo", "fanfare", "coin", "missionDone", "magnet", "bubble", "combo", "tickup", "whoosh2", "ko", "dash", "deflect", "deflectfail", "pickup", "spawn", "crate", "push", "explode", "fall", "sizzle", "spike", "warn", "rumble", "shieldpop", "click", "back", "deny", "buy", "win", "round", "lose", "beep", "go", "freeze", "shatter", "chain", "bumper", "meteorwarn", "wind", "tag", "tick", "zone", "zonepoint", "ult", "ultready", "emote", "levelup", "ach", "announce", "gust", "trophy", "ult_bao", "ult_nori", "ult_tako", "ult_kuma", "ult_pico", "ult_yuki", "ult_gus", "ult_wisp", "bristle"];
 export const TRACK_NAMES = () => Object.keys(TRACKS);
 async function offline(seconds, sr, fn) {
   const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext; const saved = { ctx, master, sfxBus, sfxVol, musBus, musVol, duckG, delay, delayM, trimNodes };

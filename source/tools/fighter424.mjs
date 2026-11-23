@@ -28,7 +28,7 @@ const meta = await page.evaluate(() => {
     free: (__bg.Pay && __bg.Pay.isHeroFree) ? __bg.Pay.isHeroFree('puff') : (P && P.cost === 0),
   };
 });
-ok('Puff is the ninth fighter in the roster', meta.n === 9 && meta.ids.includes('puff') && meta.ids[meta.ids.length - 1] === 'puff', { n: meta.n, ids: meta.ids });
+ok('Puff is still in the roster', meta.n >= 9 && meta.ids.includes('puff'), { n: meta.n, ids: meta.ids });
 ok('Puff is original: Dandelion Kid with a how-to line', !!(meta.name === 'Puff' && meta.title === 'Dandelion Kid' && meta.how && /gust/i.test(meta.how)), meta);
 ok('Puff is free (cost 0, free-trial list)', meta.cost === 0 && meta.free === true, { cost: meta.cost, free: meta.free });
 ok('Puff has 3 unique weapons', Array.isArray(meta.weapons) && meta.weapons.length === 3 && meta.weapons.every((id) => id.startsWith('puff_')), meta.weapons);
@@ -43,7 +43,7 @@ const card = await page.evaluate(() => {
   const puff = cards.find((c) => c.name === 'Puff');
   return { n: cards.length, puff, allHow: cards.every((c) => c.how && c.how.length > 8) };
 });
-ok('character select shows 9 cards and Puff has a how-to line', card.n === 9 && card.puff && /gust/i.test(card.puff.how || '') && /Windy/i.test(card.puff.tag || ''), card);
+ok('character select shows Puff with a how-to line', card.n >= 9 && card.puff && /gust/i.test(card.puff.how || '') && /Windy/i.test(card.puff.tag || ''), card);
 await page.evaluate(() => { const c = [...document.querySelectorAll('.hero-card')].find((x) => /Puff/.test((x.querySelector('.nm') || {}).textContent || '')); if (c) c.click(); });
 await sleep(250);
 await page.screenshot({ path: OUT + '/puff-character-card-915.png' });

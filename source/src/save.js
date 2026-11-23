@@ -2,16 +2,16 @@ import { KIDS } from './flags.js';
 import { wpnFor, migrateOld } from './weapons.js';
 const KEY = 'whackerang.save.v1', OLDKEY = 'boomerangbrawl.save.v1';
 const defaults = () => ({
-  coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma', 'puff'], wins: 0, played: 0, kos: 0,
-  settings: { autoMatch: !KIDS, autoMode: 'classic', speed: 'chill', speedMig: 31, sfx: 0.85, sfxOn: true, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false, edgeHelp: true, netDiag: false, aimStyle: 'B', battery: 'auto' },
+  coins: 0, hero: 'bao', hero2: 'nori', hats: { bao: 'none' }, unlockedHats: ['none'], unlockedHeroes: ['bao', 'nori', 'tako', 'kuma', 'puff', 'bram'], wins: 0, played: 0, kos: 0,
+  settings: { autoMatch: !KIDS, autoMode: 'classic', speed: 'chill', speedMig: 31, sfx: 0.85, sfxOn: true, music: 0.6, musicOn: true, master: 1, camera: 'close', shake: true, shakeLvl: 'full', vibrate: true, quality: 'sharp', touch: 'auto', leftHanded: false, ctrlScale: 1, aimAssist: true, bloom: true, hitstop: true, a2hs: false, autoFs: true, events: 'some', flash: true, mute: false, edgeHelp: true, netDiag: false, aimStyle: 'B', battery: 'auto', chatMute: false },
   setup: { bots: 3, diff: 0, arena: 'random', players: 1, rounds: 3, mode: 'classic', size: 'large', sizeMig: 47, traps: 'some', mutator: 'off' },
   // v2.0
   xp: 0, totalCoins: 0, tutorialDone: false,
-  own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'], poses: ['wave'], sparkles: ['none'] },
+  own: { types: ['classic'], trails: ['none'], skins: ['default'], emotes: ['gg', 'nice', 'oops', 'wow'], poses: ['wave'], sparkles: ['none'], heroSkins: [] },
   wpn: ['boom', 'boom'], // v4.10 Armory: equipped weapon per local player slot (P1, P2), validated on use
   loadout: [{}, {}], // v4.11: per local player slot, per character: { heroId: weaponId } (validated against that character's own list)
-  eq: { type: 'classic', trail: 'none', skin: 'default', emotes: ['gg', 'nice', 'oops', 'wow'], pose: 'wave', sparkle: 'none' },
-  stats: { ko: 0, catch: 0, deflect: 0, win: 0, play: 0, wave: 0, kothwin: 0, bombwin: 0, teamwin: 0, boss: 0, shatter: 0, chainko: 0, ult: 0, stars: 0, level: 1, throw: 0, dash: 0 },
+  eq: { type: 'classic', trail: 'none', skin: 'default', emotes: ['gg', 'nice', 'oops', 'wow'], pose: 'wave', sparkle: 'none', heroSkins: {} },
+  stats: { ko: 0, catch: 0, deflect: 0, win: 0, play: 0, wave: 0, kothwin: 0, bombwin: 0, teamwin: 0, boss: 0, shatter: 0, chainko: 0, ult: 0, stars: 0, level: 1, throw: 0, dash: 0, dailies: 0 },
   ach: {}, daily: { date: '', list: [], prog: {}, claimed: {} }, mile: {},
   camp: { stars: [], best: {} }, best: { survival: 0, koth: 0 },
 });
@@ -38,8 +38,14 @@ const merge = (d, o) => { // shallow-per-key merge for the nested v2 objects so 
   if (!o || !Array.isArray(o.loadout) || o.loadout.length !== 2) { r.loadout = [{}, {}]; const ow = (o && Array.isArray(o.wpn)) ? o.wpn : null; if (ow) { r.loadout[0][r.hero] = migrateOld(r.hero, ow[0]); r.loadout[1][r.hero2] = migrateOld(r.hero2, ow[1]); } }
   for (const L of r.loadout) { if (!L || typeof L !== 'object') continue; for (const h of Object.keys(L)) L[h] = wpnFor(h, L[h]); }
   // v4.12.0: Puff is a free fighter; existing saves get her without a gold unlock.
-  if (!Array.isArray(r.unlockedHeroes)) r.unlockedHeroes = ['bao', 'nori', 'tako', 'kuma', 'puff'];
+  if (!Array.isArray(r.unlockedHeroes)) r.unlockedHeroes = ['bao', 'nori', 'tako', 'kuma', 'puff', 'bram'];
   else if (!r.unlockedHeroes.includes('puff')) r.unlockedHeroes.push('puff');
+  // v4.13.0: Bramble is a free fighter; existing saves get him without a gold unlock.
+  if (Array.isArray(r.unlockedHeroes) && !r.unlockedHeroes.includes('bram')) r.unlockedHeroes.push('bram');
+  if (!r.own) r.own = {}; if (!Array.isArray(r.own.heroSkins)) r.own.heroSkins = [];
+  if (!r.eq) r.eq = {}; if (!r.eq.heroSkins || typeof r.eq.heroSkins !== 'object') r.eq.heroSkins = {};
+  if (typeof r.settings.chatMute !== 'boolean') r.settings.chatMute = false;
+  if (typeof (r.stats || {}).dailies !== 'number') { r.stats = r.stats || {}; r.stats.dailies = r.stats.dailies || 0; }
   return r;
 };
 export function loadSave() {

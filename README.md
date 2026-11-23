@@ -14,6 +14,13 @@ An original party brawler: throw a curving boomerang, catch it when it comes bac
 | Keyboard P2 | arrows | Enter | Right Shift | / |
 | Gamepad | left stick | right stick aim + release (RT/R1) | A | X / B / LB |
 
+## What's new in v4.13.0 (Bramble, Cedar Creek, Looks, and friend-room emoji chat)
+- **Bramble the Hedgehog Kid** joins the roster, free for everyone. When Salty tries to steal Bramble's returning disc, the steal fails and Salty loses a heart. Bristle is a short quill puff that shoves nearby rivals. Weapons are Burr Disc, Quill Dart, and Bramble Ring.
+- **Cedar Creek** is a calm new map with shallow water, stepping stones, and three slow drifting logs you can ride.
+- **Looks** lets you earn two extra colors for each fighter, plus four win poses (cheer, flex, kick, and dance), just by playing. Nothing to buy, no loot boxes, no ads.
+- **Friend-room chat** lets you send any of 12 preset emoji, with no typing and a mute button. Auto match still has no chat log.
+- Game speed is still Chill by default. Battery saver is still Auto. New players still start on Easy bots. Everything is still free to play.
+
 ## What's new in v4.12.1 (music and punchier sounds)
 - **New music:** Happy Clappy Loop (OwlishMedia) plays on the menu, and Children's Game Music 2 — Adventure (heartade) plays in battles. Both are free CC0 tracks. Credits are in Settings and How to play.
 - **Punchier sounds:** throws, hits, catches, and each fighter's Special have clearer, punchier effects, including Puff's Gust.

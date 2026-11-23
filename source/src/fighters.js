@@ -168,9 +168,24 @@ const SPECS = {
       arm: { x: 0.36, y: 0.52, z: 0.06, r: 0.1, col: C }, foot: { col: B, r: 0.09, x: 0.14 }, tufts, top,
       update(m, t, st, q) { tufts.forEach((g, i) => { g.rotation.z = Math.sin(t * 3.2 + i) * 0.14 + st.move * Math.sin(t * 10 + i) * 0.1; g.rotation.x = Math.sin(t * 2.6 + i * 0.7) * 0.08; }); top.rotation.y = t * 0.6; m.body.position.y += Math.abs(Math.sin(t * 8)) * 0.045 * (0.4 + st.move); if (q > 0) { m.armL.rotation.set(-0.9, 0, 0.85); m.armR.rotation.set(-0.9, 0, -0.85); top.scale.setScalar(1.18); } } };
   },
+  quill(c) {
+    const { S, mk, grp } = c; const B = 0xc47848, C = 0xf4d4b0, G = 0x5a8a48, D = 0x6a3a20;
+    mk(S, SPH(0.32, 16, 12), B, { pos: [0, 0.42, 0], scale: [1.05, 0.95, 0.95] });
+    mk(S, SPH(0.30, 16, 12), C, { pos: [0, 0.92, 0], scale: [1.08, 1.0, 1.02] });
+    const quills = [];
+    for (let i = 0; i < 11; i++) {
+      const a = -0.6 + i * 1.2 / 10; const e = grp(Math.sin(a) * 0.22, 1.18, -0.04 - Math.cos(a) * 0.08);
+      mk(e, CONE(0.045, 0.28, 6), (i % 2 ? G : D), { pos: [0, 0.14, 0], rot: [0.35, a, 0], outline: 0.008 });
+      quills.push(e);
+    }
+    mk(S, SPH(0.07, 8, 6), D, { pos: [0, 0.72, 0.26], scale: [1.4, 0.5, 0.6], outline: 0.01 }); // little nose
+    return { head: { y: 0.92, rx: 0.32, ry: 0.30, rz: 0.31, fw: 1.85, fh: 1.3, tc: 1.55 }, hatY: 1.42, hs: 0.85, shades: { y: 0.94, z: 0.34, x: 0.13 },
+      arm: { x: 0.34, y: 0.50, z: 0.06, r: 0.1, col: C }, foot: { col: D, r: 0.09, x: 0.14 }, quills,
+      update(m, t, st, q) { quills.forEach((g, i) => { g.rotation.x = 0.15 + Math.sin(t * 4 + i) * 0.08 + (st.charge || 0) * 0.2; }); m.body.position.y += Math.abs(Math.sin(t * 9)) * 0.03 * (0.3 + st.move); if (q > 0) { m.armL.rotation.set(-0.8, 0, 0.7); m.armR.rotation.set(-0.8, 0, -0.7); } } };
+  },
 };
 
-const SK = { bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng', gus: 'hippo', wisp: 'ghost', puff: 'seed' };
+const SK = { bao: 'panda', nori: 'fox', tako: 'robot', kuma: 'pirate', pico: 'monk', yuki: 'peng', gus: 'hippo', wisp: 'ghost', puff: 'seed', bram: 'quill' };
 export const faceKey = (h) => SK[h.id] || 'panda';
 
 export function buildFighterBody(h, teamColor) {
@@ -217,6 +232,7 @@ const WINS = {
   hippo(m, t) { const s = Math.sin(t * 5); m.armL.rotation.set(-0.2, 0, 1.45 + s * 0.15); m.armR.rotation.set(-0.2, 0, -1.45 - s * 0.15); const hop = Math.max(0, Math.sin(t * 5)); m.body.position.y = hop * 0.14; m.body.scale.set(1 + (1 - hop) * 0.07, 1 - (1 - hop) * 0.07, 1 + (1 - hop) * 0.07); m.body.rotation.y = Math.sin(t * 2.5) * 0.3; },
   ghost(m, t) { m.body.position.y = 0.45 + Math.sin(t * 3) * 0.14; m.body.rotation.y = t * 4; m.body.rotation.z = Math.sin(t * 3) * 0.2; m.armL.rotation.set(-2.5, 0, 0.7); m.armR.rotation.set(-2.5, 0, -0.7); },
   seed(m, t) { m.body.position.y += Math.abs(Math.sin(t * 6)) * 0.16; m.body.rotation.y = Math.sin(t * 3) * 0.4; m.armL.rotation.set(-2.4, 0, 0.7 + Math.sin(t * 10) * 0.2); m.armR.rotation.set(-2.4, 0, -0.7 - Math.sin(t * 10) * 0.2); },
+  quill(m, t) { const hop = Math.abs(Math.sin(t * 7)); m.body.position.y += hop * 0.14; m.body.rotation.z = Math.sin(t * 8) * 0.12; m.armL.rotation.set(-2.2, 0, 0.8); m.armR.rotation.set(-2.2, 0, -0.8); },
 };
 
 export function animateFighter(m, dt, st) {
@@ -243,11 +259,15 @@ export function animateFighter(m, dt, st) {
   if (st.hurt > 0 && !st.dead) { const k = Math.min(1, st.hurt); rx -= k * 0.5; sy -= k * 0.14; sx += k * 0.1; sz += k * 0.1; rz += Math.sin(t * 55) * 0.14 * k; }
   if (st.emote > 0 && !st.dead && !st.win) { const hop = Math.abs(Math.sin(t * 8)); py += hop * 0.18; ry = Math.sin(t * 5) * 0.5; rz += Math.sin(t * 8) * 0.1; sy += (hop - 0.5) * 0.1; }
   const pose = st.pose || 'wave';
-  const armsUp = (st.win && pose !== 'bow') || (st.emote > 0 && !st.dead);
+  const armsUp = (st.win && pose !== 'bow' && pose !== 'flex' && pose !== 'kick') || (st.emote > 0 && !st.dead);
   if (st.win) {
     if (pose === 'spin') { const hop = Math.abs(Math.sin(t * 5)); py += hop * 0.12; ry = t * 7; rz = Math.sin(t * 4) * 0.06; rx = -0.04; }
     else if (pose === 'bow') { const k = Math.min(1, Math.abs(Math.sin(t * 2.2))); rx = 0.55 * k; py += 0.02; ry = 0; rz = 0; sy += 0.02; }
     else if (pose === 'hop') { const hop = Math.abs(Math.sin(t * 8.5)); py += hop * 0.38; sy += (hop - 0.5) * 0.16; sx -= (hop - 0.5) * 0.1; sz = sx; ry = Math.sin(t * 4) * 0.25; rz = 0; rx = -0.08; }
+    else if (pose === 'cheer') { const hop = Math.abs(Math.sin(t * 9)); py += hop * 0.32; sy += (hop - 0.5) * 0.14; sx -= (hop - 0.5) * 0.08; sz = sx; ry = Math.sin(t * 5) * 0.2; rx = -0.12; }
+    else if (pose === 'flex') { rx = -0.08; ry = Math.sin(t * 2) * 0.2; rz = Math.sin(t * 3) * 0.06; py += 0.04; sy += 0.06; }
+    else if (pose === 'kick') { const k = Math.abs(Math.sin(t * 6)); py += k * 0.2; rx = -0.1; rz = k * 0.18; ry = Math.sin(t * 3) * 0.15; }
+    else if (pose === 'dance') { const hop = Math.abs(Math.sin(t * 7)); py += hop * 0.2; ry = t * 5.5; rz = Math.sin(t * 8) * 0.12; rx = -0.06; }
     else { const hop = Math.abs(Math.sin(t * 6.5)); py += hop * 0.22; sy += (hop - 0.5) * 0.12; sx -= (hop - 0.5) * 0.08; sz = sx; ry = Math.sin(t * 3.2) * 0.45; rz = Math.sin(t * 6.5) * 0.08; rx = -0.05; }
   }
   body.position.y = py;
@@ -261,6 +281,8 @@ export function animateFighter(m, dt, st) {
   m.armR.rotation.set(-ch * 1.6 - th * 3.2, 0, -0.35 - ch * 0.5); m.armL.rotation.set(run * 0.5 * mv, 0, 0.35);
   if (st.deflect > 0) { m.armL.rotation.set(-1.4, 0, 0.1); m.armR.rotation.set(-1.4, 0, -0.1); }
   if (armsUp) { const w = Math.sin(t * (st.win ? 13 : 16)) * 0.25; m.armL.rotation.set(-2.7 + w, 0, 0.5); m.armR.rotation.set(-2.7 - w, 0, -0.5); }
+  if (st.win && pose === 'flex') { m.armL.rotation.set(-1.2, 0.4, 1.4); m.armR.rotation.set(-1.2, -0.4, -1.4); }
+  if (st.win && pose === 'kick') { m.armL.rotation.set(-0.6, 0, 0.8); m.armR.rotation.set(-1.6, 0, -0.5); if (!sp.noFeet) { m.feet[1].position.y = 0.22 + Math.abs(Math.sin(t * 6)) * 0.12; m.feet[1].position.z = 0.2; } }
   if (st.dead) { m.armL.rotation.set(Math.sin(t * 25) * 1.3 - 1.5, 0, 1.0); m.armR.rotation.set(Math.cos(t * 25) * 1.3 - 1.5, 0, -1.0); }
   // v4.10 melee swing with the held weapon: wind-up (pull back to the right), fast sweep across during the hit frames, recovery
   m.armR.rotation.order = 'XYZ';

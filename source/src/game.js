@@ -12,6 +12,7 @@ import { POISON, poisonOn, poisonTick, inPoison, poisonRect, PoisonView } from '
 import { installRules } from './rules.js';
 import { installRules2 } from './rules2.js';
 import { buildFighter, buildBoomerang, buildWeapon, buildPowerup } from './models.js';
+import { tintedHero } from './looks.js';
 import { W, wpnOf, wpnFor, WEAPON_IDS } from './weapons.js';
 import { ArenaView, genLayout, T, spawns } from './arena.js';
 import { Bot } from './ai.js';
@@ -29,7 +30,7 @@ const NOINP = { mx: 0, mz: 0, aimX: 0, aimZ: 0, fire: false, dash: false, deflec
 
 class Fighter {
   constructor(g, def, slotIdx, spawn) {
-    this.g = g; this.def = def; this.hero = def.hero; this.idx = slotIdx; this.name = def.name; this.color = def.color || PLAYER_COLORS[slotIdx % 4]; this.isBot = def.ctrl === 'bot';
+    this.g = g; this.def = def; this.hero = def.hero && def.hero.id ? tintedHero(def.hero) : def.hero; this.idx = slotIdx; this.name = def.name; this.color = def.color || PLAYER_COLORS[slotIdx % 4]; this.isBot = def.ctrl === 'bot';
     this.x = spawn[0]; this.z = spawn[1]; this.vx = 0; this.vz = 0; this.ex = 0; this.ez = 0; this.face = spawn[0] < 0 ? Math.PI / 2 : -Math.PI / 2; this.vface = this.face;
     this.alive = true; this.deadT = 0; this.mods = { speed: 1, dashCd: 1, charge: 1, catchR: 1, puDur: 1, range: 1, ret: 1, ...(this.hero.mods || {}) };
     this.maxAmmo = 1; this.ammo = 1; this.charging = false; this.chargeT = 0; this.prevFire = false; this.lastAim = [0, 0]; this.throwCd = 0; this.throwT = 0;
@@ -59,7 +60,7 @@ class Fighter {
     if (this.pu.magnet > 0) { for (const p of g.powerups) { const dx = this.x - p.x, dz = this.z - p.z, d = Math.hypot(dx, dz); if (d < 7 && d > 0.3) { p.x += dx / d * 7 * dt; p.z += dz / d * 7 * dt; p.mesh.position.x = p.x; p.mesh.position.z = p.z; } } this.magT -= dt; if (this.magT <= 0) { this.magT = 0.09; const a = Math.random() * 6.28; fx.glow.spawn(this.x + Math.cos(a) * 2.6, 0.5, this.z + Math.sin(a) * 2.6, -Math.cos(a) * 9, 0.2, -Math.sin(a) * 9, 0.1, 0.28, 0xff6a7a, 0, 0, 0, -0.5); } }
     if (this.chillT > 0) this.chillT -= dt; else this.chillK = 1; if (this.abil === 'bao' && this.alive && this.hp < this.maxHp) { this.regenT = (this.regenT || 0) + dt; if (this.regenT >= 5) { this.regenT = 0; this.hp++; if (!this.hid) { fx.popup('+\u2665 YUM!', this.x, this.z, 'pop-catch', 1.6); sfx('pickup'); } } } /* v4.7 abilities: Yuki chill wears off, Bao regen */
     this.emoteT = Math.max(0, this.emoteT - dt); this.frozenT = Math.max(0, this.frozenT - dt); this.stunT = Math.max(0, this.stunT - dt); this.tagImmune -= dt; this.tagCd -= dt; this.hitFlash = Math.max(0, this.hitFlash - dt); if (this.typeT > 0) { this.typeT -= dt; if (this.typeT <= 0) this.type = this.baseType; } if (this.ultT > 0) { this.ultT -= dt; if (this.ultT <= 0) g.endUlt(this); } if (g.state === 'play' && this.ultT <= 0) { const cd = (SIGS[this.hero && this.hero.id] && SIGS[this.hero.id].cd) || 12; this.ult = Math.min(100, this.ult + dt * (this.boss ? 0 : 100 / cd)); }
-    this.dashCd -= dt; this.deflectCd -= dt; this.throwCd -= dt; this.throwT = Math.max(0, this.throwT - dt * 4); this.inv = Math.max(0, this.inv - dt); this.deflectT = Math.max(0, this.deflectT - dt);
+    this.dashCd -= dt; this.deflectCd -= dt; this.throwCd -= dt; this.throwT = Math.max(0, this.throwT - dt * 4); this.inv = Math.max(0, this.inv - dt); this.deflectT = Math.max(0, this.deflectT - dt); if (this.bristleT > 0) this.bristleT = Math.max(0, this.bristleT - dt);
     let inp = NOINP;
     if (g.state === 'play' || g.state === 'roundEnd') inp = this.bot ? this.bot.update(dt) : (g.input ? g.input.read(this.def.slot, this) : NOINP);
     if (this.frozenT > 0 || this.stunT > 0) { inp = NOINP; this.charging = false; this.chargeT = 0; }
@@ -98,6 +99,7 @@ class Fighter {
     if (this.slT >= 0 && this.dashT <= 0) { const M = W(this.wpn).melee; if (this.slT < M.wind + M.act) { const lv = M.pat === 'lunge' ? 6 : 2.2; this.vx = dirx(this.slAng) * lv; this.vz = dirz(this.slAng) * lv; } else { this.vx *= 0.5; this.vz *= 0.5; } } // v4.10 swing: short forward lunge through the hit frames, then a slowed recovery
     // conveyor
     this.ex = 0; this.ez = 0; if (hz === T.CONV) { const k = idx(ci(this.x), cj(this.z)); this.ex = g.layout.dx[k] * 2.6; this.ez = g.layout.dz[k] * 2.6; }
+    { const ride = g.rideLog && g.rideLog(this); if (ride) { this.waterK = 1; this.ex += ride.vx; this.ez += ride.vz; } }
     if (g.wind) { const wk = this.dashT > 0 ? 0.3 : 1; this.ex += g.wind[0] * wk; this.ez += g.wind[1] * wk; }
     if (g.events) g.events.bumpFighter(this);
     g.traps.fighterTick(this, dt);
@@ -280,7 +282,7 @@ class Boom {
       }
       // catch
       if (o.alive && o.stunT <= 0 && o.frozenT <= 0 && (this.phase === 'ret' || this.t > 0.22) && Math.hypot(o.x - this.x, o.z - this.z) < 0.62 * o.mods.catchR * (o.isBot ? 1 : g.cfg.catch) * (mg ? 1.5 : 1) * (o.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0) && this.total > 0.25) { this.caught(); return; }
-      if (this.phase === 'ret' || this.t > 0.28) { for (const f of g.fighters) { if (f === o || !f.alive || !f.mods.steal || f.stunT > 0 || f.frozenT > 0 || (f.stealT || 0) > g.time) continue; const dF = Math.hypot(f.x - this.x, f.z - this.z); const dO = o ? Math.hypot(o.x - this.x, o.z - this.z) : 99; const r = 0.62 * f.mods.catchR * (f.isBot ? 1 : g.cfg.catch) * (f.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0); if (dF < r * STEAL_R && dF < dO && this.total > 0.25) { f.stealT = g.time + STEAL_CD; this.caughtBy(f); return; } } }
+      if (this.phase === 'ret' || this.t > 0.28) { for (const f of g.fighters) { if (f === o || !f.alive || !f.mods.steal || f.stunT > 0 || f.frozenT > 0 || (f.stealT || 0) > g.time) continue; const dF = Math.hypot(f.x - this.x, f.z - this.z); const dO = o ? Math.hypot(o.x - this.x, o.z - this.z) : 99; const r = 0.62 * f.mods.catchR * (f.isBot ? 1 : g.cfg.catch) * (f.chillT > 0 ? 0.72 : 1) + (this.giant ? 0.3 : 0); if (dF < r * STEAL_R && dF < dO && this.total > 0.25) { f.stealT = g.time + STEAL_CD; if (o && o.abil === 'bram') { fx.popup('SPIKE!', f.x, f.z, 'pop-hit', 1.3); fx.sparks(f.x, 0.6, f.z, 8, [0xc47848, 0x5a8a48], { speed: 4, up: 2 }); sfx('bristle'); f.die(o, 'boom', f.x - this.x, f.z - this.z); return; } this.caughtBy(f); return; } } }
       g.boomHitFighters(this);
       if (!this.alive) return;
     }
@@ -341,6 +343,7 @@ export class Game {
     this.nPlayers = n; this.time = 0; this.state = 'intro'; this.cdShort = !!o.cdShort; this.goAt = o.goAt || 0; this.introT = o.intro === undefined ? (this.cdShort ? 0.9 : CD_PRE + CD_LEN) : o.intro; this.lastCount = 9; this.cdDone = this.mode === 'attract'; this.poisonView = poisonOn(this) ? new PoisonView(this) : null; this.goWall = performance.now() + this.introT * 1000; this._pw = 0; this.endT = 0; this.hitstop = 0; this.slowT = 0; this.cfg = this.netCfg || speedCfg();
     this.puT = 3.5; this.suddenRing = -1; this.suddenT = 0; this.sudden = false; this.crackT = 8; this.result = null; this.koFlash = 0; this.playTime = 0; this.winner = null; this.winTeam = -1;
     this.events = new ArenaEvents(this, o.events !== false && this.mode !== 'attract'); this.initRules();
+    this.logs = []; if (this.arenaId === 'creek') this.initLogs(o.netSeed);
   }
   dispose() {
     if (this.poisonView) { this.poisonView.dispose(); this.poisonView = null; }
@@ -662,11 +665,37 @@ export class Game {
     for (let n = this.pushes.length - 1; n >= 0; n--) { const p = this.pushes[n]; p.t += dt / 0.16; const k = Math.min(1, p.t); p.mesh.position.x = p.x0 + (p.x1 - p.x0) * k; p.mesh.position.z = p.z0 + (p.z1 - p.z0) * k; if (p.t >= 1) this.pushes.splice(n, 1); }
     // cracking ice
     if (this.arenaId === 'ice' && this.state === 'play') { this.crackT -= dt; if (this.crackT <= 0) { this.crackT = 7 + Math.random() * 4; for (let n = 0; n < 2; n++) this.crackRandom(); } }
+    if (this.logs && this.logs.length) this.tickLogs(dt);
     // sudden death: shrinking rings
     if (this.rules.sudden && this.state === 'play' && this.playTime > SUDDEN_AT) {
       if (!this.sudden) { this.sudden = true; this.onEvent('sudden'); sfx('rumble'); }
       this.suddenT -= dt; if (this.suddenT <= 0 && this.suddenRing < 4) { this.suddenRing++; this.suddenT = 4.2; for (let j = 0; j < AH; j++) for (let i = 0; i < AW; i++) { if (Math.min(i, j, AW - 1 - i, AH - 1 - j) === this.suddenRing) { const k = idx(i, j); if (this.hole[k] === 0) this.hole[k] = 1.0 + Math.random() * 1.6; } } sfx('rumble'); shake(0.2); }
     }
+  }
+  initLogs(seed) {
+    const s = (seed == null ? 1 : seed) >>> 0;
+    let zSum = 0, n = 0, xMin = 99, xMax = -99;
+    for (let k = 0; k < this.layout.t.length; k++) if (this.layout.t[k] === T.WATER) { const i = k % AW, j = (k / AW) | 0; zSum += cz(j); n++; xMin = Math.min(xMin, cx(i)); xMax = Math.max(xMax, cx(i)); }
+    const z0 = n ? zSum / n : 0; const span = Math.max(2.4, (xMax - xMin) / 2 - 0.7);
+    if (this.view && this.view.addLogs) this.view.addLogs();
+    this.logs = [0, 1, 2].map((i) => ({ i, span, z: z0 + (i - 1) * 0.85, phase: ((s >> (i * 7)) & 255) / 255, speed: 1.12 + i * 0.06, halfL: 0.88, halfW: 0.3, x: 0, vx: 0, vz: 0 }));
+    this.tickLogs(0);
+  }
+  tickLogs(dt) {
+    const t = this.time || 0;
+    for (const L of this.logs) {
+      const period = (L.span * 2) / L.speed;
+      let u = (t + L.phase * period) % period; if (u < 0) u += period;
+      const going = u < period / 2; const x = going ? (-L.span + u * L.speed) : (L.span - (u - period / 2) * L.speed);
+      L.vx = going ? L.speed : -L.speed; L.vz = 0; L.x = x;
+      const mesh = this.view && this.view.logMeshes && this.view.logMeshes[L.i];
+      if (mesh) { mesh.position.set(L.x, 0.16, L.z); mesh.rotation.y = going ? 0 : Math.PI; mesh.rotation.x = Math.sin(t * 2 + L.i) * 0.04; }
+    }
+  }
+  rideLog(f) {
+    if (!this.logs || !this.logs.length) return null;
+    for (const L of this.logs) { if (Math.abs(f.x - L.x) <= L.halfL + 0.12 && Math.abs(f.z - L.z) <= L.halfW + 0.16) return { vx: L.vx, vz: L.vz, log: L }; }
+    return null;
   }
   crackRandom() { for (let t = 0; t < 20; t++) { const i = Math.floor(Math.random() * AW), j = Math.floor(Math.random() * AH), k = idx(i, j); if (this.hole[k] !== 0 || spawns().some(([a, b]) => Math.abs(a - i) < 2 && Math.abs(b - j) < 2)) continue; this.hole[k] = 1.5; sfx('warn'); return; } }
   celebrate() {

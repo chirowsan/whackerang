@@ -763,3 +763,18 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #hud .pchip.slim { padding: calc(var(--u)*.15); gap: calc(var(--u)*.3); }
 #hud .pchip.slim img { width: calc(var(--u)*2.1); height: calc(var(--u)*2.1); }
 #hud .pchip.slim .pc-in { padding-right: calc(var(--u)*.3); }
+
+/* batch427 looks + friend emoji chat */
+.looks-tabs { margin: calc(var(--u)*0.6) calc(var(--u)*1.2) 0; align-self: flex-start; }
+.looks-body { padding: calc(var(--u)*1) calc(var(--u)*1.2) calc(var(--u)*2); }
+.looks-heroes { display: flex; flex-wrap: wrap; gap: calc(var(--u)*.4); margin-bottom: calc(var(--u)*.8); }
+.looks-heroes .hchip { border: 1px solid var(--line); background: rgba(255,255,255,.1); border-radius: 99px; padding: .25em .7em; cursor: pointer; font-weight: 800; }
+.looks-heroes .hchip.on { background: linear-gradient(180deg,#ffd23c,#ff9a2e); color: #1a0f4a; border-color: transparent; }
+.look-swatch { height: calc(var(--u)*4.2); border-radius: calc(var(--u)*.8); margin-bottom: calc(var(--u)*.4); border: 1px solid rgba(255,255,255,.15); }
+.friend-chat-lobby { margin-top: calc(var(--u)*.6); padding: calc(var(--u)*.7); }
+.friend-chat-lobby .fchd { display: flex; align-items: center; justify-content: space-between; gap: .5em; }
+.friend-chat-lobby .fchd h4 { margin: 0; }
+.fclog { min-height: calc(var(--u)*3.2); max-height: calc(var(--u)*8); overflow: auto; margin: calc(var(--u)*.3) 0; padding: calc(var(--u)*.3); background: rgba(0,0,0,.18); border-radius: calc(var(--u)*.6); }
+.fcline { font-size: calc(var(--u)*1.15); line-height: 1.35; }
+.friend-chat { position: fixed; left: calc(max(var(--sail), 8px)); bottom: calc(max(var(--saib), 8px) + 72px); z-index: 40; min-width: 140px; max-width: 46vw; max-height: 28vh; overflow: auto; padding: 8px 10px; border-radius: 12px; background: rgba(8,12,34,.78); border: 1px solid rgba(255,255,255,.16); color: #fff; pointer-events: none; font-size: 14px; }
+#emotes .friend-stickers { margin-top: 8px; width: 100%; }

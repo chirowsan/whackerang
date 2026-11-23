@@ -27,6 +27,7 @@ import './netui.js';
 import { Match } from './net/match.js';
 import { STORE } from './flags.js';
 import { ensureTrophy, awardMatchTrophies, currentRank, myRankId, rankBadgeHtml, masteryOf, grantTrophies, setTrophyDay, planAward, RANKS, TROPHY_DAY_CAP, trophyCount } from './trophy.js';
+import { setLookNotifier, checkLookUnlocks, tintedHero, HERO_SKINS, EARN_POSES, ownHeroSkins, ownsHeroSkin, ownsPose, equippedSkinId, equipHeroSkin, equipPose, earnLabel, earnProgress } from './looks.js';
 import { pick, shuffle, setArenaSize, HX as _HX, HZ as _HZ } from './util.js';
 const HXc = () => _HX, HZc = () => _HZ;
 import { initHead, initSW, initInstall, initWakeLock, initFullscreenFirstTap, initHardening, iosAudioKick, IS_IOS, IS_APP, isStandalone, showIosHint, showBrowserBarTip, pwa , fsOnPlay, fsState } from './pwa.js';
@@ -275,6 +276,7 @@ const app = {
     if (m.tutorial) { s.tutorialDone = true; coins = 40; xp = 60; rows.length = 0; rows.push(['Tutorial', 'Complete!']); }
     const hid = (m.players[0] && m.players[0].hero && (m.players[0].hero.id || m.players[0].hero)) || s.hero;
     const trophy = awardMatchTrophies({ won, tutorial: !!m.tutorial, campaign: !!m.stage, online: !!m.online, couch: this.humans() === 2, diff: s.setup.diff, heroId: hid, mode });
+    try { checkLookUnlocks(); } catch (e) {}
     addCoins(coins, won ? 'win' : 'play'); const lvBefore = levelInfo(); const ups = addXp(xp); save(); music('win'); sfx(won ? 'win' : 'lose'); this.mode = 'matchEnd'; try { Input.touch.finishHints && Input.touch.finishHints(); } catch (e) {}
     if (won && g.winner && !g.winner.isBot) { fx.confetti(g.winner.x, g.winner.z, 80, 1.6); this.playPose(g.winner, s.eq.pose || 'wave'); }
     const lv = levelInfo();
@@ -368,7 +370,7 @@ function boot() {
   gfx.onQuality = () => { setAudioSaver(!!gfx.saver); applyVolumes(); }; gfx.onQuality();
   fx.init(gfx.scene); applyVolumes();
   initInput(canvas); initTouch($('#touch'));
-  UI.init(app); makePortraits(); setNotifier((msg, kind) => UI.notify(msg, kind)); setQuestNotifier((info) => { if (app.mode === 'play' || app.mode === 'matchEnd') UI.toast(info.msg, 2200); }); Input.onEmoteBtn = () => UI.emoteToggle();
+  UI.init(app); makePortraits(); setNotifier((msg, kind) => UI.notify(msg, kind)); setLookNotifier((msg, kind) => UI.notify(msg, kind)); setQuestNotifier((info) => { if (app.mode === 'play' || app.mode === 'matchEnd') UI.toast(info.msg, 2200); }); Input.onEmoteBtn = () => UI.emoteToggle();
   window.addEventListener('keydown', (e) => { if (app.mode === 'play' && !app.paused && /^Digit[1-4]$/.test(e.code)) app.emote(S().eq.emotes[+e.code.slice(5) - 1]); });
   Input.unproject = (x, y) => { const c = gfx.camera; c.updateMatrixWorld(); const rc = canvas.getBoundingClientRect(); const v = new THREE.Vector3(((x - rc.left) / rc.width) * 2 - 1, -((y - rc.top) / rc.height) * 2 + 1, 0.5).unproject(c); const o = c.position; const dy = v.y - o.y; if (Math.abs(dy) < 1e-4) return null; const k = -o.y / dy; if (k <= 0) return null; return [o.x + (v.x - o.x) * k, o.z + (v.z - o.z) * k]; };
   Input.onPause = () => { if (app.mode === 'play') { app.paused ? (UI.cur === 'pause' && app.resume()) : app.pause(); } };
@@ -442,7 +444,7 @@ function boot() {
   };
   startLoop();
   if (!STORE) window.__bg = { ohud, ohudDraw, fs: fsState, SIGS, ULTS, weapons: { WEAPONS: WEAPONS_, WEAPON_IDS, HERO_WPN, wpnFor, heroWeapons, wpnCode: _wc, wpnDecode: _wd }, stealth: STEALTHM, toScreen2: toScreen, wire: { encodeFast: _encF, decodeFast: _decF, decodeFastRest: _decFR }, net: Net, Match, POISON, hxz() { return [_HX, _HZ]; }, toScreen, overview(on = true) { if (gfx.follow) gfx.follow.fixed = on; }, setQuality, applyPerf: () => setQuality(S().settings.quality), saverActive, isPhoneLike, suspendAudio, kickPerf, wantKind, UI, Bot, BOT_DIFFS, BOT_STYLES, STAGES, autoplay(diff = 2) { const g = app.game; g.fighters.forEach((f) => { if (!f.isBot && f.def.slot === 0) { f.isBot = true; f.autoHuman = true; f.bot = new Bot(g, f, diff, 'duelist'); } }); }, buildBoomerang, camNow() { updateGfx(0, gfx.time || 0); }, buildFighter, faceAtlas: (id) => faceDebugCanvas(id).toDataURL(), snap, Game, flightParams, TRAITS, ABILITIES, HEROES, ARENAS, setArenaSize, app, S, Input, sfx, initAudio, resumeAudio, AU, music, measureSfx, measureMusic, SFX_NAMES, renderSfxSequence, renderMusicClip, setAudioSaver, audioState, applyVolumes, TRACK_NAMES, MUSIC_FILES, MUSIC_CREDITS, setIntensity, feel, FEEL, feelLog, lastFeel, clearFeelLog, getLastFeel, setVibeImpl, canVibrate, squash, applySquash, shakePxAtCap, prefersReducedMotion, gfx, fx, prof, THREE, step(n = 1) { for (let i = 0; i < n; i++) { app.game && app.game.update(STEP); if (app.tut && !app.paused) app.tutTick(STEP); if (gfx.follow) app.camFollow(STEP); } }, renderNow() { fx.update(0); render(); }, resetProf() { prof.frames = prof.sum = prof.max = prof.sim = prof.rend = prof.over = 0; prof.raf = prof.drawn = prof.skipped = prof.static = 0; } }; if (!STORE) Object.defineProperty(window.__bg, 'lastFeel', { get: getLastFeel, configurable: true });
-  if (!STORE) Object.assign(window.__bg, { track, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf, POSES, SPARKLES });
+  if (!STORE) Object.assign(window.__bg, { track, ensureDaily, rerollDaily, canReroll, dailyProgress, dailyReadyCount, dailyDoneCount, claimDaily, chestState, claimChest, MILESTONES, mileProgress, checkMiles, starCost, owns, buy, equip, COLLECTION, QUEST_POOL, setDayKey, dayKey, rewardOf, POSES, SPARKLES, looks: { HERO_SKINS, EARN_POSES, checkLookUnlocks, tintedHero, ownHeroSkins, ownsHeroSkin, ownsPose, equippedSkinId, equipHeroSkin, equipPose, earnLabel, earnProgress }, checkLookUnlocks, tintedHero });
   if (!STORE) window.__bg.Trophy = { ensureTrophy, awardMatchTrophies, currentRank, myRankId, rankBadgeHtml, masteryOf, grantTrophies, setTrophyDay, planAward, RANKS, TROPHY_DAY_CAP, trophyCount };
 }
 try { boot(); } catch (e) { console.error(e); const l = $('#loading'); if (l) l.innerHTML = '<div class="errbox">Startup error: ' + e.message + '</div>'; }
